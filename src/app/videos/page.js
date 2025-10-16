@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import VideoGrid from "../../components/VideoGrid";
 
@@ -36,8 +36,9 @@ export default function VideosPage() {
       <h1 className="text-2xl font-bold mb-4">
         {category ? "Filtered Videos" : "All Videos"}
       </h1>
-
-      {loading ? <p>Loading videos...</p> : <VideoGrid videos={videos} />}
+      <Suspense fallback={<p>Loading videos...</p>}>
+        <VideoGrid videos={videos} />
+      </Suspense>
     </div>
   );
 }
