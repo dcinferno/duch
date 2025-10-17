@@ -1,7 +1,7 @@
 import "./globals.css";
-
+export const cacheComponents = true;
 export const metadata = {
-  title: "Video Store",
+  title: "BigDuch",
   description: "Responsive video store using Next.js and MongoDB",
 };
 

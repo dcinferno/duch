@@ -1,5 +1,5 @@
-import { connectToDB } from "@/lib/mongodb";
-import categories from "@/models/categories";
+import { connectToDB } from "../../../lib/mongodb";
+import categories from "../../../models/categories.js";
 import { NextResponse } from "next/server";
 
 export async function GET() {

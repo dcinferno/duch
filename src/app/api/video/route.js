@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { connectToDB } from "@/lib/mongodb";
-import Video from "@/models/videos";
-import { promisify } from "util";
+import { connectToDB } from "../../../lib/mongodb";
+import Video from "../../../models/videos";
 import fs from "fs";
 import path from "path";
 import Busboy from "busboy";
