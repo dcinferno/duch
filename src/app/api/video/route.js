@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { connectToDB } from "../../../lib/mongodb";
+import { connectToDB } from "../../../lib/mongodb.js";
 import Video from "../../../models/videos";
 import fs from "fs";
 import path from "path";

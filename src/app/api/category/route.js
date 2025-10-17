@@ -1,4 +1,4 @@
-import { connectToDB } from "../../../lib/mongodb";
+import { connectToDB } from "../../../lib/mongodb.js";
 import categories from "../../../models/categories.js";
 import { NextResponse } from "next/server";
 

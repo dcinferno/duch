@@ -1,5 +1,5 @@
 "use client"; // 👈 This makes it a Client Component
-import Image from "next/image";
+
 export default function VideoGridClient({ videos }) {
   if (!videos?.length) return <p>No videos found.</p>;
 
@@ -7,7 +7,7 @@ export default function VideoGridClient({ videos }) {
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {videos.map((video) => (
         <div key={video._id} className="rounded shadow overflow-hidden">
-          <Image
+          <img
             src={video.thumbnail}
             onError={(e) => (e.target.src = "/placeholders/thumbnail.jpg")}
             alt={video.title}
