@@ -1,4 +1,4 @@
-"use client"; // 👈 This makes it a Client Component
+"use client";
 
 export default function VideoGridClient({ videos }) {
   if (!videos?.length) return <p>No videos found.</p>;
@@ -6,13 +6,18 @@ export default function VideoGridClient({ videos }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {videos.map((video) => (
-        <div key={video._id} className="rounded shadow overflow-hidden">
-          <img
-            src={video.thumbnail}
-            onError={(e) => (e.target.src = "/placeholders/thumbnail.jpg")}
-            alt={video.title}
-            className="w-full h-48 object-cover"
-          />
+        <div
+          key={video._id}
+          className="rounded shadow overflow-hidden transition transform hover:scale-105 hover:shadow-lg group"
+        >
+          <div className="relative">
+            <img
+              src={video.thumbnail}
+              onError={(e) => (e.target.src = "/placeholders/thumbnail.jpg")}
+              alt={video.title}
+              className="w-full h-48 object-cover transition-opacity duration-300 group-hover:opacity-80"
+            />
+          </div>
           <div className="p-2">
             <h2 className="text-sm font-semibold">{video.title}</h2>
             <h3 className="text-sm">{video.category}</h3>
