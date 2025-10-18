@@ -33,7 +33,7 @@ export default function VideosClientPage() {
   }, [category]);
 
   return (
-    <div className="p-6 flex-1">
+    <div className="w-full">
       <h1 className="text-2xl font-bold mb-4">
         {category ? "Filtered Videos" : "All Videos"}
       </h1>

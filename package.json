@@ -2,7 +2,6 @@
   "name": "video-store",
   "version": "0.2.0",
   "private": true,
- 
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
@@ -10,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "busboy": "^1.6.0",
     "dotenv": "^17.2.3",
     "mongoose": "^8.19.1",
