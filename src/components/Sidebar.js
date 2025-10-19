@@ -27,7 +27,6 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-gray-900 text-white h-full px-4 pt-16 md:pt-4">
-      ``
       <h2 className="font-semibold text-lg mb-3">Categories</h2>
       <ul className="space-y-2">
         <li
