@@ -35,7 +35,7 @@ export default function VideosClientPage() {
   return (
     <div className="w-full">
       <h1 className="text-2xl font-bold mb-4">
-        {category ? "Filtered Videos" : "All Videos"}
+        {category ? `${category} Videos` : "All Videos"}
       </h1>
       {loading ? <p>Loading videos...</p> : <VideoGridClient videos={videos} />}
     </div>
