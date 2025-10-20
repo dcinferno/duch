@@ -1,5 +1,6 @@
 import "./globals.css";
-export const cacheComponents = true;
+import SidebarLayout from "../components/SidebarLayout";
+
 export const metadata = {
   title: "BigDuch",
   description: "Responsive video store using Next.js and MongoDB",
@@ -8,7 +9,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <SidebarLayout>{children}</SidebarLayout>
+      </body>
     </html>
   );
 }

@@ -1,6 +1,4 @@
 // app/videos/layout.js
-import { Suspense } from "react";
-import Sidebar from "../../components/Sidebar";
 export const cacheComponents = true;
 
 export default function VideosLayout({ children }) {
