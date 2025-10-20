@@ -9,8 +9,7 @@ export default function BlogList({ posts }) {
             <img
               src={post.imageUrl}
               alt={post.title}
-              className="w-full h-48 object-cover rounded mb-3"
-            />
+className="w-full h-48 object-cover object-center rounded mb-3"            />
           )}
           <h2 className="text-xl font-semibold">{post.title}</h2>
           <p className="mt-2 line-clamp-3 text-gray-800">{post.content}</p>
