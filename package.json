@@ -14,7 +14,7 @@
     "dotenv": "^17.2.3",
     "mongoose": "^8.19.1",
     "next": "^16.0.0-canary.10",
-    "react": "19.1.0",
+    "react": "^19.1.0",
     "react-dom": "19.1.0",
     "uploadthing": "^7.7.4",
     "video-encryptor": "^3.0.0"
