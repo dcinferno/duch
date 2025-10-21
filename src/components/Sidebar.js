@@ -5,22 +5,31 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 export default function Sidebar() {
   const [categories, setCategories] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedCategory = searchParams.get("category");
 
+  // Fetch categories and contact links
   useEffect(() => {
-    async function fetchCategories() {
+    async function fetchData() {
       try {
-        const res = await fetch("/api/category");
-        const data = await res.json();
-        setCategories(data);
+        const [categoryRes, contactRes] = await Promise.all([
+          fetch("/api/category"),
+          fetch("/api/contact"),
+        ]);
+
+        const categoryData = await categoryRes.json();
+        const contactData = await contactRes.json();
+
+        setCategories(categoryData);
+        setContacts(contactData);
       } catch (error) {
-        console.error("Error loading categories:", error);
+        console.error("Error loading data:", error);
       }
     }
 
-    fetchCategories();
+    fetchData();
   }, []);
 
   const handleCategoryClick = (categoryId) => {
@@ -36,7 +45,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-gray-900 text-white h-screen px-4 pt-16 md:pt-4">
+    <aside className="w-64 bg-gray-900 text-white h-screen px-4 pt-16 md:pt-4 overflow-y-auto flex flex-col">
       <nav className="space-y-4">
         {/* Blog Link */}
         <div>
@@ -79,6 +88,27 @@ export default function Sidebar() {
           </ul>
         </div>
       </nav>
+      {contacts.length > 0 && (
+        <div className="mt-4 md:mt-auto border-t border-gray-700 pt-4">
+          <h2 className="text-lg font-semibold mb-3">Contact Me</h2>
+          <ul className="space-y-2">
+            {contacts.map((contact) => (
+              <li key={contact._id}>
+                <a
+                  href={contact.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`hover:underline ${
+                    contact.color || "text-blue-400"
+                  }`}
+                >
+                  {contact.platform}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </aside>
   );
 }
