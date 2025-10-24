@@ -9,7 +9,8 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="h-full">
-      <body className="min-h-screen flex">
+      <body className="min-h-screen flex flex-col md:flex-row">
+        {/* SidebarLayout will handle showing/hiding sidebar */}
         <SidebarLayout>{children}</SidebarLayout>
       </body>
     </html>

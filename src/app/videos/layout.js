@@ -26,7 +26,11 @@ export default function VideosLayout({ children }) {
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* Main content */}
-      <main className="flex-1 pt-16 md:pt-4 transition-all duration-300 p-4 md:ml-64">
+      <main
+        className={`flex-1 pt-16 md:pt-4 transition-all duration-300
+    ${sidebarOpen ? "overflow-hidden" : ""} 
+    px-2 md:px-6 md:ml-64`}
+      >
         {children}
       </main>
     </div>
