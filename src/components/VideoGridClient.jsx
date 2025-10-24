@@ -5,11 +5,11 @@ export default function VideoGridClient({ videos = [] }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
 
   return (
-    <div>
+    <div className="w-full">
       {videos.length === 0 ? (
         <p className="text-center text-gray-600">No videos found.</p>
       ) : (
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {videos.map((video) => (
             <div
               key={video._id}
@@ -23,12 +23,12 @@ export default function VideoGridClient({ videos = [] }) {
               />
 
               {/* Info */}
-              <div className="p-4 flex flex-col flex-1">
+              <div className="p-3 flex flex-col flex-1">
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">
                     {video.title}
                   </h3>
-                  <p className="text-sm text-gray-700 line-clamp-3 mb-3">
+                  <p className="text-sm text-gray-700 line-clamp-3 mb-2">
                     {video.description}
                   </p>
                   <div className="flex items-center justify-between text-sm text-gray-600">
@@ -41,7 +41,7 @@ export default function VideoGridClient({ videos = [] }) {
 
                 <button
                   onClick={() => setSelectedVideo(video)}
-                  className="mt-4 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 w-full font-medium"
+                  className="mt-3 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 w-full text-sm sm:text-base font-medium transition-all"
                 >
                   Preview
                 </button>
