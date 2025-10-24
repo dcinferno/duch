@@ -40,7 +40,7 @@ export default function AdminUI() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const url = editingPost ? `/api/blog/${editingPost._id}` : "/api/blog";
+    const url = editingPost ? `/api/blog/${editingPost.slug}` : "/api/blog";
     const method = editingPost ? "PUT" : "POST";
 
     const res = await fetch(url, {
@@ -56,6 +56,38 @@ export default function AdminUI() {
       setPosts(refreshed);
     } else {
       alert("Failed to save post");
+    }
+  }
+
+  async function handleDeletePost(slug) {
+    const confirmed = confirm("Are you sure you want to delete this post?");
+    if (!confirmed) return;
+
+    const res = await fetch(`/api/blog/${slug}`, {
+      method: "DELETE",
+    });
+
+    if (res.ok) {
+      const refreshed = await fetch("/api/blog").then((res) => res.json());
+      setPosts(refreshed);
+    } else {
+      alert("Failed to delete post");
+    }
+  }
+
+  async function handleDeleteContact(id) {
+    const confirmed = confirm("Are you sure you want to delete this contact?");
+    if (!confirmed) return;
+
+    const res = await fetch(`/api/contact/${id}`, {
+      method: "DELETE",
+    });
+
+    if (res.ok) {
+      const refreshed = await fetch("/api/contact").then((res) => res.json());
+      setContacts(refreshed);
+    } else {
+      alert("Failed to delete contact");
     }
   }
 
@@ -153,15 +185,15 @@ export default function AdminUI() {
             }}
             onClientUploadComplete={(res) => {
               if (res && res[0]?.url) {
+                alert("Upload Complete");
                 setFormData((prev) => ({ ...prev, imageUrl: res[0].url }));
               }
             }}
             onUploadError={(error) => {
               alert("Upload failed: " + error.message);
             }}
-            onUploadBegin={(name) => {
-              // Do something once upload begins
-              alert("Uploading: ", name);
+            onUploadBegin={() => {
+              alert("uploading... please wait");
             }}
           />
         </div>
@@ -231,12 +263,20 @@ export default function AdminUI() {
             className="border p-3 rounded flex flex-col sm:flex-row justify-between sm:items-center gap-2"
           >
             <span className="break-words">{contact.platform}</span>
-            <button
-              onClick={() => startEditContact(contact)}
-              className="text-green-600 hover:underline self-start sm:self-auto"
-            >
-              Edit
-            </button>
+            <div className="flex gap-4 self-start sm:self-auto">
+              <button
+                onClick={() => startEditContact(contact)}
+                className="text-green-600 hover:underline"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => handleDeleteContact(contact._id)}
+                className="text-red-600 hover:underline"
+              >
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>
@@ -249,12 +289,20 @@ export default function AdminUI() {
             className="border p-3 rounded flex flex-col sm:flex-row justify-between sm:items-center gap-2"
           >
             <span className="break-words">{post.title}</span>
-            <button
-              onClick={() => startEdit(post)}
-              className="text-blue-600 hover:underline self-start sm:self-auto"
-            >
-              Edit
-            </button>
+            <div className="flex gap-4 self-start sm:self-auto">
+              <button
+                onClick={() => startEdit(post)}
+                className="text-blue-600 hover:underline"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => handleDeletePost(post.slug)}
+                className="text-red-600 hover:underline"
+              >
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>

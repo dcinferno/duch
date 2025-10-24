@@ -1,32 +1,40 @@
-'use client';
+"use client";
 
-import BlogList from '../components/BlogList';
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+import VideoGridClient from "../components/VideoGridClient";
 
 export default function Home() {
-  const [posts, setPosts] = useState([]);
+  const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchPosts() {
+    async function fetchVideos() {
       setLoading(true);
       try {
-        const res = await fetch('/api/blog');
+        const res = await fetch("/api/videos"); // your API endpoint
         const data = await res.json();
-        setPosts(data);
+        setVideos(data);
       } catch (err) {
-        console.error(err);
+        console.error("Failed to load videos:", err);
       } finally {
         setLoading(false);
       }
     }
-    fetchPosts();
+
+    fetchVideos();
   }, []);
 
   return (
-    <>
-      <h1 className="text-2xl font-bold mb-4">Latest Blog Posts</h1>
-      {loading ? <p>Loading posts...</p> : <BlogList posts={posts} />}
-    </>
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      <h1 className="text-2xl font-bold mb-6">Latest Videos</h1>
+
+      {loading ? (
+        <p>Loading videos...</p>
+      ) : videos.length > 0 ? (
+        <VideoGridClient videos={videos} />
+      ) : (
+        <p>No videos found.</p>
+      )}
+    </div>
   );
 }
