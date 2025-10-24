@@ -10,14 +10,14 @@ export async function POST(req) {
     if (secret !== process.env.UPLOAD_SECRET_KEY) {
       return NextResponse.json(
         { error: "Unauthorized: invalid upload key" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (!fileName || !contentType) {
       return NextResponse.json(
         { error: "Missing fileName or contentType" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -45,7 +45,7 @@ export async function POST(req) {
     console.error("Failed to get signed URL:", err);
     return NextResponse.json(
       { error: "Failed to generate upload URL" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -21,7 +21,7 @@ export const authOptions = {
 
         const isValid = await bcrypt.compare(
           credentials.password,
-          user.password
+          user.password,
         );
         if (!isValid) {
           return null; // invalid password

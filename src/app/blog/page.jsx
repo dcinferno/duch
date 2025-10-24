@@ -1,8 +1,8 @@
-export const dynamic = 'force-dynamic'; // make it dynamic (for DB fetch)
+export const dynamic = "force-dynamic"; // make it dynamic (for DB fetch)
 
-import BlogList from '../../components/BlogList';
-import { connectToDB } from '../../lib/mongodb';
-import Blog from '../../models/blogs';
+import BlogList from "../../components/BlogList";
+import { connectToDB } from "../../lib/mongodb";
+import Blog from "../../models/blogs";
 
 export default async function BlogPage() {
   await connectToDB();

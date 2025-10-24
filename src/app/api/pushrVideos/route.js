@@ -9,7 +9,7 @@ export async function GET() {
         headers: {
           Authorization: `Bearer ${process.env.PUSHR_API_KEY}`,
         },
-      }
+      },
     );
 
     if (!res.ok) {
@@ -35,7 +35,7 @@ export async function GET() {
     console.error(err);
     return NextResponse.json(
       { error: "Could not fetch videos from Pushr" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -87,7 +87,7 @@ export default function UploadPage() {
         await handleUploadFile(
           thumbnailFile,
           setThumbnailProgress,
-          "thumbnails"
+          "thumbnails",
         );
       await handleUploadFile(videoFile, setVideoProgress, "videos");
 

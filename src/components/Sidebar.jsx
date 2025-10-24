@@ -43,8 +43,9 @@ export default function Sidebar({ creators }) {
         )}
       </div>
 
-      {/* Upload Button at the bottom */}
-      <div className="mt-auto mb-4">
+      {/* Bottom Buttons */}
+      <div className="mt-auto mb-4 space-y-3">
+        {/* Upload Button */}
         <Link href="/upload">
           <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-shadow shadow-md hover:shadow-lg">
             <svg
@@ -62,6 +63,27 @@ export default function Sidebar({ creators }) {
               />
             </svg>
             Upload
+          </button>
+        </Link>
+
+        {/* Become a Creator Link */}
+        <Link href="/sign-up">
+          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-shadow shadow-md hover:shadow-lg">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Become a Creator
           </button>
         </Link>
       </div>

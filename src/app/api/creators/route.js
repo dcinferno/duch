@@ -13,7 +13,7 @@ export async function GET() {
     console.error("Failed to fetch creators:", error);
     return NextResponse.json(
       { error: "Failed to fetch creators" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -30,7 +30,7 @@ export async function POST(req) {
     console.error("Failed to create creator:", error);
     return NextResponse.json(
       { error: "Failed to create creator" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

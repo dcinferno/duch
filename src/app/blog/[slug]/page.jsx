@@ -1,13 +1,12 @@
-import { connectToDB } from '../../../lib/mongodb';
-import Blog from '../../../models/blogs';
+import { connectToDB } from "../../../lib/mongodb";
+import Blog from "../../../models/blogs";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-export default async function BlogPostPage( props ) {
- const { params } = await props;  // await here
+export default async function BlogPostPage(props) {
+  const { params } = await props; // await here
 
   const { slug } = await params;
-
 
   await connectToDB();
   const post = await Blog.findOne({ slug }).lean();
