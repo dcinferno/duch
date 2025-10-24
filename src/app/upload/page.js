@@ -2,11 +2,21 @@
 
 import { useState, useEffect, useRef } from "react";
 
+// Slugify helper
+function slugify(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-") // replace spaces with dashes
+    .replace(/[^\w-]/g, ""); // remove invalid chars
+}
+
 export default function UploadPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState(0);
   const [creatorName, setCreatorName] = useState("");
+  const [socialMediaUrl, setSocialMediaUrl] = useState(""); // optional if fetching from creator
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [secretKey, setSecretKey] = useState("");
@@ -31,8 +41,21 @@ export default function UploadPage() {
     fetchCreators();
   }, []);
 
-  // Upload helper
-  const handleUploadFile = (file, setProgress, folder) => {
+  // Upload helper with folder prepending
+  const handleUploadFile = async (file, folder, setProgress) => {
+    const res = await fetch("/api/uploadUrl", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret: secretKey,
+        fileName: `${folder}/${file.name}`,
+        contentType: file.type,
+      }),
+    });
+
+    if (!res.ok) throw new Error("Failed to get upload URL");
+    const { url } = await res.json();
+
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
@@ -43,39 +66,22 @@ export default function UploadPage() {
         }
       });
 
-      xhr.onreadystatechange = () => {
-        if (xhr.readyState === 4) {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(file.name);
-          } else {
-            reject(new Error("Upload failed"));
-          }
-        }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(file.name);
+        else reject(new Error(`Upload failed with status ${xhr.status}`));
       };
 
-      fetch("/api/uploadUrl", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          secret: secretKey,
-          fileName: file.name,
-          contentType: file.type,
-          folder,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (!data.upload_url) throw new Error("Failed to get upload URL");
-          xhr.open("PUT", data.upload_url);
-          xhr.setRequestHeader("Content-Type", file.type);
-          xhr.send(file);
-        })
-        .catch(reject);
+      xhr.onerror = () => reject(new Error("Network error during upload"));
+
+      xhr.open("PUT", url);
+      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.send(file);
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!videoFile) return alert("Please select a video file!");
     if (!creatorName) return alert("Please select your creator account!");
     if (!secretKey) return alert("Please enter the secret key!");
@@ -83,21 +89,53 @@ export default function UploadPage() {
     setSubmitting(true);
 
     try {
-      if (thumbnailFile)
+      // Slugify the creator name for folder
+      const folderSlug = slugify(creatorName);
+
+      if (thumbnailFile) {
         await handleUploadFile(
           thumbnailFile,
-          setThumbnailProgress,
-          "thumbnails",
+          `${folderSlug}/thumbnails`,
+          setThumbnailProgress
         );
-      await handleUploadFile(videoFile, setVideoProgress, "videos");
+      }
+      await handleUploadFile(
+        videoFile,
+        `${folderSlug}/videos`,
+        setVideoProgress
+      );
 
-      alert("Upload successful!");
+      // Send metadata to videos API
+      const socialUrl =
+        socialMediaUrl ||
+        creators.find((c) => c.name === creatorName)?.socialMediaUrl;
+
+      const videoRes = await fetch("/api/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          price,
+          creatorName,
+          socialMediaUrl: socialUrl,
+          thumbnail: thumbnailFile?.name
+            ? `${folderSlug}/thumbnails/${thumbnailFile.name}`
+            : null,
+          url: `${folderSlug}/videos/${videoFile.name}`,
+        }),
+      });
+
+      if (!videoRes.ok) throw new Error("Failed to create video record");
+
+      alert("✅ Upload successful!");
 
       // Reset form
       setTitle("");
       setDescription("");
       setPrice(0);
       setCreatorName("");
+      setSocialMediaUrl("");
       setVideoFile(null);
       setThumbnailFile(null);
       setSecretKey("");
@@ -105,7 +143,7 @@ export default function UploadPage() {
       setThumbnailProgress(0);
     } catch (err) {
       console.error(err);
-      alert("Upload failed, see console for details.");
+      alert("❌ Upload failed. See console for details.");
     } finally {
       setSubmitting(false);
     }
@@ -124,7 +162,6 @@ export default function UploadPage() {
           className="w-full p-3 border rounded"
           required
         />
-
         {/* Description */}
         <textarea
           placeholder="Description"
@@ -133,7 +170,6 @@ export default function UploadPage() {
           className="w-full p-3 border rounded"
           required
         />
-
         {/* Price */}
         <input
           type="number"
@@ -143,7 +179,6 @@ export default function UploadPage() {
           className="w-full p-3 border rounded"
           min={0}
         />
-
         {/* Creator */}
         <select
           value={creatorName}
@@ -159,7 +194,16 @@ export default function UploadPage() {
           ))}
         </select>
 
-        {/* Video File */}
+        {/* Optional social media URL */}
+        <input
+          type="text"
+          placeholder="Social Media URL (optional)"
+          value={socialMediaUrl}
+          onChange={(e) => setSocialMediaUrl(e.target.value)}
+          className="w-full p-3 border rounded mb-4"
+        />
+
+        {/* Video and Thumbnail File Inputs */}
         <label className="w-full block mb-4 relative cursor-pointer">
           <span className="block mb-1 font-medium">Select Video</span>
           <input
@@ -191,7 +235,6 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Thumbnail File */}
         <label className="w-full block mb-4 relative cursor-pointer">
           <span className="block mb-1 font-medium">Thumbnail (optional)</span>
           <input
