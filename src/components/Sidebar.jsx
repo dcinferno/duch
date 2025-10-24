@@ -3,13 +3,16 @@
 import Link from "next/link";
 
 export default function Sidebar({ creators }) {
+  // Filter only premium creators
+  const premiumCreators = creators.filter((creator) => creator.premium);
+
   return (
     <aside className="w-64 bg-gray-900 text-white flex flex-col h-full px-4 pt-4">
       <div>
         <h2 className="text-lg font-semibold mb-3">Featured Creators</h2>
-        {creators.length > 0 ? (
+        {premiumCreators.length > 0 ? (
           <ul className="space-y-2">
-            {creators.map((creator) => (
+            {premiumCreators.map((creator) => (
               <li
                 key={creator._id}
                 className="flex items-center justify-between"
@@ -39,7 +42,7 @@ export default function Sidebar({ creators }) {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-400 text-sm">Loading creators...</p>
+          <p className="text-gray-400 text-sm">No featured creators yet.</p>
         )}
       </div>
 
