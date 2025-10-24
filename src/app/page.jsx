@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import VideosClientPage from "../components/VideoGridClient"; // or your video list component
+import VideosClientPage from "../components/VideoGridClient";
 
 export default function Home() {
   const [videos, setVideos] = useState([]);
@@ -11,7 +11,7 @@ export default function Home() {
     async function fetchVideos() {
       setLoading(true);
       try {
-        const res = await fetch("/api/videos"); // make sure this API returns videos from MongoDB
+        const res = await fetch("/api/videos");
         const data = await res.json();
         setVideos(data);
       } catch (err) {

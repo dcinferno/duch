@@ -39,7 +39,7 @@ export default function Sidebar({ creators }) {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-400 text-sm">No featured creators yet.</p>
+          <p className="text-gray-400 text-sm">Loading creators...</p>
         )}
       </div>
 
