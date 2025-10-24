@@ -12,6 +12,7 @@ export default function SignUpPage() {
   });
 
   const [message, setMessage] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -21,8 +22,47 @@ export default function SignUpPage() {
     }));
   };
 
+  const handleFileChange = async (file) => {
+    if (!file) return;
+
+    setMessage("Uploading photo...");
+    setUploading(true);
+
+    const data = new FormData();
+    data.append("file", file);
+
+    // Upload to folder based on creator name
+    if (formData.name) {
+      const safeFolder = formData.name
+        .trim()
+        .replace(/\s+/g, "_")
+        .toLowerCase();
+      data.append("folder", safeFolder);
+    }
+
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: data });
+      const result = await res.json();
+
+      if (res.ok) {
+        setFormData((prev) => ({ ...prev, photo: result.url }));
+        setMessage("Photo uploaded!");
+      } else {
+        setMessage(`Upload failed: ${result.error}`);
+      }
+    } catch (err) {
+      setMessage("Upload error: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (uploading) {
+      setMessage("Please wait for the photo to finish uploading.");
+      return;
+    }
 
     const res = await fetch("/api/creators", {
       method: "POST",
@@ -92,20 +132,42 @@ export default function SignUpPage() {
           />
         )}
 
-        <input
-          type="url"
-          name="photo"
-          placeholder="Profile photo URL (optional)"
-          value={formData.photo}
-          onChange={handleChange}
-          className="p-2 rounded bg-gray-700"
-        />
+        {!formData.photo && (
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleFileChange(e.target.files[0])}
+            className="p-2 rounded bg-gray-700"
+          />
+        )}
+
+        {formData.photo && (
+          <div className="flex flex-col items-center">
+            <img
+              src={formData.photo}
+              alt="Preview"
+              className="w-24 h-24 object-cover rounded mb-2"
+            />
+            <button
+              type="button"
+              onClick={() => setFormData((prev) => ({ ...prev, photo: "" }))}
+              className="text-red-500 text-sm"
+            >
+              Remove
+            </button>
+          </div>
+        )}
 
         <button
           type="submit"
-          className="bg-blue-600 hover:bg-blue-700 py-2 rounded text-white font-semibold"
+          disabled={uploading}
+          className={`py-2 rounded font-semibold text-white ${
+            uploading
+              ? "bg-gray-500 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
-          Sign Up
+          {uploading ? "Uploading..." : "Sign Up"}
         </button>
       </form>
     </div>
