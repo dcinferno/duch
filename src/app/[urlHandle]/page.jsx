@@ -1,5 +1,5 @@
 "use client";
-
+export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import VideoGridClient from "../../components/VideoGridClient";
 import { useParams } from "next/navigation";
@@ -19,11 +19,10 @@ export default function CreatorPage() {
         if (!creatorRes.ok) throw new Error("Creator not found");
         const creatorData = await creatorRes.json();
         setCreator(creatorData);
-
-        // Fetch videos by creator name
         const videosRes = await fetch(
-          `/api/videos?creatorName=${encodeURIComponent(creatorData.name)}`,
+          `/api/videos?creator=${encodeURIComponent(creatorData.urlHandle)}`
         );
+
         if (!videosRes.ok) throw new Error("Videos not found");
         const videoData = await videosRes.json();
 
