@@ -10,15 +10,31 @@ export default function Sidebar({ creators }) {
         {creators.length > 0 ? (
           <ul className="space-y-2">
             {creators.map((creator) => (
-              <li key={creator._id}>
+              <li
+                key={creator._id}
+                className="flex items-center justify-between"
+              >
+                {/* Creator Name */}
                 <a
-                  href={creator.url}
+                  href={creator.urlHandle}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block hover:underline text-yellow-300"
+                  className="block font-semibold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-400 animate-gradient-x hover:underline"
                 >
                   {creator.name}
                 </a>
+
+                {/* Premium Star */}
+                {creator.premium && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 text-yellow-400 animate-pulse animate-spin-slow"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.966a1 1 0 00.95.69h4.18c.969 0 1.371 1.24.588 1.81l-3.39 2.462a1 1 0 00-.364 1.118l1.287 3.966c.3.921-.755 1.688-1.54 1.118l-3.39-2.462a1 1 0 00-1.176 0l-3.39 2.462c-.784.57-1.838-.197-1.539-1.118l1.287-3.966a1 1 0 00-.364-1.118L2.045 9.393c-.783-.57-.38-1.81.588-1.81h4.18a1 1 0 00.95-.69l1.286-3.966z" />
+                  </svg>
+                )}
               </li>
             ))}
           </ul>
@@ -31,7 +47,6 @@ export default function Sidebar({ creators }) {
       <div className="mt-auto mb-4">
         <Link href="/upload">
           <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-shadow shadow-md hover:shadow-lg">
-            {/* Optional: Upload icon */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-5 w-5"
@@ -50,6 +65,36 @@ export default function Sidebar({ creators }) {
           </button>
         </Link>
       </div>
+
+      <style jsx>{`
+        @keyframes gradient-x {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+        .animate-gradient-x {
+          background-size: 200% auto;
+          animation: gradient-x 3s linear infinite;
+        }
+
+        @keyframes spin-slow {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 5s linear infinite;
+        }
+      `}</style>
     </aside>
   );
 }
