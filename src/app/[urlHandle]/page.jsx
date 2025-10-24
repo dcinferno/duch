@@ -19,8 +19,9 @@ export default function CreatorPage() {
         if (!creatorRes.ok) throw new Error("Creator not found");
         const creatorData = await creatorRes.json();
         setCreator(creatorData);
+        // Fetch videos by creator name (temporarily)
         const videosRes = await fetch(
-          `/api/videos?creator=${encodeURIComponent(creatorData.urlHandle)}`
+          `/api/videos?creatorName=${encodeURIComponent(creatorData.name)}`
         );
 
         if (!videosRes.ok) throw new Error("Videos not found");

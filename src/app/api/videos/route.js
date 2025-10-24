@@ -1,4 +1,3 @@
-// app/api/videos/route.js
 import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
 import Creators from "../../../models/creators.js";
@@ -9,18 +8,12 @@ export async function GET(request) {
 
     // Get query parameters from URL
     const { searchParams } = new URL(request.url);
-    const creatorUrlHandle = searchParams.get("creator"); // e.g., ?creator=someHandle
+    const creatorName = searchParams.get("creatorName"); // TEMPORARY fix
 
     let filter = {};
-    if (creatorUrlHandle) {
-      // Find creator by their urlHandle
-      const creator = await Creators.findOne({ urlHandle: creatorUrlHandle });
-      if (!creator) {
-        return Response.json({ error: "Creator not found" }, { status: 404 });
-      }
-
-      // Filter videos by creatorName
-      filter.creatorName = creator.name;
+    if (creatorName) {
+      // Filter videos by creator name
+      filter.creatorName = creatorName;
     }
 
     const videos = await Videos.find(filter).sort({ createdAt: -1 });
@@ -37,14 +30,13 @@ export async function POST(request) {
     const { title, description, thumbnail, price, creatorName, url } =
       await request.json();
 
-    // Fetch the creator's socialMediaUrl automatically
+    // Fetch the creator by name
     const creator = await Creators.findOne({ name: creatorName });
-
     if (!creator) {
       return Response.json({ error: "Creator not found" }, { status: 400 });
     }
 
-    const socialMediaUrl = creator.socialMediaUrl;
+    const socialMediaUrl = creator.url || creator.socialMediaUrl;
 
     // Create video record
     const video = await Videos.create({
@@ -52,8 +44,8 @@ export async function POST(request) {
       description,
       thumbnail,
       price,
-      creatorName,
-      socialMediaUrl, // pulled from creator
+      creatorName, // matches what GET expects
+      socialMediaUrl,
       url,
     });
 
