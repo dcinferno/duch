@@ -6,20 +6,28 @@ export async function GET(request) {
   try {
     await connectToDB();
 
-    // Get query parameters from URL
     const { searchParams } = new URL(request.url);
-    const creatorName = searchParams.get("creatorName"); // TEMPORARY fix
+    const creatorUrlHandle = searchParams.get("creator"); // ?creator=johnsmith
 
     let filter = {};
-    if (creatorName) {
-      // Filter videos by creator name
-      filter.creatorName = creatorName;
+
+    if (creatorUrlHandle) {
+      // Case-insensitive lookup for urlHandle
+      const creator = await Creators.findOne({
+        urlHandle: new RegExp(`^${creatorUrlHandle}$`, "i"),
+      });
+
+      if (!creator) {
+        return Response.json({ error: "Creator not found" }, { status: 404 });
+      }
+
+      // Case-insensitive match for videos by creator name
+      filter.creatorName = new RegExp(`^${creator.name}$`, "i");
     }
 
     const videos = await Videos.find(filter).sort({ createdAt: -1 });
     return Response.json(videos);
   } catch (err) {
-    console.error("Failed to fetch videos:", err);
     return Response.json({ error: "Failed to fetch videos" }, { status: 500 });
   }
 }
@@ -30,8 +38,14 @@ export async function POST(request) {
     const { title, description, thumbnail, price, creatorName, url } =
       await request.json();
 
-    // Fetch the creator by name
-    const creator = await Creators.findOne({ name: creatorName });
+    // Normalize creator name for searching
+    const normalizedName = creatorName.trim();
+
+    // Find creator (case-insensitive)
+    const creator = await Creators.findOne({
+      name: new RegExp(`^${normalizedName}$`, "i"),
+    });
+
     if (!creator) {
       return Response.json({ error: "Creator not found" }, { status: 400 });
     }
@@ -44,14 +58,13 @@ export async function POST(request) {
       description,
       thumbnail,
       price,
-      creatorName, // matches what GET expects
+      creatorName: creator.name, // keep consistent formatting
       socialMediaUrl,
       url,
     });
 
     return Response.json(video, { status: 201 });
   } catch (err) {
-    console.error("Failed to create video:", err);
     return Response.json({ error: "Failed to create video" }, { status: 500 });
   }
 }
