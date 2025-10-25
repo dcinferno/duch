@@ -1,4 +1,6 @@
+// app/layout.jsx
 export const dynamic = "force-dynamic";
+
 import "./globals.css";
 import RootLayoutClient from "../components/RootLayoutClient";
 import ClientOnly from "../components/ClientOnly";
@@ -8,11 +10,19 @@ import Link from "next/link";
 import logo from "../app/logo.svg"; // adjust path if needed
 
 export default async function RootLayout({ children }) {
-  // Fetch site settings
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/api/site-settings/age_verification`
-  );
-  const settings = res.ok ? await res.json() : null;
+  let settings = null;
+
+  try {
+    // Use no-store to avoid caching issues during dynamic render
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/api/site-settings/age_verification`,
+      { cache: "no-store" }
+    );
+    if (res.ok) settings = await res.json();
+  } catch (err) {
+    console.warn("Could not fetch site settings (build-safe):", err);
+    settings = null; // fallback so layout still renders
+  }
 
   return (
     <html lang="en" className="h-full">
