@@ -1,13 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import logo from "../app/logo.svg"; // adjust path if needed
 
 export default function Sidebar({ creators }) {
-  // Filter only premium creators
   const premiumCreators = creators.filter((creator) => creator.premium);
 
   return (
     <aside className="w-64 bg-gray-900 text-white flex flex-col h-full px-4 pt-4">
+      {/* Logo / Home Link */}
+      <Link href="/" className="mb-6 flex items-center justify-center">
+        <Image src={logo} alt="App Logo" width={48} height={48} />
+      </Link>
+
       <div>
         <h2 className="text-lg font-semibold mb-3">Featured Creators</h2>
         {premiumCreators.length > 0 ? (
@@ -48,7 +54,6 @@ export default function Sidebar({ creators }) {
 
       {/* Bottom Buttons */}
       <div className="mt-auto mb-4 space-y-3">
-        {/* Upload Button */}
         <Link href="/upload">
           <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-shadow shadow-md hover:shadow-lg">
             <svg
@@ -69,7 +74,6 @@ export default function Sidebar({ creators }) {
           </button>
         </Link>
 
-        {/* Become a Creator Link */}
         <Link href="/sign-up">
           <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-shadow shadow-md hover:shadow-lg">
             <svg
