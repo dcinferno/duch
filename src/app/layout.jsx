@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import "./globals.css";
 import RootLayoutClient from "../components/RootLayoutClient";
 import ClientOnly from "../components/ClientOnly";
