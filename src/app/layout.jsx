@@ -1,5 +1,6 @@
 import "./globals.css";
 import RootLayoutClient from "../components/RootLayoutClient";
+import ClientOnly from "../components/ClientOnly";
 import SidebarLayout from "../components/SidebarLayout";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,7 +25,9 @@ export default async function RootLayout({ children }) {
 
         {/* RootLayoutClient wraps Sidebar + main content */}
         <RootLayoutClient settings={settings} className="flex-1 flex">
-          <SidebarLayout>{children}</SidebarLayout>
+          <ClientOnly>
+            <SidebarLayout>{children}</SidebarLayout>
+          </ClientOnly>
         </RootLayoutClient>
       </body>
     </html>

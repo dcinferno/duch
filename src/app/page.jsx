@@ -1,9 +1,20 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import ClientOnly from "../components/ClientOnly";
 import VideosClientPage from "../components/VideoGridClient";
 
 export default function Home() {
+  return (
+    <div className="w-full px-2 sm:px-4 py-6">
+      <h1 className="text-2xl font-bold mb-4">Latest Videos</h1>
+
+      <ClientOnly fallback={<p>Loading videos...</p>}>
+        <VideosFetcher />
+      </ClientOnly>
+    </div>
+  );
+}
+
+// Client-only component with hooks
+function VideosFetcher() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,7 +26,7 @@ export default function Home() {
         const data = await res.json();
         setVideos(data);
       } catch (err) {
-        console.error("Failed to load videos:", err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -23,23 +34,8 @@ export default function Home() {
     fetchVideos();
   }, []);
 
-  return (
-    <main className="flex-1 min-h-screen">
-      {/* Page header */}
-      <div className="px-4 sm:px-6 py-6">
-        <h1 className="text-2xl font-bold">Latest Videos</h1>
-      </div>
+  if (loading) return <p>Loading videos...</p>;
+  if (!videos.length) return <p>No videos found.</p>;
 
-      {/* Video grid */}
-      <div className="px-4 sm:px-6 pb-6">
-        {loading ? (
-          <p>Loading videos...</p>
-        ) : videos.length > 0 ? (
-          <VideosClientPage videos={videos} />
-        ) : (
-          <p>No videos found.</p>
-        )}
-      </div>
-    </main>
-  );
+  return <VideosClientPage videos={videos} />;
 }
