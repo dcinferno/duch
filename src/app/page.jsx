@@ -1,4 +1,6 @@
-export const dynamic = "force-dynamic";
+"use client"; // This marks the whole file as a client component
+
+import { useState, useEffect } from "react";
 import ClientOnly from "../components/ClientOnly";
 import VideosClientPage from "../components/VideoGridClient";
 
@@ -14,15 +16,12 @@ export default function Home() {
   );
 }
 
-// Client-only component with hooks
 function VideosFetcher() {
-  const { useState, useEffect } = require("react");
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchVideos() {
-      setLoading(true);
       try {
         const res = await fetch("/api/videos");
         const data = await res.json();
