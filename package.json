@@ -19,6 +19,7 @@
     "busboy": "^1.6.0",
     "dotenv": "^17.2.3",
     "mongoose": "^8.19.1",
+    "nanoid": "^5.1.6",
     "next": "^16.0.0-canary.10",
     "next-auth": "^4.24.11",
     "react": "^19.1.0",

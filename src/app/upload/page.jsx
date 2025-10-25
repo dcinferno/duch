@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 
-// Slugify helper
 function slugify(name) {
   return name
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, "-") // replace spaces with dashes
-    .replace(/[^\w-]/g, ""); // remove invalid chars
+    .replace(/\s+/g, "-")
+    .replace(/[^\w-]/g, "");
 }
 
 export default function UploadPage() {
@@ -16,17 +15,17 @@ export default function UploadPage() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState(0);
   const [creatorName, setCreatorName] = useState("");
-  const [socialMediaUrl, setSocialMediaUrl] = useState(""); // optional if fetching from creator
+  const [socialMediaUrl, setSocialMediaUrl] = useState("");
   const [videoFile, setVideoFile] = useState(null);
-  const [thumbnailFile, setThumbnailFile] = useState(null);
-  const [secretKey, setSecretKey] = useState("");
   const [videoProgress, setVideoProgress] = useState(0);
   const [thumbnailProgress, setThumbnailProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [creators, setCreators] = useState([]);
+  const [secretKey, setSecretKey] = useState("");
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState(null);
 
   const videoInputRef = useRef(null);
-  const thumbInputRef = useRef(null);
 
   useEffect(() => {
     async function fetchCreators() {
@@ -35,82 +34,102 @@ export default function UploadPage() {
         const data = await res.json();
         setCreators(data);
       } catch (err) {
-        console.error("Failed to load creators:", err);
+        console.error(err);
       }
     }
     fetchCreators();
   }, []);
 
-  // Upload helper with folder prepending
+  const generateThumbnail = (file) =>
+    new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.src = URL.createObjectURL(file);
+      video.currentTime = 3;
+
+      video.onloadeddata = () => {
+        video.currentTime = 3;
+      };
+
+      video.onseeked = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) =>
+            resolve(new File([blob], "thumbnail.jpg", { type: "image/jpeg" })),
+          "image/jpeg"
+        );
+      };
+
+      video.onerror = (err) => reject(err);
+    });
+
   const handleUploadFile = async (file, folder, setProgress) => {
     const res = await fetch("/api/uploadUrl", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         secret: secretKey,
-        fileName: `${folder}/${file.name}`,
+        fileName: file.name,
         contentType: file.type,
+        folder,
       }),
     });
 
     if (!res.ok) throw new Error("Failed to get upload URL");
-    const { url } = await res.json();
+    const { uploadUrl, publicUrl } = await res.json();
 
-    return new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-
       xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          const percent = Math.round((e.loaded / e.total) * 100);
-          setProgress(percent);
-        }
+        if (e.lengthComputable)
+          setProgress(Math.round((e.loaded / e.total) * 100));
       });
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve(file.name);
-        else reject(new Error(`Upload failed with status ${xhr.status}`));
-      };
-
-      xhr.onerror = () => reject(new Error("Network error during upload"));
-
-      xhr.open("PUT", url);
+      xhr.onload = () =>
+        xhr.status >= 200 && xhr.status < 300
+          ? resolve()
+          : reject(new Error(`Upload failed ${xhr.status}`));
+      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.open("PUT", uploadUrl);
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
     });
+
+    return publicUrl;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!videoFile) return alert("Please select a video file!");
-    if (!creatorName) return alert("Please select your creator account!");
-    if (!secretKey) return alert("Please enter the secret key!");
+    if (!videoFile) return alert("Select a video!");
+    if (!creatorName) return alert("Select a creator!");
+    if (!secretKey) return alert("Enter secret key!");
 
     setSubmitting(true);
-
     try {
-      // Slugify the creator name for folder
       const folderSlug = slugify(creatorName);
 
-      if (thumbnailFile) {
-        await handleUploadFile(
-          thumbnailFile,
-          `${folderSlug}/thumbnails`,
-          setThumbnailProgress
-        );
-      }
-      await handleUploadFile(
+      const thumbFile = await generateThumbnail(videoFile);
+      const uploadedThumbnailUrl = await handleUploadFile(
+        thumbFile,
+        `${folderSlug}/thumbnails`,
+        setThumbnailProgress
+      );
+      setThumbnailUrl(uploadedThumbnailUrl);
+
+      const uploadedVideoUrl = await handleUploadFile(
         videoFile,
         `${folderSlug}/videos`,
         setVideoProgress
       );
+      setVideoUrl(uploadedVideoUrl);
 
-      // Send metadata to videos API
       const socialUrl =
         socialMediaUrl ||
         creators.find((c) => c.name === creatorName)?.socialMediaUrl;
 
-      const videoRes = await fetch("/api/videos", {
+      await fetch("/api/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -119,41 +138,24 @@ export default function UploadPage() {
           price,
           creatorName,
           socialMediaUrl: socialUrl,
-          thumbnail: thumbnailFile?.name
-            ? `${folderSlug}/thumbnails/${thumbnailFile.name}`
-            : null,
-          url: `${folderSlug}/videos/${videoFile.name}`,
+          thumbnail: uploadedThumbnailUrl,
+          url: uploadedVideoUrl,
         }),
       });
 
-      if (!videoRes.ok) throw new Error("Failed to create video record");
-
       alert("✅ Upload successful!");
-
-      // Reset form
-      setTitle("");
-      setDescription("");
-      setPrice(0);
-      setCreatorName("");
-      setSocialMediaUrl("");
-      setVideoFile(null);
-      setThumbnailFile(null);
-      setSecretKey("");
-      setVideoProgress(0);
-      setThumbnailProgress(0);
     } catch (err) {
       console.error(err);
-      alert("❌ Upload failed. See console for details.");
+      alert("❌ Upload failed");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="max-w-xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">Upload Video</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Title */}
         <input
           type="text"
           placeholder="Title"
@@ -162,7 +164,6 @@ export default function UploadPage() {
           className="w-full p-3 border rounded"
           required
         />
-        {/* Description */}
         <textarea
           placeholder="Description"
           value={description}
@@ -170,41 +171,36 @@ export default function UploadPage() {
           className="w-full p-3 border rounded"
           required
         />
-        {/* Price */}
         <input
           type="number"
-          placeholder="Video Price"
+          placeholder="Price"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           className="w-full p-3 border rounded"
           min={0}
         />
-        {/* Creator */}
         <select
           value={creatorName}
           onChange={(e) => setCreatorName(e.target.value)}
           className="w-full p-3 border rounded"
           required
         >
-          <option value="">Select your creator account</option>
+          <option value="">Select creator</option>
           {creators.map((c) => (
             <option key={c._id} value={c.name}>
               {c.name}
             </option>
           ))}
         </select>
-
-        {/* Optional social media URL */}
         <input
           type="text"
           placeholder="Social Media URL (optional)"
           value={socialMediaUrl}
           onChange={(e) => setSocialMediaUrl(e.target.value)}
-          className="w-full p-3 border rounded mb-4"
+          className="w-full p-3 border rounded"
         />
 
-        {/* Video and Thumbnail File Inputs */}
-        <label className="w-full block mb-4 relative cursor-pointer">
+        <label className="block mb-4 relative cursor-pointer">
           <span className="block mb-1 font-medium">Select Video</span>
           <input
             type="file"
@@ -221,7 +217,7 @@ export default function UploadPage() {
               cursor: "pointer",
             }}
           />
-          <div className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded text-center shadow-md hover:shadow-lg">
+          <div className="w-full bg-green-600 text-white py-3 rounded text-center">
             {videoFile ? videoFile.name : "Select Video"}
           </div>
         </label>
@@ -234,29 +230,6 @@ export default function UploadPage() {
             />
           </div>
         )}
-
-        <label className="w-full block mb-4 relative cursor-pointer">
-          <span className="block mb-1 font-medium">Thumbnail (optional)</span>
-          <input
-            type="file"
-            accept="image/*"
-            ref={thumbInputRef}
-            onChange={(e) => setThumbnailFile(e.target.files[0])}
-            style={{
-              opacity: 0,
-              position: "absolute",
-              width: "100%",
-              height: "100%",
-              top: 0,
-              left: 0,
-              cursor: "pointer",
-            }}
-          />
-          <div className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded text-center shadow-md hover:shadow-lg">
-            {thumbnailFile ? thumbnailFile.name : "Select Thumbnail"}
-          </div>
-        </label>
-
         {thumbnailProgress > 0 && (
           <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
             <div
@@ -266,21 +239,44 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Secret Key */}
+        {videoUrl && (
+          <p className="text-sm text-gray-700 break-all">
+            <strong>Video URL:</strong>{" "}
+            <a
+              href={videoUrl}
+              target="_blank"
+              className="text-green-700 underline"
+            >
+              {videoUrl}
+            </a>
+          </p>
+        )}
+        {thumbnailUrl && (
+          <p className="text-sm text-gray-700 break-all">
+            <strong>Thumbnail URL:</strong>{" "}
+            <a
+              href={thumbnailUrl}
+              target="_blank"
+              className="text-green-700 underline"
+            >
+              {thumbnailUrl}
+            </a>
+          </p>
+        )}
+
         <input
           type="text"
-          placeholder="Enter Secret Key"
+          placeholder="Secret Key"
           value={secretKey}
           onChange={(e) => setSecretKey(e.target.value)}
-          className="w-full p-3 border rounded mb-4"
+          className="w-full p-3 border rounded"
           required
         />
 
-        {/* Submit Button */}
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+          className="w-full bg-green-600 text-white py-3 rounded"
         >
           {submitting ? "Uploading..." : "Upload"}
         </button>

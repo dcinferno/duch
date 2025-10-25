@@ -1,12 +1,23 @@
 import { NextResponse } from "next/server";
 import s3 from "../../../lib/pushrS3";
+import { nanoid } from "nanoid"; // ✅ add this
+const { PUSHR_CDN_URL } = process.env;
 
 // Utility to generate unique filename
 function generateUniqueFileName(originalName) {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 10000);
-  const safeName = originalName.replace(/\s+/g, "_");
-  return `${timestamp}_${random}_${safeName}`;
+  // Extract extension (e.g. ".mp4", ".png")
+  const ext = originalName.includes(".")
+    ? originalName.substring(originalName.lastIndexOf("."))
+    : "";
+
+  // Clean base name (remove extension + spaces)
+  const base = originalName
+    .replace(/\.[^/.]+$/, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^\w-]/g, "");
+
+  // ✅ Combine with nanoid for uniqueness
+  return `${nanoid(10)}_${base}${ext}`;
 }
 
 export async function POST(req) {
@@ -31,10 +42,15 @@ export async function POST(req) {
       ACL: "public-read",
     };
 
+    // Upload to Pushr via S3 interface
     const data = await s3.upload(params).promise();
-    return NextResponse.json({ url: data.Location });
+
+    // ✅ Return full CDN URL instead of storage endpoint
+    const publicUrl = `${PUSHR_CDN_URL.replace(/\/$/, "")}/${key}`;
+
+    return NextResponse.json({ url: publicUrl, key });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Upload failed:", err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
