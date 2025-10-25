@@ -44,6 +44,6 @@ next-env.d.ts
 /src/data/
 
 #public videos
-/public/
+/public/uploads/
 
 /src/scripts/
