@@ -15,6 +15,7 @@ export default function Home() {
 
 // Client-only component with hooks
 function VideosFetcher() {
+  const { useState, useEffect } = require("react");
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
