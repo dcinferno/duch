@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { nanoid } from "nanoid"; // ✅ for unique file names
+import { nanoid } from "nanoid";
 
 const {
   PUSHR_ENDPOINT,
@@ -41,13 +41,10 @@ export async function POST(req) {
       );
     }
 
-    // ✅ Generate unique filename
     const ext = fileName.includes(".")
       ? fileName.substring(fileName.lastIndexOf("."))
       : "";
     const uniqueName = `${nanoid(10)}${ext}`;
-
-    // Build the full key (folder + unique name)
     const key = folder ? `${folder}/${uniqueName}` : uniqueName;
 
     const command = new PutObjectCommand({
@@ -57,13 +54,14 @@ export async function POST(req) {
       ACL: "public-read",
     });
 
-    // Generate presigned PUT URL
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
 
-    // ✅ Build public CDN URL
     const publicUrl = `${PUSHR_CDN_URL.replace(/\/$/, "")}/${key}`;
 
-    return NextResponse.json({ uploadUrl, publicUrl, key });
+    // ⚡ NEW: Return a URL you can call after upload to trigger optimization
+    const processUrl = `/api/processVideo`;
+
+    return NextResponse.json({ uploadUrl, publicUrl, key, processUrl });
   } catch (err) {
     console.error("❌ Failed to generate upload URL:", err);
     return NextResponse.json(

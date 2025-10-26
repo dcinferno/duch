@@ -19,6 +19,7 @@ export default function UploadPage() {
   const [videoFile, setVideoFile] = useState(null);
   const [videoProgress, setVideoProgress] = useState(0);
   const [thumbnailProgress, setThumbnailProgress] = useState(0);
+  const [processedProgress, setProcessedProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [creators, setCreators] = useState([]);
   const [secretKey, setSecretKey] = useState("");
@@ -79,7 +80,7 @@ export default function UploadPage() {
     });
 
     if (!res.ok) throw new Error("Failed to get upload URL");
-    const { uploadUrl, publicUrl } = await res.json();
+    const { uploadUrl, publicUrl, key } = await res.json();
 
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -97,7 +98,23 @@ export default function UploadPage() {
       xhr.send(file);
     });
 
-    return publicUrl;
+    return { publicUrl, key };
+  };
+
+  const handleProcessVideo = async (key) => {
+    const res = await fetch("/api/processVideo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret: secretKey,
+        key,
+      }),
+    });
+
+    if (!res.ok) throw new Error("Video processing failed");
+
+    const { processedUrl } = await res.json();
+    return processedUrl;
   };
 
   const handleSubmit = async (e) => {
@@ -110,25 +127,31 @@ export default function UploadPage() {
     try {
       const folderSlug = slugify(creatorName);
 
+      // Generate and upload thumbnail
       const thumbFile = await generateThumbnail(videoFile);
       const uploadedThumbnailUrl = await handleUploadFile(
         thumbFile,
         `${folderSlug}/thumbnails`,
         setThumbnailProgress
       );
-      setThumbnailUrl(uploadedThumbnailUrl);
+      setThumbnailUrl(uploadedThumbnailUrl.publicUrl);
 
-      const uploadedVideoUrl = await handleUploadFile(
+      // Upload raw video
+      const uploadedVideo = await handleUploadFile(
         videoFile,
         `${folderSlug}/videos`,
         setVideoProgress
       );
-      setVideoUrl(uploadedVideoUrl);
+
+      // Process video on server (ffmpeg + faststart)
+      const processedVideoUrl = await handleProcessVideo(uploadedVideo.key);
+      setVideoUrl(processedVideoUrl);
 
       const socialUrl =
         socialMediaUrl ||
         creators.find((c) => c.name === creatorName)?.socialMediaUrl;
 
+      // Save video record to DB
       await fetch("/api/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,15 +161,15 @@ export default function UploadPage() {
           price,
           creatorName,
           socialMediaUrl: socialUrl,
-          thumbnail: uploadedThumbnailUrl,
-          url: uploadedVideoUrl,
+          thumbnail: uploadedThumbnailUrl.publicUrl,
+          url: processedVideoUrl,
         }),
       });
 
-      alert("✅ Upload successful!");
+      alert("✅ Upload and processing successful!");
     } catch (err) {
       console.error(err);
-      alert("❌ Upload failed");
+      alert("❌ Upload or processing failed");
     } finally {
       setSubmitting(false);
     }
@@ -241,7 +264,7 @@ export default function UploadPage() {
 
         {videoUrl && (
           <p className="text-sm text-gray-700 break-all">
-            <strong>Video URL:</strong>{" "}
+            <strong>Processed Video URL:</strong>{" "}
             <a
               href={videoUrl}
               target="_blank"
@@ -278,7 +301,7 @@ export default function UploadPage() {
           disabled={submitting}
           className="w-full bg-green-600 text-white py-3 rounded"
         >
-          {submitting ? "Uploading..." : "Upload"}
+          {submitting ? "Uploading & Processing..." : "Upload"}
         </button>
       </form>
     </div>

@@ -6,6 +6,7 @@ export default function VideoGridClient({ videos = [] }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const videoRefs = useRef({});
 
+  // 🗓️ Format Date Helper (same as original)
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
     const date = dateInput.$date
@@ -14,6 +15,7 @@ export default function VideoGridClient({ videos = [] }) {
     const now = new Date();
     const diffTime = now - date;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays <= 7) return `${diffDays} days ago`;
@@ -24,7 +26,7 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // Lazy-load grid videos
+  // 🎥 Lazy-load grid videos (metadata for thumbnails)
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -39,7 +41,7 @@ export default function VideoGridClient({ videos = [] }) {
           }
         });
       },
-      { rootMargin: "200px" }
+      { rootMargin: "300px" } // earlier trigger for smoother scroll loading
     );
 
     Object.values(videoRefs.current).forEach(
@@ -48,26 +50,76 @@ export default function VideoGridClient({ videos = [] }) {
     return () => observer.disconnect();
   }, [videos]);
 
-  // Open modal
-  const openVideo = (index) => {
-    setSelectedVideoIndex(index);
-    setSelectedVideo(videos[index]);
+  // ⚡ Regular browser preload helper
+  const preloadVideoLink = (url) => {
+    if (!url) return;
+    const existing = document.querySelector(`link[as="video"][href="${url}"]`);
+    if (!existing) {
+      const link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "video";
+      link.href = url;
+      document.head.appendChild(link);
+    }
   };
 
-  // Preload neighbor videos
+  // ⚡ Aggressive manual preloader — fetches first ~8–16 MB into cache
+  const aggressivePreload = async (url, maxMB = 8) => {
+    if (!url) return;
+
+    try {
+      // Skip if already cached or being preloaded
+      if (window.__preloadingVideos?.[url]) return;
+
+      window.__preloadingVideos = window.__preloadingVideos || {};
+      window.__preloadingVideos[url] = true;
+
+      const controller = new AbortController();
+      const signal = controller.signal;
+      const response = await fetch(url, { signal, mode: "cors" });
+
+      if (!response.ok || !response.body) return;
+
+      const reader = response.body.getReader();
+      let bytesFetched = 0;
+      const maxBytes = maxMB * 1024 * 1024;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done || !value) break;
+        bytesFetched += value.length;
+        if (bytesFetched > maxBytes) {
+          controller.abort(); // stop after enough data is cached
+          break;
+        }
+      }
+
+      // Allow re-preloading later if needed
+      delete window.__preloadingVideos[url];
+    } catch (err) {
+      // Ignore aborts and CORS issues
+    }
+  };
+
+  // 🟢 Open modal
+  const openVideo = (index) => {
+    const video = videos[index];
+    setSelectedVideoIndex(index);
+    setSelectedVideo(video);
+    // Warm up aggressively before showing
+    preloadVideoLink(video.url);
+    aggressivePreload(video.url, 16); // ~12MB buffer for smooth start
+  };
+
+  // 🎞️ Preload neighbor videos
   useEffect(() => {
     if (selectedVideoIndex === null) return;
 
-    const preloadVideo = (video) => {
-      const v = document.createElement("video");
-      v.src = video.url;
-      v.preload = "metadata";
-    };
+    const next = videos[selectedVideoIndex + 1];
+    const prev = videos[selectedVideoIndex - 1];
 
-    if (videos[selectedVideoIndex + 1])
-      preloadVideo(videos[selectedVideoIndex + 1]);
-    if (videos[selectedVideoIndex - 1])
-      preloadVideo(videos[selectedVideoIndex - 1]);
+    if (next) aggressivePreload(next.url, 6);
+    if (prev) aggressivePreload(prev.url, 6);
   }, [selectedVideoIndex]);
 
   return (
@@ -80,6 +132,7 @@ export default function VideoGridClient({ videos = [] }) {
             <div
               key={video._id}
               className="bg-white shadow-lg rounded-xl overflow-hidden hover:shadow-2xl transition cursor-pointer flex flex-col"
+              onMouseEnter={() => aggressivePreload(video.url, 8)} // 🧠 pre-buffer on hover
             >
               <img
                 src={video.thumbnail}
@@ -148,10 +201,12 @@ export default function VideoGridClient({ videos = [] }) {
               </h2>
 
               <video
+                key={selectedVideo.url}
                 src={selectedVideo.url}
                 controls
                 preload="auto"
                 autoPlay
+                playsInline
                 className="w-full max-h-[200px] sm:max-h-[300px] md:max-h-[400px] rounded mb-4 object-contain"
               />
 
