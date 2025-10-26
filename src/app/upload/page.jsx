@@ -127,7 +127,7 @@ export default function UploadPage() {
     try {
       const folderSlug = slugify(creatorName);
 
-      // Generate and upload thumbnail
+      // 1️⃣ Generate thumbnail in-browser
       const thumbFile = await generateThumbnail(videoFile);
       const uploadedThumbnailUrl = await handleUploadFile(
         thumbFile,
@@ -136,8 +136,8 @@ export default function UploadPage() {
       );
       setThumbnailUrl(uploadedThumbnailUrl.publicUrl);
 
-      // Upload raw video
-      const uploadedVideo = await handleUploadFile(
+      // 2️⃣ Upload video
+      const uploadedVideoUrl = await handleUploadFile(
         videoFile,
         `${folderSlug}/videos`,
         setVideoProgress
@@ -147,11 +147,12 @@ export default function UploadPage() {
       const processedVideoUrl = await handleProcessVideo(uploadedVideo.key);
       setVideoUrl(processedVideoUrl);
 
+      // 3️⃣ Determine social media URL
       const socialUrl =
         socialMediaUrl ||
         creators.find((c) => c.name === creatorName)?.socialMediaUrl;
 
-      // Save video record to DB
+      // 4️⃣ Submit metadata
       await fetch("/api/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

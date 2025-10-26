@@ -58,10 +58,8 @@ export async function POST(req) {
 
     const publicUrl = `${PUSHR_CDN_URL.replace(/\/$/, "")}/${key}`;
 
-    // ⚡ NEW: Return a URL you can call after upload to trigger optimization
-    const processUrl = `/api/processVideo`;
-
-    return NextResponse.json({ uploadUrl, publicUrl, key, processUrl });
+    // ⚡ Return minimal info for client upload
+    return NextResponse.json({ uploadUrl, publicUrl, key });
   } catch (err) {
     console.error("❌ Failed to generate upload URL:", err);
     return NextResponse.json(
