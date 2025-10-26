@@ -12,6 +12,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.916.0",
     "@aws-sdk/s3-request-presigner": "^3.916.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@heroicons/react": "^2.2.0",
     "@uploadthing/react": "^7.3.3",
     "aws-sdk": "^2.1692.0",

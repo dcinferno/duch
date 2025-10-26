@@ -1,74 +1,66 @@
 import { NextResponse } from "next/server";
 import ffmpeg from "fluent-ffmpeg";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import fs from "fs";
 import path from "path";
-import {
-  S3Client,
-  GetObjectCommand,
-  PutObjectCommand,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { nanoid } from "nanoid";
 
-const { PUSHR_ENDPOINT, PUSHR_ACCESS_KEY, PUSHR_SECRET_KEY, PUSHR_BUCKET_ID } =
-  process.env;
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: PUSHR_ENDPOINT,
-  credentials: {
-    accessKeyId: PUSHR_ACCESS_KEY,
-    secretAccessKey: PUSHR_SECRET_KEY,
-  },
-  forcePathStyle: true,
-});
+const { UPLOAD_SECRET_KEY } = process.env;
 
 export async function POST(req) {
   try {
-    const { key } = await req.json(); // <-- key of the uploaded video
-    if (!key)
-      return NextResponse.json({ error: "Missing key" }, { status: 400 });
+    const { secret, videoUrl } = await req.json();
 
-    // Download from S3 to /tmp (Vercel serverless temp)
-    const tempPath = path.join("/tmp", path.basename(key));
-    const data = await s3.send(
-      new GetObjectCommand({ Bucket: PUSHR_BUCKET_ID, Key: key })
-    );
-    const writeStream = fs.createWriteStream(tempPath);
-    data.Body.pipe(writeStream);
+    if (secret !== UPLOAD_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "Unauthorized: invalid upload key" },
+        { status: 403 }
+      );
+    }
 
+    if (!videoUrl) {
+      return NextResponse.json({ error: "Missing videoUrl" }, { status: 400 });
+    }
+
+    // Download the video temporarily (serverless functions have /tmp directory)
+    const tmpDir = "/tmp";
+    const tmpFile = path.join(tmpDir, `${nanoid(10)}.mp4`);
+
+    const res = await fetch(videoUrl);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    await fs.promises.writeFile(tmpFile, buffer);
+
+    const outputFile = path.join(tmpDir, `${nanoid(10)}.mp4`);
+
+    // Transcode / move moov atom to start for faststart
     await new Promise((resolve, reject) => {
-      writeStream.on("finish", resolve);
-      writeStream.on("error", reject);
-    });
-
-    // Re-encode with ffmpeg
-    const optimizedPath = path.join("/tmp", "optimized-" + path.basename(key));
-    await new Promise((resolve, reject) => {
-      ffmpeg(tempPath)
-        .outputOptions("-movflags +faststart") // make video start faster
+      ffmpeg(tmpFile)
+        .outputOptions(["-movflags +faststart"])
         .on("end", resolve)
         .on("error", reject)
-        .save(optimizedPath);
+        .save(outputFile);
     });
 
-    // Upload optimized video back to S3 (overwrite original or new key)
-    const optimizedKey = key.replace(/(\.[^.]+)$/, "-optimized$1");
-    const fileBuffer = fs.readFileSync(optimizedPath);
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: PUSHR_BUCKET_ID,
-        Key: optimizedKey,
-        Body: fileBuffer,
-        ContentType: "video/mp4",
-        ACL: "public-read",
-      })
-    );
+    // Read processed file back
+    const processedBuffer = await fs.promises.readFile(outputFile);
 
-    return NextResponse.json({ optimizedKey });
+    // Clean up temp files
+    fs.unlink(tmpFile, () => {});
+    fs.unlink(outputFile, () => {});
+
+    // Return processed video as base64 (or upload to S3/CDN here)
+    const base64Video = processedBuffer.toString("base64");
+
+    return NextResponse.json({
+      message: "Video processed successfully",
+      videoBase64: base64Video,
+    });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Video processing failed:", err);
     return NextResponse.json(
-      { error: "Failed to process video" },
+      { error: "Video processing failed", details: err.message },
       { status: 500 }
     );
   }
