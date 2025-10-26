@@ -11,6 +11,7 @@ function slugify(name) {
 }
 
 export default function UploadPage() {
+  // --- State ---
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState(0);
@@ -19,7 +20,6 @@ export default function UploadPage() {
   const [videoFile, setVideoFile] = useState(null);
   const [videoProgress, setVideoProgress] = useState(0);
   const [thumbnailProgress, setThumbnailProgress] = useState(0);
-  const [processedProgress, setProcessedProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [creators, setCreators] = useState([]);
   const [secretKey, setSecretKey] = useState("");
@@ -28,6 +28,7 @@ export default function UploadPage() {
 
   const videoInputRef = useRef(null);
 
+  // --- Fetch creators ---
   useEffect(() => {
     async function fetchCreators() {
       try {
@@ -35,12 +36,13 @@ export default function UploadPage() {
         const data = await res.json();
         setCreators(data);
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch creators:", err);
       }
     }
     fetchCreators();
   }, []);
 
+  // --- Generate thumbnail ---
   const generateThumbnail = (file) =>
     new Promise((resolve, reject) => {
       const video = document.createElement("video");
@@ -67,7 +69,10 @@ export default function UploadPage() {
       video.onerror = (err) => reject(err);
     });
 
+  // --- Upload to presigned URL ---
   const handleUploadFile = async (file, folder, setProgress) => {
+    if (!file) throw new Error("No file provided");
+
     const res = await fetch("/api/uploadUrl", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -79,21 +84,38 @@ export default function UploadPage() {
       }),
     });
 
-    if (!res.ok) throw new Error("Failed to get upload URL");
-    const { uploadUrl, publicUrl, key } = await res.json();
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Failed to get upload URL: ${res.status} - ${text}`);
+    }
 
+    const { uploadUrl, publicUrl, key } = await res.json();
+    console.log("🟢 Got upload URL:", uploadUrl);
+
+    // Upload file (POST if PusHR, PUT if S3)
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable)
+        if (e.lengthComputable) {
           setProgress(Math.round((e.loaded / e.total) * 100));
+        }
       });
-      xhr.onload = () =>
-        xhr.status >= 200 && xhr.status < 300
-          ? resolve()
-          : reject(new Error(`Upload failed ${xhr.status}`));
-      xhr.onerror = () => reject(new Error("Network error"));
-      xhr.open("PUT", uploadUrl);
+      xhr.onload = () => {
+        console.log("📦 Upload complete:", xhr.status, xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(
+            new Error(`Upload failed: ${xhr.status} - ${xhr.responseText}`)
+          );
+        }
+      };
+      xhr.onerror = () => {
+        console.error("🚨 Network error during upload", xhr);
+        reject(new Error("Network error"));
+      };
+
+      xhr.open("PUT", uploadUrl); // if PusHR requires POST, change here
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
     });
@@ -101,24 +123,10 @@ export default function UploadPage() {
     return { publicUrl, key };
   };
 
-  const handleProcessVideo = async (key) => {
-    const res = await fetch("/api/processVideo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        secret: secretKey,
-        key,
-      }),
-    });
-
-    if (!res.ok) throw new Error("Video processing failed");
-
-    const { processedUrl } = await res.json();
-    return processedUrl;
-  };
-
+  // --- Submit handler ---
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!videoFile) return alert("Select a video!");
     if (!creatorName) return alert("Select a creator!");
     if (!secretKey) return alert("Enter secret key!");
@@ -127,25 +135,22 @@ export default function UploadPage() {
     try {
       const folderSlug = slugify(creatorName);
 
-      // 1️⃣ Generate thumbnail in-browser
+      // 1️⃣ Generate & upload thumbnail
       const thumbFile = await generateThumbnail(videoFile);
-      const uploadedThumbnailUrl = await handleUploadFile(
+      const uploadedThumbnail = await handleUploadFile(
         thumbFile,
         `${folderSlug}/thumbnails`,
         setThumbnailProgress
       );
-      setThumbnailUrl(uploadedThumbnailUrl.publicUrl);
+      setThumbnailUrl(uploadedThumbnail.publicUrl);
 
-      // 2️⃣ Upload video
-      const uploadedVideoUrl = await handleUploadFile(
+      // 2️⃣ Upload video directly
+      const uploadedVideo = await handleUploadFile(
         videoFile,
         `${folderSlug}/videos`,
         setVideoProgress
       );
-
-      // Process video on server (ffmpeg + faststart)
-      const processedVideoUrl = await handleProcessVideo(uploadedVideo.key);
-      setVideoUrl(processedVideoUrl);
+      setVideoUrl(uploadedVideo.publicUrl);
 
       // 3️⃣ Determine social media URL
       const socialUrl =
@@ -162,23 +167,25 @@ export default function UploadPage() {
           price,
           creatorName,
           socialMediaUrl: socialUrl,
-          thumbnail: uploadedThumbnailUrl.publicUrl,
-          url: processedVideoUrl,
+          thumbnail: uploadedThumbnail.publicUrl,
+          url: uploadedVideo.publicUrl, // direct S3 URL
         }),
       });
 
-      alert("✅ Upload and processing successful!");
+      alert("✅ Upload successful!");
     } catch (err) {
-      console.error(err);
-      alert("❌ Upload or processing failed");
+      console.error("❌ Upload failed:", err);
+      alert("❌ Upload failed — see console for details");
     } finally {
       setSubmitting(false);
     }
   };
 
+  // --- UI ---
   return (
     <div className="max-w-xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">Upload Video</h1>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
           type="text"
@@ -188,6 +195,7 @@ export default function UploadPage() {
           className="w-full p-3 border rounded"
           required
         />
+
         <textarea
           placeholder="Description"
           value={description}
@@ -195,6 +203,7 @@ export default function UploadPage() {
           className="w-full p-3 border rounded"
           required
         />
+
         <input
           type="number"
           placeholder="Price"
@@ -203,6 +212,7 @@ export default function UploadPage() {
           className="w-full p-3 border rounded"
           min={0}
         />
+
         <select
           value={creatorName}
           onChange={(e) => setCreatorName(e.target.value)}
@@ -216,6 +226,7 @@ export default function UploadPage() {
             </option>
           ))}
         </select>
+
         <input
           type="text"
           placeholder="Social Media URL (optional)"
@@ -246,14 +257,7 @@ export default function UploadPage() {
           </div>
         </label>
 
-        {videoProgress > 0 && (
-          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
-            <div
-              className="bg-green-600 h-2 rounded"
-              style={{ width: `${videoProgress}%` }}
-            />
-          </div>
-        )}
+        {/* Progress bars */}
         {thumbnailProgress > 0 && (
           <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
             <div
@@ -263,27 +267,40 @@ export default function UploadPage() {
           </div>
         )}
 
-        {videoUrl && (
-          <p className="text-sm text-gray-700 break-all">
-            <strong>Processed Video URL:</strong>{" "}
-            <a
-              href={videoUrl}
-              target="_blank"
-              className="text-green-700 underline"
-            >
-              {videoUrl}
-            </a>
-          </p>
+        {videoProgress > 0 && (
+          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
+            <div
+              className="bg-green-600 h-2 rounded"
+              style={{ width: `${videoProgress}%` }}
+            />
+          </div>
         )}
+
+        {/* Links */}
         {thumbnailUrl && (
           <p className="text-sm text-gray-700 break-all">
-            <strong>Thumbnail URL:</strong>{" "}
+            <strong>Thumbnail:</strong>{" "}
             <a
               href={thumbnailUrl}
               target="_blank"
+              rel="noopener noreferrer"
               className="text-green-700 underline"
             >
               {thumbnailUrl}
+            </a>
+          </p>
+        )}
+
+        {videoUrl && (
+          <p className="text-sm text-gray-700 break-all">
+            <strong>Video:</strong>{" "}
+            <a
+              href={videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-700 underline"
+            >
+              {videoUrl}
             </a>
           </p>
         )}
@@ -302,7 +319,7 @@ export default function UploadPage() {
           disabled={submitting}
           className="w-full bg-green-600 text-white py-3 rounded"
         >
-          {submitting ? "Uploading & Processing..." : "Upload"}
+          {submitting ? "Uploading..." : "Upload"}
         </button>
       </form>
     </div>
