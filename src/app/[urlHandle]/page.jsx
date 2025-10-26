@@ -63,7 +63,7 @@ export default function CreatorPage() {
             onClick={() => setShowPhotoModal(true)}
           />
         )}
-        <h1 className="text-3xl font-bold">{creator.name}'s Videos</h1>
+        <h1 className="text-2xl font-bold">{creator.name}'s Videos</h1>
       </div>
 
       {/* Video Grid */}
