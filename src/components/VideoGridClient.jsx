@@ -1,25 +1,22 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export default function VideoGridClient({ videos = [] }) {
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const videoRefs = useRef({});
 
-  // Helper to format dates
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
-    // Normalize MongoDB $date wrapper
     const date = dateInput.$date
       ? new Date(dateInput.$date)
       : new Date(dateInput);
-
     const now = new Date();
     const diffTime = now - date;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays <= 7) return `${diffDays} days ago`;
-
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -27,39 +24,80 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
+  // Lazy-load grid videos
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const videoEl = entry.target;
+            if (videoEl.dataset.src) {
+              videoEl.src = videoEl.dataset.src;
+              videoEl.preload = "metadata";
+              videoEl.removeAttribute("data-src");
+            }
+          }
+        });
+      },
+      { rootMargin: "200px" }
+    );
+
+    Object.values(videoRefs.current).forEach(
+      (el) => el && observer.observe(el)
+    );
+    return () => observer.disconnect();
+  }, [videos]);
+
+  // Open modal
+  const openVideo = (index) => {
+    setSelectedVideoIndex(index);
+    setSelectedVideo(videos[index]);
+  };
+
+  // Preload neighbor videos
+  useEffect(() => {
+    if (selectedVideoIndex === null) return;
+
+    const preloadVideo = (video) => {
+      const v = document.createElement("video");
+      v.src = video.url;
+      v.preload = "metadata";
+    };
+
+    if (videos[selectedVideoIndex + 1])
+      preloadVideo(videos[selectedVideoIndex + 1]);
+    if (videos[selectedVideoIndex - 1])
+      preloadVideo(videos[selectedVideoIndex - 1]);
+  }, [selectedVideoIndex]);
+
   return (
     <div className="w-full">
       {videos.length === 0 ? (
         <p className="text-center text-gray-600">No videos found.</p>
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {videos.map((video) => (
+          {videos.map((video, index) => (
             <div
               key={video._id}
               className="bg-white shadow-lg rounded-xl overflow-hidden hover:shadow-2xl transition cursor-pointer flex flex-col"
             >
-              {/* Thumbnail */}
               <img
                 src={video.thumbnail}
                 alt={video.title}
                 className="w-full h-64 sm:h-72 object-cover"
               />
 
-              {/* Info */}
               <div className="p-3 flex flex-col flex-1">
                 <div className="flex-1">
                   <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">
                     {video.title}
                   </h3>
-
                   <p className="text-xs text-gray-500 mb-2">
                     {formatDate(video.createdAt)}
                   </p>
-
                   <p className="text-sm text-gray-700 line-clamp-3 mb-2">
                     {video.description}
                   </p>
-
                   <div className="flex items-center justify-between text-sm text-gray-600">
                     {video.socialMediaUrl ? (
                       <a
@@ -80,7 +118,7 @@ export default function VideoGridClient({ videos = [] }) {
                 </div>
 
                 <button
-                  onClick={() => setSelectedVideo(video)}
+                  onClick={() => openVideo(index)}
                   className="mt-3 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 w-full text-sm sm:text-base font-medium transition-all"
                 >
                   Preview
@@ -91,12 +129,14 @@ export default function VideoGridClient({ videos = [] }) {
         </div>
       )}
 
-      {/* Modal */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md md:max-w-lg relative overflow-auto">
             <button
-              onClick={() => setSelectedVideo(null)}
+              onClick={() => {
+                setSelectedVideo(null);
+                setSelectedVideoIndex(null);
+              }}
               className="absolute top-2 right-3 text-gray-500 hover:text-black text-xl"
             >
               &times;
@@ -110,6 +150,8 @@ export default function VideoGridClient({ videos = [] }) {
               <video
                 src={selectedVideo.url}
                 controls
+                preload="auto"
+                autoPlay
                 className="w-full max-h-[200px] sm:max-h-[300px] md:max-h-[400px] rounded mb-4 object-contain"
               />
 
@@ -132,7 +174,6 @@ export default function VideoGridClient({ videos = [] }) {
                     {selectedVideo.creatorName}
                   </span>
                 )}
-
                 <span className="text-sm text-gray-800 font-semibold">
                   {selectedVideo.price === 0
                     ? "Free"
