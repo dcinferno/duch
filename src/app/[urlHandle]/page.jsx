@@ -9,6 +9,7 @@ export default function CreatorPage() {
   const [creator, setCreator] = useState(null);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   useEffect(() => {
     async function fetchCreatorAndVideos() {
@@ -19,11 +20,11 @@ export default function CreatorPage() {
         if (!creatorRes.ok) throw new Error("Creator not found");
         const creatorData = await creatorRes.json();
         setCreator(creatorData);
+
         // Fetch videos by creator name (temporarily)
         const videosRes = await fetch(
           `/api/videos?creator=${encodeURIComponent(urlHandle)}`
         );
-
         if (!videosRes.ok) throw new Error("Videos not found");
         const videoData = await videosRes.json();
 
@@ -58,7 +59,8 @@ export default function CreatorPage() {
           <img
             src={creator.photo}
             alt={creator.name}
-            className="w-20 h-20 rounded-full object-cover mr-4 shadow-lg"
+            className="w-20 h-20 rounded-full object-cover mr-4 shadow-lg cursor-pointer hover:scale-105 transition-transform"
+            onClick={() => setShowPhotoModal(true)}
           />
         )}
         <h1 className="text-3xl font-bold">{creator.name}'s Videos</h1>
@@ -69,6 +71,20 @@ export default function CreatorPage() {
         <VideoGridClient videos={videos} />
       ) : (
         <p className="text-gray-500">No videos found for this creator.</p>
+      )}
+
+      {/* Full-screen photo modal */}
+      {showPhotoModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowPhotoModal(false)}
+        >
+          <img
+            src={creator.photo}
+            alt={creator.name}
+            className="max-w-full max-h-full rounded-lg shadow-lg"
+          />
+        </div>
       )}
     </div>
   );
