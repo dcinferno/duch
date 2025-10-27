@@ -1,6 +1,6 @@
 // app/layout.jsx
 export const dynamic = "force-dynamic";
-
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import RootLayoutClient from "../components/RootLayoutClient";
 import ClientOnly from "../components/ClientOnly";
@@ -29,6 +29,7 @@ export default async function RootLayout({ children }) {
       <body className="h-full flex flex-col">
         {/* Top header with logo */}
         <header className="w-full flex justify-center items-center py-4 border-b border-gray-200">
+          <GoogleAnalytics gaId="G-QNL24T0P74" />
           <Link href="/">
             <Image src={logo} alt="App Logo" width={96} height={96} />
           </Link>
