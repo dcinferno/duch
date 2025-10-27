@@ -50,6 +50,10 @@ export default function Sidebar({ creators }) {
                         🐰
                       </span>
                     </div>
+                  ) : creator.icon === "bowing-man" ? (
+                    <span className="inline-block text-2xl animate-bow">
+                      🙇🏿‍♂️
+                    </span>
                   ) : (
                     <span className="text-yellow-400 text-lg animate-pulse inline-block">
                       ⭐
@@ -132,12 +136,27 @@ export default function Sidebar({ creators }) {
             transform: rotate(360deg);
           }
         }
-
         .animate-spin-slow {
           animation: spin-slow 15s linear infinite;
           display: inline-block;
           will-change: transform;
           transform: translateZ(0);
+        }
+
+        /* 👇 Bowing Man Animation */
+        @keyframes bow {
+          0%,
+          100% {
+            transform: rotate(0deg) scale(1);
+          }
+          50% {
+            transform: rotate(25deg) scale(0.95);
+          }
+        }
+        .animate-bow {
+          display: inline-block;
+          transform-origin: bottom center;
+          animation: bow 2.5s ease-in-out infinite;
         }
       `}</style>
     </aside>
