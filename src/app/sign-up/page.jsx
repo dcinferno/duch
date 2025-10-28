@@ -20,7 +20,7 @@ export default function PricingCard() {
 
           {/* Telegram Button */}
           <a
-            href="https://t.me/dcinferno94"
+            href="https://t.me/+J1geKhStyTxkOTM5"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
