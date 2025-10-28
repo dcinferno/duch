@@ -35,7 +35,11 @@ export default function Sidebar({ creators }) {
 
                 {/* Dynamic Icon Logic */}
                 <span>
-                  {creator.icon === "devil" ? (
+                  {creator.icon === "fire" ? (
+                    <span className="text-orange-500 text-xl animate-flicker inline-block">
+                      🔥
+                    </span>
+                  ) : creator.icon === "devil" ? (
                     <span className="text-red-600 text-lg animate-pulse inline-block">
                       😈
                     </span>
@@ -112,6 +116,7 @@ export default function Sidebar({ creators }) {
       </div>
 
       <style jsx>{`
+        /* 🌈 Animated gradient for names */
         @keyframes gradient-x {
           0% {
             background-position: 0% 50%;
@@ -128,6 +133,7 @@ export default function Sidebar({ creators }) {
           animation: gradient-x 3s linear infinite;
         }
 
+        /* ❄️ Slow spin for snowflake */
         @keyframes spin-slow {
           from {
             transform: rotate(0deg);
@@ -143,7 +149,7 @@ export default function Sidebar({ creators }) {
           transform: translateZ(0);
         }
 
-        /* 👇 Bowing Man Animation */
+        /* 🙇🏿‍♂️ Bowing Man Animation */
         @keyframes bow {
           0%,
           100% {
@@ -157,6 +163,28 @@ export default function Sidebar({ creators }) {
           display: inline-block;
           transform-origin: bottom center;
           animation: bow 2.5s ease-in-out infinite;
+        }
+
+        /* 🔥 Fire Flicker Animation */
+        @keyframes flicker {
+          0%,
+          100% {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+          }
+          50% {
+            opacity: 0.75;
+            transform: scale(1.1) rotate(-5deg);
+          }
+          75% {
+            opacity: 0.9;
+            transform: scale(0.95) rotate(3deg);
+          }
+        }
+        .animate-flicker {
+          animation: flicker 1s infinite ease-in-out;
+          display: inline-block;
+          will-change: transform, opacity;
         }
       `}</style>
     </aside>
