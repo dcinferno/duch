@@ -25,6 +25,7 @@ export default function UploadPage() {
   const [secretKey, setSecretKey] = useState("");
   const [videoUrl, setVideoUrl] = useState(null);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const videoInputRef = useRef(null);
 
@@ -92,7 +93,6 @@ export default function UploadPage() {
     const { uploadUrl, publicUrl, key } = await res.json();
     console.log("🟢 Got upload URL:", uploadUrl);
 
-    // Upload file (POST if PusHR, PUT if S3)
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.upload.addEventListener("progress", (e) => {
@@ -101,7 +101,6 @@ export default function UploadPage() {
         }
       });
       xhr.onload = () => {
-        console.log("📦 Upload complete:", xhr.status, xhr.responseText);
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve();
         } else {
@@ -115,12 +114,32 @@ export default function UploadPage() {
         reject(new Error("Network error"));
       };
 
-      xhr.open("PUT", uploadUrl); // if PusHR requires POST, change here
+      xhr.open("PUT", uploadUrl);
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
     });
 
     return { publicUrl, key };
+  };
+
+  // --- Reset form ---
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    setPrice(0);
+    setCreatorName("");
+    setSocialMediaUrl("");
+    setVideoFile(null);
+    setVideoProgress(0);
+    setThumbnailProgress(0);
+    setVideoUrl(null);
+    setThumbnailUrl(null);
+    setSecretKey("");
+    setSuccessMessage("");
+
+    if (videoInputRef.current) {
+      videoInputRef.current.value = "";
+    }
   };
 
   // --- Submit handler ---
@@ -168,11 +187,14 @@ export default function UploadPage() {
           creatorName,
           socialMediaUrl: socialUrl,
           thumbnail: uploadedThumbnail.publicUrl,
-          url: uploadedVideo.publicUrl, // direct S3 URL
+          url: uploadedVideo.publicUrl,
         }),
       });
 
-      alert("✅ Upload successful!");
+      // ✅ Success banner
+      setSuccessMessage("✅ Upload successful!");
+      resetForm();
+      setTimeout(() => setSuccessMessage(""), 4000);
     } catch (err) {
       console.error("❌ Upload failed:", err);
       alert("❌ Upload failed — see console for details");
@@ -185,6 +207,12 @@ export default function UploadPage() {
   return (
     <div className="max-w-xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">Upload Video</h1>
+
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-800 rounded transition-all duration-300">
+          {successMessage}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
