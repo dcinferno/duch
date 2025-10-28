@@ -58,6 +58,10 @@ export default function Sidebar({ creators }) {
                     <span className="inline-block text-2xl animate-bow">
                       🙇🏿‍♂️
                     </span>
+                  ) : creator.icon === "cherry" ? (
+                    <span className="text-red-500 text-lg animate-cherry inline-block">
+                      🍒
+                    </span>
                   ) : (
                     <span className="text-yellow-400 text-lg animate-pulse inline-block">
                       ⭐
@@ -185,6 +189,29 @@ export default function Sidebar({ creators }) {
           animation: flicker 1s infinite ease-in-out;
           display: inline-block;
           will-change: transform, opacity;
+        }
+
+        /* 🍒 Cherry Pulse Animation (MAX GLOW) */
+        @keyframes cherry-pulse {
+          0%,
+          100% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 10px rgba(255, 0, 80, 1))
+              drop-shadow(0 0 20px rgba(255, 0, 100, 0.95))
+              drop-shadow(0 0 30px rgba(255, 0, 120, 0.85));
+          }
+          50% {
+            transform: scale(1.4);
+            filter: drop-shadow(0 0 20px rgba(255, 0, 100, 1))
+              drop-shadow(0 0 40px rgba(255, 20, 150, 1))
+              drop-shadow(0 0 60px rgba(255, 60, 180, 1));
+          }
+        }
+        .animate-cherry {
+          animation: cherry-pulse 1.8s ease-in-out infinite;
+          display: inline-block;
+          will-change: transform, filter;
+          transform-origin: center;
         }
       `}</style>
     </aside>
