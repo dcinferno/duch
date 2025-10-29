@@ -7,15 +7,14 @@ export async function GET(request) {
     await connectToDB();
 
     const { searchParams } = new URL(request.url);
-    const creatorUrlHandle = searchParams.get("creator"); // ?creator=johnsmith
+    const creatorUrlHandle = searchParams.get("creator"); // e.g. ?creator=johnsmith
 
     let filter = {};
 
-    // 🧩 Step 1: Check if a specific creator is being requested
-    let creator = null;
+    // 1️⃣ Check if a specific creator page is being requested
     if (creatorUrlHandle) {
-      // Allow secret creators when fetching their own page
-      creator = await Creators.findOne({
+      // Allow secret creators when their page is requested
+      const creator = await Creators.findOne({
         urlHandle: new RegExp(`^${creatorUrlHandle}$`, "i"),
       });
 
@@ -23,33 +22,40 @@ export async function GET(request) {
         return Response.json({ error: "Creator not found" }, { status: 404 });
       }
 
-      // Match videos by creator name
       filter.creatorName = new RegExp(`^${creator.name}$`, "i");
+
+      // Get videos only for this creator
+      const videos = await Videos.find(filter).sort({ createdAt: -1 });
+
+      // Merge their own data
+      const videosWithCreatorData = videos.map((video) => ({
+        ...video.toObject(),
+        creatorUrlHandle: creator.urlHandle,
+        premium: creator.premium,
+        icon: creator.icon,
+        socialMediaUrl: creator.socialMediaUrl || video.socialMediaUrl,
+      }));
+
+      return Response.json(videosWithCreatorData);
     }
 
-    // 🧩 Step 2: Decide which creators to fetch
-    // If no specific creator requested → hide secret ones
-    const creatorQuery = creatorUrlHandle
-      ? {} // show all when visiting a specific creator page
-      : { secret: { $ne: true } };
-
-    const creators = await Creators.find(
-      creatorQuery,
-      "name urlHandle premium icon socialMediaUrl secret"
+    // 2️⃣ If no creator specified → public feed (exclude secret creators)
+    const visibleCreators = await Creators.find(
+      { secret: { $ne: true } },
+      "name urlHandle premium icon socialMediaUrl"
     );
 
-    // 🧩 Step 3: For public listing, only include videos from non-secret creators
-    if (!creatorUrlHandle) {
-      const visibleCreatorNames = creators.map((c) => c.name.toLowerCase());
-      filter.creatorName = { $in: visibleCreatorNames };
-    }
+    // Extract visible names
+    const visibleCreatorNames = visibleCreators.map((c) => c.name);
 
-    // 🧩 Step 4: Fetch videos
-    const videos = await Videos.find(filter).sort({ createdAt: -1 });
+    // Find videos from visible creators only
+    const videos = await Videos.find({
+      creatorName: { $in: visibleCreatorNames },
+    }).sort({ createdAt: -1 });
 
-    // 🧩 Step 5: Merge creator info
+    // Merge creator info
     const videosWithCreatorData = videos.map((video) => {
-      const creator = creators.find(
+      const creator = visibleCreators.find(
         (c) => c.name.toLowerCase() === video.creatorName.toLowerCase()
       );
 
