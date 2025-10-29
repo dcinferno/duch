@@ -59,8 +59,15 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     await connectToDB();
-    const { title, description, thumbnail, price, creatorName, url } =
-      await request.json();
+    const {
+      title,
+      description,
+      thumbnail,
+      price,
+      creatorName,
+      url,
+      tags = [],
+    } = await request.json();
 
     // Normalize creator name for searching
     const normalizedName = creatorName.trim();
@@ -85,6 +92,7 @@ export async function POST(request) {
       creatorName: creator.name, // keep consistent formatting
       socialMediaUrl,
       url,
+      tags,
     });
 
     return Response.json(video, { status: 201 });
