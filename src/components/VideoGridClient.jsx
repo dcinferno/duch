@@ -4,11 +4,13 @@ import { useState, useRef, useEffect } from "react";
 export default function VideoGridClient({ videos = [] }) {
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
-  const [selectedTags, setSelectedTags] = useState([]); // 🏷️ tag filter
-  const [showPremiumOnly, setShowPremiumOnly] = useState(false); // 💎 premium filter
-  const [VideoViewss, setVideoViewss] = useState({}); // 👁️ video views
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [showPremiumOnly, setShowPremiumOnly] = useState(false);
+  const [VideoViewss, setVideoViewss] = useState({});
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
+  const fetchQueue = useRef([]);
+  const isProcessingQueue = useRef(false);
 
   // 🗓️ Format Date Helper
   const formatDate = (dateInput) => {
@@ -19,7 +21,6 @@ export default function VideoGridClient({ videos = [] }) {
     const now = new Date();
     const diffTime = now - date;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays <= 7) return `${diffDays} days ago`;
@@ -30,7 +31,7 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // 🧩 Filtering logic (ALL tags + optional premium)
+  // 🧩 Filtering logic
   const filteredVideos = videos.filter((v) => {
     const matchesTags =
       selectedTags.length === 0 ||
@@ -39,7 +40,7 @@ export default function VideoGridClient({ videos = [] }) {
     return matchesTags && matchesPremium;
   });
 
-  // ⚡ Lazy-load grid videos
+  // ⚡ Lazy-load video src
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -63,7 +64,7 @@ export default function VideoGridClient({ videos = [] }) {
     return () => observer.disconnect();
   }, [videos]);
 
-  // ⚡ Regular browser preload helper
+  // ⚡ Preload helpers
   const preloadVideoLink = (url) => {
     if (!url) return;
     const existing = document.querySelector(`link[as="video"][href="${url}"]`);
@@ -76,25 +77,21 @@ export default function VideoGridClient({ videos = [] }) {
     }
   };
 
-  // ⚡ Aggressive preloader
   const aggressivePreload = async (url, maxMB = 8) => {
     if (!url) return;
     try {
       if (window.__preloadingVideos?.[url]) return;
-
       window.__preloadingVideos = window.__preloadingVideos || {};
       window.__preloadingVideos[url] = true;
 
       const controller = new AbortController();
       const signal = controller.signal;
       const response = await fetch(url, { signal, mode: "cors" });
-
       if (!response.ok || !response.body) return;
 
       const reader = response.body.getReader();
       let bytesFetched = 0;
       const maxBytes = maxMB * 1024 * 1024;
-
       while (true) {
         const { done, value } = await reader.read();
         if (done || !value) break;
@@ -106,9 +103,7 @@ export default function VideoGridClient({ videos = [] }) {
       }
 
       delete window.__preloadingVideos[url];
-    } catch (err) {
-      // Ignore aborts and CORS issues
-    }
+    } catch {}
   };
 
   // 🟢 Open modal
@@ -129,75 +124,89 @@ export default function VideoGridClient({ videos = [] }) {
     if (prev) aggressivePreload(prev.url, 6);
   }, [selectedVideoIndex]);
 
-  // 🏷️ Collect unique tags
+  // 🏷️ Tags
   const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
-
-  // 🏷️ Toggle tag selection
-  const toggleTag = (tag) => {
+  const toggleTag = (tag) =>
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
-  };
-
-  // 💎 Toggle premium filter
-  const togglePremium = () => {
-    setShowPremiumOnly((prev) => !prev);
-  };
-
-  // ❌ Clear all filters
+  const togglePremium = () => setShowPremiumOnly((prev) => !prev);
   const clearFilters = () => {
     setSelectedTags([]);
     setShowPremiumOnly(false);
   };
 
-  // 📝 Log video view to API and update UI
+  // ❌ Log video view
   const logVideoViews = async (videoId) => {
     if (!videoId || loggedVideosRef.current.has(videoId)) return;
     loggedVideosRef.current.add(videoId);
-
-    // Optimistic update
     setVideoViewss((prev) => ({
       ...prev,
       [videoId]: (prev[videoId] || 0) + 1,
     }));
-
     try {
       await fetch("/api/video-views", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ videoId }),
       });
-    } catch (err) {
-      console.warn("Failed to log video view", err);
-    }
+    } catch {}
   };
 
-  // 👁️ Fetch view counts for displayed videos
-  useEffect(() => {
-    const fetchViews = async () => {
-      const viewsData = {};
-      await Promise.all(
-        filteredVideos.map(async (video) => {
-          try {
-            const res = await fetch(`/api/video-views?videoId=${video._id}`);
-            if (!res.ok) return;
-            const data = await res.json();
-            viewsData[video._id] = data.totalViews || 0;
-          } catch (err) {
-            viewsData[video._id] = 0;
-          }
-        })
-      );
-      setVideoViewss(viewsData);
-    };
-    fetchViews();
-  }, [filteredVideos]);
+  // 👁️ Throttled queue for fetching views
+  const processQueue = async () => {
+    if (isProcessingQueue.current) return;
+    isProcessingQueue.current = true;
 
+    while (fetchQueue.current.length > 0) {
+      const videoId = fetchQueue.current.shift();
+      if (videoId && !VideoViewss[videoId]) {
+        try {
+          const res = await fetch(`/api/video-views?videoId=${videoId}`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          setVideoViewss((prev) => ({
+            ...prev,
+            [videoId]: data.totalViews || 0,
+          }));
+        } catch {
+          setVideoViewss((prev) => ({ ...prev, [videoId]: 0 }));
+        }
+      }
+      await new Promise((r) => setTimeout(r, 500)); // 500ms delay between requests
+    }
+
+    isProcessingQueue.current = false;
+  };
+
+  // 👁️ IntersectionObserver for visible videos
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const videoId = entry.target.dataset.videoId;
+            if (videoId && !VideoViewss[videoId]) {
+              fetchQueue.current.push(videoId);
+              processQueue();
+            }
+          }
+        });
+      },
+      { rootMargin: "200px" }
+    );
+
+    Object.values(videoRefs.current).forEach(
+      (el) => el && observer.observe(el)
+    );
+    return () => observer.disconnect();
+  }, [filteredVideos, VideoViewss]);
+
+  // ------------------- JSX -------------------
   return (
     <div className="w-full">
-      {/* 🧩 Filter Bar */}
+      {/* Filter Bar */}
       <div className="flex flex-wrap gap-2 mb-6 justify-center">
-        {/* 💎 Premium Toggle */}
         <button
           onClick={togglePremium}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
@@ -209,7 +218,6 @@ export default function VideoGridClient({ videos = [] }) {
           💎 Featured Only
         </button>
 
-        {/* 🏷️ Tag Buttons */}
         {allTags.map((tag) => {
           const isSelected = selectedTags.includes(tag);
           return (
@@ -237,7 +245,7 @@ export default function VideoGridClient({ videos = [] }) {
         )}
       </div>
 
-      {/* 🎞️ Video Grid */}
+      {/* Video Grid */}
       {filteredVideos.length === 0 ? (
         <p className="text-center text-gray-600">
           No videos found matching current filters.
@@ -247,6 +255,8 @@ export default function VideoGridClient({ videos = [] }) {
           {filteredVideos.map((video, index) => (
             <div
               key={video._id}
+              data-video-id={video._id} // Important for throttled fetching
+              ref={(el) => (videoRefs.current[video._id] = el)}
               className="bg-white shadow-lg rounded-xl overflow-hidden hover:shadow-2xl transition cursor-pointer flex flex-col"
               onMouseEnter={() => aggressivePreload(video.url, 8)}
             >
@@ -276,7 +286,6 @@ export default function VideoGridClient({ videos = [] }) {
                     {video.description}
                   </p>
 
-                  {/* 👁️ Video views */}
                   <p className="text-xs text-gray-500 mb-2">
                     {VideoViewss[video._id] || 0} views
                   </p>
@@ -323,7 +332,7 @@ export default function VideoGridClient({ videos = [] }) {
         </div>
       )}
 
-      {/* 🎬 Video Modal */}
+      {/* Video Modal */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md md:max-w-lg relative overflow-auto">
