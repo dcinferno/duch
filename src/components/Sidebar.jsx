@@ -1,11 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import logo from "../app/logo.svg"; // adjust path if needed
 
 export default function Sidebar({ creators }) {
   const premiumCreators = creators.filter((creator) => creator.premium);
+  const otherCreators = creators.filter(
+    (creator) => !creator.premium && creator.urlHandle
+  );
+
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <aside className="w-64 bg-gray-900 text-white flex flex-col h-full px-4 pt-4">
@@ -14,6 +20,7 @@ export default function Sidebar({ creators }) {
         <Image src={logo} alt="App Logo" width={96} height={96} />
       </Link>
 
+      {/* Featured Creators */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Featured Creators</h2>
         {premiumCreators.length > 0 ? (
@@ -23,7 +30,6 @@ export default function Sidebar({ creators }) {
                 key={creator._id}
                 className="flex items-center justify-between"
               >
-                {/* Creator Name */}
                 <a
                   href={creator.urlHandle}
                   target="_blank"
@@ -32,8 +38,6 @@ export default function Sidebar({ creators }) {
                 >
                   {creator.name}
                 </a>
-
-                {/* Dynamic Icon Logic */}
                 <span>
                   {creator.icon === "fire" ? (
                     <span className="text-orange-500 text-xl animate-flicker inline-block">
@@ -45,11 +49,9 @@ export default function Sidebar({ creators }) {
                     </span>
                   ) : creator.icon === "main-duo" ? (
                     <div className="flex gap-1">
-                      {/* Snowflake rotating */}
                       <span className="animate-spin-slow inline-block will-change-transform mr-1">
                         ❄️
                       </span>
-                      {/* Bunny bouncing */}
                       <span className="text-pink-400 text-lg animate-bounce inline-block transform-gpu">
                         🐰
                       </span>
@@ -74,6 +76,48 @@ export default function Sidebar({ creators }) {
         ) : (
           <p className="text-gray-400 text-sm">No featured creators yet.</p>
         )}
+      </div>
+
+      {/* Accordion for Other Creators */}
+      <div className="mt-6 border-t border-gray-700 pt-4">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-full flex justify-between items-center text-left text-lg font-semibold hover:text-yellow-400 transition-colors"
+        >
+          <span>Other Creators</span>
+          <span
+            className={`transform transition-transform duration-300 ${
+              isOpen ? "rotate-180" : "rotate-0"
+            }`}
+          >
+            ▼
+          </span>
+        </button>
+
+        <div
+          className={`overflow-hidden transition-all duration-500 ease-in-out ${
+            isOpen ? "max-h-96 opacity-100 mt-3" : "max-h-0 opacity-0"
+          }`}
+        >
+          {otherCreators.length > 0 ? (
+            <ul className="space-y-2">
+              {otherCreators.map((creator) => (
+                <li key={creator._id}>
+                  <a
+                    href={creator.urlHandle}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-sm text-gray-300 hover:text-yellow-400 transition-colors"
+                  >
+                    {creator.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-400 text-sm mt-2">No other creators yet.</p>
+          )}
+        </div>
       </div>
 
       {/* Bottom Buttons */}
@@ -119,8 +163,8 @@ export default function Sidebar({ creators }) {
         </Link>
       </div>
 
+      {/* Keep all your custom animations below */}
       <style jsx>{`
-        /* 🌈 Animated gradient for names */
         @keyframes gradient-x {
           0% {
             background-position: 0% 50%;
@@ -137,7 +181,6 @@ export default function Sidebar({ creators }) {
           animation: gradient-x 3s linear infinite;
         }
 
-        /* ❄️ Slow spin for snowflake */
         @keyframes spin-slow {
           from {
             transform: rotate(0deg);
@@ -149,11 +192,8 @@ export default function Sidebar({ creators }) {
         .animate-spin-slow {
           animation: spin-slow 15s linear infinite;
           display: inline-block;
-          will-change: transform;
-          transform: translateZ(0);
         }
 
-        /* 🙇🏿‍♂️ Bowing Man Animation */
         @keyframes bow {
           0%,
           100% {
@@ -164,34 +204,25 @@ export default function Sidebar({ creators }) {
           }
         }
         .animate-bow {
-          display: inline-block;
-          transform-origin: bottom center;
           animation: bow 2.5s ease-in-out infinite;
+          transform-origin: bottom center;
         }
 
-        /* 🔥 Fire Flicker Animation */
         @keyframes flicker {
           0%,
           100% {
             opacity: 1;
-            transform: scale(1) rotate(0deg);
+            transform: scale(1);
           }
           50% {
             opacity: 0.75;
-            transform: scale(1.1) rotate(-5deg);
-          }
-          75% {
-            opacity: 0.9;
-            transform: scale(0.95) rotate(3deg);
+            transform: scale(1.1);
           }
         }
         .animate-flicker {
           animation: flicker 1s infinite ease-in-out;
-          display: inline-block;
-          will-change: transform, opacity;
         }
 
-        /* 🍒 Cherry Pulse Animation (MAX GLOW) */
         @keyframes cherry-pulse {
           0%,
           100% {
@@ -209,9 +240,6 @@ export default function Sidebar({ creators }) {
         }
         .animate-cherry {
           animation: cherry-pulse 1.8s ease-in-out infinite;
-          display: inline-block;
-          will-change: transform, filter;
-          transform-origin: center;
         }
       `}</style>
     </aside>
