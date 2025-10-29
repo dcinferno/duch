@@ -26,6 +26,7 @@ export default function UploadPage() {
   const [videoUrl, setVideoUrl] = useState(null);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const [tags, setTags] = useState(""); // 🆕 comma-separated tags input
 
   const videoInputRef = useRef(null);
 
@@ -43,7 +44,7 @@ export default function UploadPage() {
     fetchCreators();
   }, []);
 
-  // --- Generate thumbnail ---
+  // --- Generate thumbnail from video ---
   const generateThumbnail = (file) =>
     new Promise((resolve, reject) => {
       const video = document.createElement("video");
@@ -70,7 +71,7 @@ export default function UploadPage() {
       video.onerror = (err) => reject(err);
     });
 
-  // --- Upload to presigned URL ---
+  // --- Upload to S3 presigned URL ---
   const handleUploadFile = async (file, folder, setProgress) => {
     if (!file) throw new Error("No file provided");
 
@@ -91,7 +92,6 @@ export default function UploadPage() {
     }
 
     const { uploadUrl, publicUrl, key } = await res.json();
-    console.log("🟢 Got upload URL:", uploadUrl);
 
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -109,11 +109,7 @@ export default function UploadPage() {
           );
         }
       };
-      xhr.onerror = () => {
-        console.error("🚨 Network error during upload", xhr);
-        reject(new Error("Network error"));
-      };
-
+      xhr.onerror = () => reject(new Error("Network error"));
       xhr.open("PUT", uploadUrl);
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
@@ -135,6 +131,7 @@ export default function UploadPage() {
     setVideoUrl(null);
     setThumbnailUrl(null);
     setSecretKey("");
+    setTags("");
     setSuccessMessage("");
 
     if (videoInputRef.current) {
@@ -154,7 +151,7 @@ export default function UploadPage() {
     try {
       const folderSlug = slugify(creatorName);
 
-      // 1️⃣ Generate & upload thumbnail
+      // 1️⃣ Generate thumbnail
       const thumbFile = await generateThumbnail(videoFile);
       const uploadedThumbnail = await handleUploadFile(
         thumbFile,
@@ -163,7 +160,7 @@ export default function UploadPage() {
       );
       setThumbnailUrl(uploadedThumbnail.publicUrl);
 
-      // 2️⃣ Upload video directly
+      // 2️⃣ Upload video
       const uploadedVideo = await handleUploadFile(
         videoFile,
         `${folderSlug}/videos`,
@@ -176,7 +173,13 @@ export default function UploadPage() {
         socialMediaUrl ||
         creators.find((c) => c.name === creatorName)?.socialMediaUrl;
 
-      // 4️⃣ Submit metadata
+      // 4️⃣ Parse comma-separated tags into array
+      const tagArray = tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
+      // 5️⃣ Send metadata to backend
       await fetch("/api/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,10 +191,10 @@ export default function UploadPage() {
           socialMediaUrl: socialUrl,
           thumbnail: uploadedThumbnail.publicUrl,
           url: uploadedVideo.publicUrl,
+          tags: tagArray,
         }),
       });
 
-      // ✅ Success banner
       setSuccessMessage("✅ Upload successful!");
       resetForm();
       setTimeout(() => setSuccessMessage(""), 4000);
@@ -209,7 +212,7 @@ export default function UploadPage() {
       <h1 className="text-2xl font-bold mb-6">Upload Video</h1>
 
       {successMessage && (
-        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-800 rounded transition-all duration-300">
+        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-800 rounded">
           {successMessage}
         </div>
       )}
@@ -241,6 +244,7 @@ export default function UploadPage() {
           min={0}
         />
 
+        {/* Creator Dropdown */}
         <select
           value={creatorName}
           onChange={(e) => setCreatorName(e.target.value)}
@@ -255,35 +259,33 @@ export default function UploadPage() {
           ))}
         </select>
 
+        {/* 🆕 Tags input */}
         <input
           type="text"
-          placeholder="Social Media URL (optional)"
-          value={socialMediaUrl}
-          onChange={(e) => setSocialMediaUrl(e.target.value)}
+          placeholder="Enter tags separated by commas (e.g. tutorial, javascript, webdev)"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
           className="w-full p-3 border rounded"
         />
 
-        <label className="block mb-4 relative cursor-pointer">
+        {/* Select Video Button */}
+        <div className="mb-4">
           <span className="block mb-1 font-medium">Select Video</span>
           <input
             type="file"
             accept="video/*"
             ref={videoInputRef}
             onChange={(e) => setVideoFile(e.target.files[0])}
-            style={{
-              opacity: 0,
-              position: "absolute",
-              width: "100%",
-              height: "100%",
-              top: 0,
-              left: 0,
-              cursor: "pointer",
-            }}
+            className="hidden"
           />
-          <div className="w-full bg-green-600 text-white py-3 rounded text-center">
+          <button
+            type="button"
+            onClick={() => videoInputRef.current?.click()}
+            className="w-full bg-green-600 text-white py-3 rounded text-center hover:bg-green-700 transition"
+          >
             {videoFile ? videoFile.name : "Select Video"}
-          </div>
-        </label>
+          </button>
+        </div>
 
         {/* Progress bars */}
         {thumbnailProgress > 0 && (
@@ -304,7 +306,7 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* Links */}
+        {/* URLs */}
         {thumbnailUrl && (
           <p className="text-sm text-gray-700 break-all">
             <strong>Thumbnail:</strong>{" "}
@@ -345,7 +347,7 @@ export default function UploadPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-green-600 text-white py-3 rounded"
+          className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 transition"
         >
           {submitting ? "Uploading..." : "Upload"}
         </button>
