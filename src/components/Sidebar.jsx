@@ -13,15 +13,25 @@ export default function Sidebar({ creators }) {
 
   const [isOpen, setIsOpen] = useState(false);
 
+  const handleClick = (creator) => {
+    if (typeof window.gtag !== "undefined") {
+      window.gtag("event", "creator_click", {
+        event_category: "Creators",
+        event_label: creator.name,
+        value: creator.urlHandle,
+      });
+    }
+  };
+
   return (
     <aside className="w-64 bg-gray-900 text-white flex flex-col h-full px-4 pt-4">
       {/* Logo / Home Link */}
-      <Link href="/" className="mb-2 flex items-center justify-center">
+      <Link href="/" className="mb-6 flex items-center justify-center">
         <Image src={logo} alt="App Logo" width={96} height={96} />
       </Link>
 
       {/* Featured Creators */}
-      <div>
+      <div className="mb-6">
         <h2 className="text-lg font-semibold mb-3">Featured Creators</h2>
         {premiumCreators.length > 0 ? (
           <ul className="space-y-2">
@@ -34,6 +44,7 @@ export default function Sidebar({ creators }) {
                   href={creator.urlHandle}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => handleClick(creator)}
                   className="block font-semibold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-400 animate-gradient-x hover:underline"
                 >
                   {creator.name}
@@ -79,7 +90,7 @@ export default function Sidebar({ creators }) {
       </div>
 
       {/* Accordion for Other Creators */}
-      <div className="border-t border-gray-700 pt-4 mt-4">
+      <div className="mt-6 border-t border-gray-700 pt-4">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="w-full flex justify-between items-center text-left text-lg font-semibold hover:text-yellow-400 transition-colors"
@@ -107,6 +118,7 @@ export default function Sidebar({ creators }) {
                     href={creator.urlHandle}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => handleClick(creator)}
                     className="block text-sm text-gray-300 hover:text-yellow-400 transition-colors"
                   >
                     {creator.name}
@@ -163,7 +175,7 @@ export default function Sidebar({ creators }) {
         </Link>
       </div>
 
-      {/* Custom Animations */}
+      {/* Custom animations */}
       <style jsx>{`
         @keyframes gradient-x {
           0% {
@@ -180,7 +192,6 @@ export default function Sidebar({ creators }) {
           background-size: 200% auto;
           animation: gradient-x 3s linear infinite;
         }
-
         @keyframes spin-slow {
           from {
             transform: rotate(0deg);
@@ -193,7 +204,6 @@ export default function Sidebar({ creators }) {
           animation: spin-slow 15s linear infinite;
           display: inline-block;
         }
-
         @keyframes bow {
           0%,
           100% {
@@ -207,7 +217,6 @@ export default function Sidebar({ creators }) {
           animation: bow 2.5s ease-in-out infinite;
           transform-origin: bottom center;
         }
-
         @keyframes flicker {
           0%,
           100% {
@@ -222,7 +231,6 @@ export default function Sidebar({ creators }) {
         .animate-flicker {
           animation: flicker 1s infinite ease-in-out;
         }
-
         @keyframes cherry-pulse {
           0%,
           100% {

@@ -6,7 +6,9 @@ export default function VideoGridClient({ videos = [] }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]); // 🏷️ tag filter
   const [showPremiumOnly, setShowPremiumOnly] = useState(false); // 💎 premium filter
+  const [VideoViewss, setVideoViewss] = useState({}); // 👁️ video views
   const videoRefs = useRef({});
+  const loggedVideosRef = useRef(new Set());
 
   // 🗓️ Format Date Helper
   const formatDate = (dateInput) => {
@@ -28,7 +30,16 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // 🎥 Lazy-load grid videos
+  // 🧩 Filtering logic (ALL tags + optional premium)
+  const filteredVideos = videos.filter((v) => {
+    const matchesTags =
+      selectedTags.length === 0 ||
+      selectedTags.every((tag) => v.tags?.includes(tag));
+    const matchesPremium = !showPremiumOnly || v.premium === true;
+    return matchesTags && matchesPremium;
+  });
+
+  // ⚡ Lazy-load grid videos
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -121,19 +132,6 @@ export default function VideoGridClient({ videos = [] }) {
   // 🏷️ Collect unique tags
   const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
 
-  // 🧩 Filtering logic (ALL tags + optional premium)
-  const filteredVideos = videos.filter((v) => {
-    // Filter by tags (must include ALL selected)
-    const matchesTags =
-      selectedTags.length === 0 ||
-      selectedTags.every((tag) => v.tags?.includes(tag));
-
-    // Filter by premium if enabled
-    const matchesPremium = !showPremiumOnly || v.premium === true;
-
-    return matchesTags && matchesPremium;
-  });
-
   // 🏷️ Toggle tag selection
   const toggleTag = (tag) => {
     setSelectedTags((prev) =>
@@ -151,6 +149,49 @@ export default function VideoGridClient({ videos = [] }) {
     setSelectedTags([]);
     setShowPremiumOnly(false);
   };
+
+  // 📝 Log video view to API and update UI
+  const logVideoViews = async (videoId) => {
+    if (!videoId || loggedVideosRef.current.has(videoId)) return;
+    loggedVideosRef.current.add(videoId);
+
+    // Optimistic update
+    setVideoViewss((prev) => ({
+      ...prev,
+      [videoId]: (prev[videoId] || 0) + 1,
+    }));
+
+    try {
+      await fetch("/api/video-views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId }),
+      });
+    } catch (err) {
+      console.warn("Failed to log video view", err);
+    }
+  };
+
+  // 👁️ Fetch view counts for displayed videos
+  useEffect(() => {
+    const fetchViews = async () => {
+      const viewsData = {};
+      await Promise.all(
+        filteredVideos.map(async (video) => {
+          try {
+            const res = await fetch(`/api/video-views?videoId=${video._id}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            viewsData[video._id] = data.totalViews || 0;
+          } catch (err) {
+            viewsData[video._id] = 0;
+          }
+        })
+      );
+      setVideoViewss(viewsData);
+    };
+    fetchViews();
+  }, [filteredVideos]);
 
   return (
     <div className="w-full">
@@ -186,7 +227,6 @@ export default function VideoGridClient({ videos = [] }) {
           );
         })}
 
-        {/* ❌ Clear Filters Button (appears only when filters active) */}
         {(selectedTags.length > 0 || showPremiumOnly) && (
           <button
             onClick={clearFilters}
@@ -236,7 +276,11 @@ export default function VideoGridClient({ videos = [] }) {
                     {video.description}
                   </p>
 
-                  {/* 🏷️ Tags under video */}
+                  {/* 👁️ Video views */}
+                  <p className="text-xs text-gray-500 mb-2">
+                    {VideoViewss[video._id] || 0} views
+                  </p>
+
                   <div className="flex flex-wrap gap-1 mb-2">
                     {video.tags?.map((tag) => (
                       <span
@@ -306,6 +350,7 @@ export default function VideoGridClient({ videos = [] }) {
                 autoPlay
                 playsInline
                 className="w-full max-h-[200px] sm:max-h-[300px] md:max-h-[400px] rounded mb-4 object-contain"
+                onPlay={() => logVideoViews(selectedVideo._id)}
               />
 
               <p className="text-sm text-gray-700 mb-4 text-center">
