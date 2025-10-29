@@ -4,9 +4,11 @@ import { useState, useRef, useEffect } from "react";
 export default function VideoGridClient({ videos = [] }) {
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [selectedTags, setSelectedTags] = useState([]); // 🏷️ tag filter
+  const [showPremiumOnly, setShowPremiumOnly] = useState(false); // 💎 premium filter
   const videoRefs = useRef({});
 
-  // 🗓️ Format Date Helper (same as original)
+  // 🗓️ Format Date Helper
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
     const date = dateInput.$date
@@ -26,7 +28,7 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // 🎥 Lazy-load grid videos (metadata for thumbnails)
+  // 🎥 Lazy-load grid videos
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -41,7 +43,7 @@ export default function VideoGridClient({ videos = [] }) {
           }
         });
       },
-      { rootMargin: "300px" } // earlier trigger for smoother scroll loading
+      { rootMargin: "300px" }
     );
 
     Object.values(videoRefs.current).forEach(
@@ -63,12 +65,10 @@ export default function VideoGridClient({ videos = [] }) {
     }
   };
 
-  // ⚡ Aggressive manual preloader — fetches first ~8–16 MB into cache
+  // ⚡ Aggressive preloader
   const aggressivePreload = async (url, maxMB = 8) => {
     if (!url) return;
-
     try {
-      // Skip if already cached or being preloaded
       if (window.__preloadingVideos?.[url]) return;
 
       window.__preloadingVideos = window.__preloadingVideos || {};
@@ -89,12 +89,11 @@ export default function VideoGridClient({ videos = [] }) {
         if (done || !value) break;
         bytesFetched += value.length;
         if (bytesFetched > maxBytes) {
-          controller.abort(); // stop after enough data is cached
+          controller.abort();
           break;
         }
       }
 
-      // Allow re-preloading later if needed
       delete window.__preloadingVideos[url];
     } catch (err) {
       // Ignore aborts and CORS issues
@@ -103,36 +102,113 @@ export default function VideoGridClient({ videos = [] }) {
 
   // 🟢 Open modal
   const openVideo = (index) => {
-    const video = videos[index];
+    const video = filteredVideos[index];
     setSelectedVideoIndex(index);
     setSelectedVideo(video);
-    // Warm up aggressively before showing
     preloadVideoLink(video.url);
-    aggressivePreload(video.url, 16); // ~12MB buffer for smooth start
+    aggressivePreload(video.url, 16);
   };
 
   // 🎞️ Preload neighbor videos
   useEffect(() => {
     if (selectedVideoIndex === null) return;
-
-    const next = videos[selectedVideoIndex + 1];
-    const prev = videos[selectedVideoIndex - 1];
-
+    const next = filteredVideos[selectedVideoIndex + 1];
+    const prev = filteredVideos[selectedVideoIndex - 1];
     if (next) aggressivePreload(next.url, 6);
     if (prev) aggressivePreload(prev.url, 6);
   }, [selectedVideoIndex]);
 
+  // 🏷️ Collect unique tags
+  const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
+
+  // 🧩 Filtering logic (ALL tags + optional premium)
+  const filteredVideos = videos.filter((v) => {
+    // Filter by tags (must include ALL selected)
+    const matchesTags =
+      selectedTags.length === 0 ||
+      selectedTags.every((tag) => v.tags?.includes(tag));
+
+    // Filter by premium if enabled
+    const matchesPremium = !showPremiumOnly || v.premium === true;
+
+    return matchesTags && matchesPremium;
+  });
+
+  // 🏷️ Toggle tag selection
+  const toggleTag = (tag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  // 💎 Toggle premium filter
+  const togglePremium = () => {
+    setShowPremiumOnly((prev) => !prev);
+  };
+
+  // ❌ Clear all filters
+  const clearFilters = () => {
+    setSelectedTags([]);
+    setShowPremiumOnly(false);
+  };
+
   return (
     <div className="w-full">
-      {videos.length === 0 ? (
-        <p className="text-center text-gray-600">No videos found.</p>
+      {/* 🧩 Filter Bar */}
+      <div className="flex flex-wrap gap-2 mb-6 justify-center">
+        {/* 💎 Premium Toggle */}
+        <button
+          onClick={togglePremium}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            showPremiumOnly
+              ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+          }`}
+        >
+          💎 Featured Only
+        </button>
+
+        {/* 🏷️ Tag Buttons */}
+        {allTags.map((tag) => {
+          const isSelected = selectedTags.includes(tag);
+          return (
+            <button
+              key={tag}
+              onClick={() => toggleTag(tag)}
+              className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+                isSelected
+                  ? "bg-green-600 text-white border-green-600 shadow-lg scale-105"
+                  : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              #{tag}
+            </button>
+          );
+        })}
+
+        {/* ❌ Clear Filters Button (appears only when filters active) */}
+        {(selectedTags.length > 0 || showPremiumOnly) && (
+          <button
+            onClick={clearFilters}
+            className="px-3 py-1.5 rounded-full border text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-800 transition-all"
+          >
+            Clear Filters ✖️
+          </button>
+        )}
+      </div>
+
+      {/* 🎞️ Video Grid */}
+      {filteredVideos.length === 0 ? (
+        <p className="text-center text-gray-600">
+          No videos found matching current filters.
+        </p>
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {videos.map((video, index) => (
+          {filteredVideos.map((video, index) => (
             <div
               key={video._id}
               className="bg-white shadow-lg rounded-xl overflow-hidden hover:shadow-2xl transition cursor-pointer flex flex-col"
-              onMouseEnter={() => aggressivePreload(video.url, 8)} // 🧠 pre-buffer on hover
+              onMouseEnter={() => aggressivePreload(video.url, 8)}
             >
               <img
                 src={video.thumbnail}
@@ -142,15 +218,36 @@ export default function VideoGridClient({ videos = [] }) {
 
               <div className="p-3 flex flex-col flex-1">
                 <div className="flex-1">
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">
-                    {video.title}
-                  </h3>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                      {video.title}
+                    </h3>
+                    {video.premium && (
+                      <span className="text-purple-600 text-sm font-semibold">
+                        💎
+                      </span>
+                    )}
+                  </div>
+
                   <p className="text-xs text-gray-500 mb-2">
                     {formatDate(video.createdAt)}
                   </p>
                   <p className="text-sm text-gray-700 line-clamp-3 mb-2">
                     {video.description}
                   </p>
+
+                  {/* 🏷️ Tags under video */}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {video.tags?.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+
                   <div className="flex items-center justify-between text-sm text-gray-600">
                     {video.socialMediaUrl ? (
                       <a
@@ -182,6 +279,7 @@ export default function VideoGridClient({ videos = [] }) {
         </div>
       )}
 
+      {/* 🎬 Video Modal */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md md:max-w-lg relative overflow-auto">

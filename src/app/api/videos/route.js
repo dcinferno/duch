@@ -25,9 +25,33 @@ export async function GET(request) {
       filter.creatorName = new RegExp(`^${creator.name}$`, "i");
     }
 
+    // Fetch videos
     const videos = await Videos.find(filter).sort({ createdAt: -1 });
-    return Response.json(videos);
+
+    // 🧩 Fetch all creators to merge their data
+    const creators = await Creators.find(
+      {},
+      "name urlHandle premium icon socialMediaUrl"
+    );
+
+    // Merge creator info into each video
+    const videosWithCreatorData = videos.map((video) => {
+      const creator = creators.find(
+        (c) => c.name.toLowerCase() === video.creatorName.toLowerCase()
+      );
+
+      return {
+        ...video.toObject(),
+        creatorUrlHandle: creator?.urlHandle || null,
+        premium: creator?.premium || false,
+        icon: creator?.icon || null,
+        socialMediaUrl: creator?.socialMediaUrl || video.socialMediaUrl,
+      };
+    });
+
+    return Response.json(videosWithCreatorData);
   } catch (err) {
+    console.error("❌ Error in /api/videos:", err);
     return Response.json({ error: "Failed to fetch videos" }, { status: 500 });
   }
 }
@@ -65,6 +89,7 @@ export async function POST(request) {
 
     return Response.json(video, { status: 201 });
   } catch (err) {
+    console.error("❌ Error creating video:", err);
     return Response.json({ error: "Failed to create video" }, { status: 500 });
   }
 }
