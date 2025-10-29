@@ -16,7 +16,7 @@ export default function Sidebar({ creators }) {
   return (
     <aside className="w-64 bg-gray-900 text-white flex flex-col h-full px-4 pt-4">
       {/* Logo / Home Link */}
-      <Link href="/" className="mb-6 flex items-center justify-center">
+      <Link href="/" className="mb-2 flex items-center justify-center">
         <Image src={logo} alt="App Logo" width={96} height={96} />
       </Link>
 
@@ -79,7 +79,7 @@ export default function Sidebar({ creators }) {
       </div>
 
       {/* Accordion for Other Creators */}
-      <div className="mt-6 border-t border-gray-700 pt-4">
+      <div className="border-t border-gray-700 pt-4 mt-4">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="w-full flex justify-between items-center text-left text-lg font-semibold hover:text-yellow-400 transition-colors"
@@ -163,7 +163,7 @@ export default function Sidebar({ creators }) {
         </Link>
       </div>
 
-      {/* Keep all your custom animations below */}
+      {/* Custom Animations */}
       <style jsx>{`
         @keyframes gradient-x {
           0% {
