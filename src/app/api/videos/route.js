@@ -12,27 +12,34 @@ export async function GET(request) {
     let filter = {};
 
     if (creatorUrlHandle) {
-      // Case-insensitive lookup for urlHandle
+      // Case-insensitive lookup for urlHandle, excluding secret creators
       const creator = await Creators.findOne({
         urlHandle: new RegExp(`^${creatorUrlHandle}$`, "i"),
+        secret: { $ne: true },
       });
 
       if (!creator) {
         return Response.json({ error: "Creator not found" }, { status: 404 });
       }
 
-      // Case-insensitive match for videos by creator name
       filter.creatorName = new RegExp(`^${creator.name}$`, "i");
+    }
+
+    // Fetch all creators who are not secret
+    const creators = await Creators.find(
+      { secret: { $ne: true } },
+      "name urlHandle premium icon socialMediaUrl"
+    );
+
+    // Filter videos to only include ones whose creators are not secret
+    if (!creatorUrlHandle) {
+      // Only filter by visible creators when not querying a specific one
+      const visibleCreatorNames = creators.map((c) => c.name);
+      filter.creatorName = { $in: visibleCreatorNames };
     }
 
     // Fetch videos
     const videos = await Videos.find(filter).sort({ createdAt: -1 });
-
-    // 🧩 Fetch all creators to merge their data
-    const creators = await Creators.find(
-      {},
-      "name urlHandle premium icon socialMediaUrl"
-    );
 
     // Merge creator info into each video
     const videosWithCreatorData = videos.map((video) => {

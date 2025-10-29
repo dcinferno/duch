@@ -8,7 +8,7 @@ import logo from "../app/logo.svg"; // adjust path if needed
 export default function Sidebar({ creators }) {
   const premiumCreators = creators.filter((creator) => creator.premium);
   const otherCreators = creators.filter(
-    (creator) => !creator.premium && creator.urlHandle
+    (creator) => !creator.premium && creator.urlHandle && !creator.secret
   );
 
   const [isOpen, setIsOpen] = useState(false);
