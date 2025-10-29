@@ -11,37 +11,43 @@ export async function GET(request) {
 
     let filter = {};
 
+    // 🧩 Step 1: Check if a specific creator is being requested
+    let creator = null;
     if (creatorUrlHandle) {
-      // Case-insensitive lookup for urlHandle, excluding secret creators
-      const creator = await Creators.findOne({
+      // Allow secret creators when fetching their own page
+      creator = await Creators.findOne({
         urlHandle: new RegExp(`^${creatorUrlHandle}$`, "i"),
-        secret: { $ne: true },
       });
 
       if (!creator) {
         return Response.json({ error: "Creator not found" }, { status: 404 });
       }
 
+      // Match videos by creator name
       filter.creatorName = new RegExp(`^${creator.name}$`, "i");
     }
 
-    // Fetch all creators who are not secret
+    // 🧩 Step 2: Decide which creators to fetch
+    // If no specific creator requested → hide secret ones
+    const creatorQuery = creatorUrlHandle
+      ? {} // show all when visiting a specific creator page
+      : { secret: { $ne: true } };
+
     const creators = await Creators.find(
-      { secret: { $ne: true } },
-      "name urlHandle premium icon socialMediaUrl"
+      creatorQuery,
+      "name urlHandle premium icon socialMediaUrl secret"
     );
 
-    // Filter videos to only include ones whose creators are not secret
+    // 🧩 Step 3: For public listing, only include videos from non-secret creators
     if (!creatorUrlHandle) {
-      // Only filter by visible creators when not querying a specific one
-      const visibleCreatorNames = creators.map((c) => c.name);
+      const visibleCreatorNames = creators.map((c) => c.name.toLowerCase());
       filter.creatorName = { $in: visibleCreatorNames };
     }
 
-    // Fetch videos
+    // 🧩 Step 4: Fetch videos
     const videos = await Videos.find(filter).sort({ createdAt: -1 });
 
-    // Merge creator info into each video
+    // 🧩 Step 5: Merge creator info
     const videosWithCreatorData = videos.map((video) => {
       const creator = creators.find(
         (c) => c.name.toLowerCase() === video.creatorName.toLowerCase()
