@@ -336,6 +336,7 @@ export default function VideoGridClient({ videos = [] }) {
       )}
 
       {/* Video Modal */}
+      {/* Video Modal */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md md:max-w-lg relative overflow-auto">
@@ -348,10 +349,12 @@ export default function VideoGridClient({ videos = [] }) {
             >
               &times;
             </button>
+
             <div className="p-6 flex flex-col items-center">
               <h2 className="text-xl font-bold mb-3 text-gray-900 text-center">
                 {selectedVideo.title}
               </h2>
+
               <video
                 key={selectedVideo.url}
                 src={selectedVideo.url}
@@ -362,12 +365,29 @@ export default function VideoGridClient({ videos = [] }) {
                 className="w-full max-h-[200px] sm:max-h-[300px] md:max-h-[400px] rounded mb-4 object-contain"
                 onPlay={() => logVideoViews(selectedVideo._id)}
               />
+
               <p className="text-sm text-gray-700 mb-4 text-center">
                 {selectedVideo.description}
               </p>
-              <p className="text-xs text-gray-500 mb-2">
-                {VideoViews[selectedVideo._id] ?? 0} views
-              </p>
+
+              {/* Creator and Views row */}
+              <div className="flex justify-between w-full px-2 text-sm text-gray-600 mb-2">
+                {selectedVideo.socialMediaUrl ? (
+                  <a
+                    href={selectedVideo.socialMediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    {selectedVideo.creatorName}
+                  </a>
+                ) : (
+                  <span className="font-medium">
+                    {selectedVideo.creatorName}
+                  </span>
+                )}
+                <span>{VideoViews[selectedVideo._id] ?? 0} views</span>
+              </div>
             </div>
           </div>
         </div>
