@@ -1,61 +1,93 @@
 import { connectToDB } from "@/lib/mongodb";
 import VideoViews from "@/models/videoViews";
 
+/**
+ * 📊 GET — Fetch video views
+ * - Supports: /api/video-views?videoIds=id1,id2,id3
+ * - Also supports: /api/video-views?videoId=id1
+ */
 export async function GET(req) {
-  await connectToDB();
-  const { searchParams } = new URL(req.url);
+  try {
+    await connectToDB();
+    const { searchParams } = new URL(req.url);
+    const videoIdsParam = searchParams.get("videoIds");
+    const videoId = searchParams.get("videoId");
 
-  const videoIdsParam = searchParams.get("videoIds"); // e.g. ?videoIds=abc,def,ghi
-  const singleVideoId = searchParams.get("videoId");
+    // 🧩 Multiple video IDs (batch request)
+    if (videoIdsParam) {
+      const videoIds = videoIdsParam.split(",").map((id) => id.trim());
+      const results = await VideoViews.aggregate([
+        {
+          $match: {
+            videoId: { $in: videoIds.map((id) => String(id)) },
+          },
+        },
+        {
+          $group: {
+            _id: "$videoId",
+            totalViews: { $sum: 1 },
+          },
+        },
+      ]);
 
-  // ✅ Batch fetch: ?videoIds=abc,def,ghi
-  if (videoIdsParam) {
-    const ids = videoIdsParam.split(",").filter(Boolean);
+      // Convert array → object map
+      const viewsMap = Object.fromEntries(
+        results.map((r) => [r._id, r.totalViews])
+      );
 
-    // Aggregate counts for all requested IDs
-    const results = await VideoViews.aggregate([
-      { $match: { videoId: { $in: ids } } },
-      { $group: { _id: "$videoId", totalViews: { $sum: 1 } } },
-    ]);
+      // Ensure all IDs exist in the map (even if 0)
+      videoIds.forEach((id) => {
+        if (!viewsMap[id]) viewsMap[id] = 0;
+      });
 
-    // Convert to { videoId: totalViews } map
-    const viewMap = {};
-    for (const r of results) {
-      viewMap[r._id] = r.totalViews;
+      return new Response(JSON.stringify(viewsMap), { status: 200 });
     }
 
-    // Ensure every ID is present (even if 0 views)
-    for (const id of ids) {
-      if (!(id in viewMap)) viewMap[id] = 0;
+    // 🔹 Single videoId fallback
+    if (videoId) {
+      const totalViews = await VideoViews.countDocuments({
+        videoId: String(videoId),
+      });
+      return new Response(JSON.stringify({ totalViews }), { status: 200 });
     }
 
-    return new Response(JSON.stringify(viewMap), { status: 200 });
-  }
-
-  // ✅ Single video: ?videoId=abc123
-  if (singleVideoId) {
-    const totalViews = await VideoViews.countDocuments({
-      videoId: singleVideoId,
-    });
-    return new Response(JSON.stringify({ totalViews }), { status: 200 });
-  }
-
-  return new Response(JSON.stringify({ error: "Missing videoId(s)" }), {
-    status: 400,
-  });
-}
-
-export async function POST(req) {
-  await connectToDB();
-  const { videoId } = await req.json();
-
-  if (!videoId) {
-    return new Response(JSON.stringify({ error: "Missing videoId" }), {
+    return new Response(JSON.stringify({ error: "Missing videoId(s)" }), {
       status: 400,
     });
+  } catch (err) {
+    console.error("❌ Error fetching video views:", err);
+    return new Response(
+      JSON.stringify({ error: "Failed to fetch video views" }),
+      { status: 500 }
+    );
   }
+}
 
-  // Simply create one record per view
-  await VideoViews.create({ videoId });
-  return new Response(JSON.stringify({ success: true }), { status: 201 });
+/**
+ * 📈 POST — Log a new video view
+ * - Body: { "videoId": "abc123" }
+ */
+export async function POST(req) {
+  try {
+    await connectToDB();
+
+    const { videoId } = await req.json();
+
+    if (!videoId) {
+      return new Response(JSON.stringify({ error: "Missing videoId" }), {
+        status: 400,
+      });
+    }
+
+    // Normalize to string for consistent grouping
+    await VideoViews.create({ videoId: String(videoId) });
+
+    return new Response(JSON.stringify({ success: true }), { status: 201 });
+  } catch (err) {
+    console.error("❌ Error recording video view:", err);
+    return new Response(
+      JSON.stringify({ error: "Failed to record video view" }),
+      { status: 500 }
+    );
+  }
 }
