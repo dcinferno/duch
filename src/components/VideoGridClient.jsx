@@ -6,14 +6,12 @@ export default function VideoGridClient({ videos = [] }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
-  const [VideoViewss, setVideoViewss] = useState({});
+  const [VideoViews, setVideoViews] = useState({});
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
-  const fetchQueue = useRef([]);
-  const isProcessingQueue = useRef(false);
 
-  // 🗓️ Format Date Helper
+  // 🗓️ Format date nicely
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
     const date = dateInput.$date
@@ -41,7 +39,7 @@ export default function VideoGridClient({ videos = [] }) {
     return matchesTags && matchesPremium;
   });
 
-  // ⚡ Lazy-load video src
+  // ⚡ Lazy-load video thumbnails
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -125,7 +123,7 @@ export default function VideoGridClient({ videos = [] }) {
     if (prev) aggressivePreload(prev.url, 6);
   }, [selectedVideoIndex]);
 
-  // 🏷️ Tags
+  // 🏷️ Tag logic
   const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
   const toggleTag = (tag) =>
     setSelectedTags((prev) =>
@@ -137,11 +135,11 @@ export default function VideoGridClient({ videos = [] }) {
     setShowPremiumOnly(false);
   };
 
-  // ❌ Log video view
+  // 📈 Log a video view
   const logVideoViews = async (videoId) => {
     if (!videoId || loggedVideosRef.current.has(videoId)) return;
     loggedVideosRef.current.add(videoId);
-    setVideoViewss((prev) => ({
+    setVideoViews((prev) => ({
       ...prev,
       [videoId]: (prev[videoId] || 0) + 1,
     }));
@@ -154,54 +152,24 @@ export default function VideoGridClient({ videos = [] }) {
     } catch {}
   };
 
-  // 👁️ Throttled queue for fetching views
-  const processQueue = async () => {
-    if (isProcessingQueue.current) return;
-    isProcessingQueue.current = true;
-
-    while (fetchQueue.current.length > 0) {
-      const videoId = fetchQueue.current.shift();
-      if (videoId && !VideoViewss[videoId]) {
-        try {
-          const res = await fetch(`/api/video-views?videoId=${videoId}`);
-          if (!res.ok) continue;
-          const data = await res.json();
-          setVideoViewss((prev) => ({
-            ...prev,
-            [videoId]: data.totalViews || 0,
-          }));
-        } catch {
-          setVideoViewss((prev) => ({ ...prev, [videoId]: 0 }));
-        }
-      }
-      await new Promise((r) => setTimeout(r, 250)); // delay between requests
-    }
-
-    isProcessingQueue.current = false;
-  };
-
-  // 👁️ IntersectionObserver for visible videos
+  // 🚀 Fetch all video views once on load
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const videoId = entry.target.dataset.videoId;
-            if (videoId && !VideoViewss[videoId]) {
-              fetchQueue.current.push(videoId);
-              processQueue();
-            }
-          }
-        });
-      },
-      { rootMargin: "200px" }
-    );
+    if (videos.length === 0) return;
 
-    Object.values(videoRefs.current).forEach(
-      (el) => el && observer.observe(el)
-    );
-    return () => observer.disconnect();
-  }, [filteredVideos, VideoViewss]);
+    const fetchAllViews = async () => {
+      try {
+        const ids = videos.map((v) => v._id).join(",");
+        const res = await fetch(`/api/video-views?videoIds=${ids}`);
+        if (!res.ok) throw new Error("Failed to fetch views");
+        const data = await res.json(); // { id1: 10, id2: 20, ... }
+        setVideoViews(data);
+      } catch (err) {
+        console.error("❌ Error fetching all video views:", err);
+      }
+    };
+
+    fetchAllViews();
+  }, [videos]);
 
   // ------------------- JSX -------------------
   return (
@@ -245,7 +213,6 @@ export default function VideoGridClient({ videos = [] }) {
             </svg>
           </button>
 
-          {/* Dropdown content */}
           {showTagsDropdown && (
             <div className="absolute left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-2">
               {allTags.length === 0 ? (
@@ -272,7 +239,6 @@ export default function VideoGridClient({ videos = [] }) {
           )}
         </div>
 
-        {/* Clear filters */}
         {(selectedTags.length > 0 || showPremiumOnly) && (
           <button
             onClick={clearFilters}
@@ -293,7 +259,6 @@ export default function VideoGridClient({ videos = [] }) {
           {filteredVideos.map((video, index) => (
             <div
               key={video._id}
-              data-video-id={video._id} // Important for throttled fetching
               ref={(el) => (videoRefs.current[video._id] = el)}
               className="bg-white shadow-lg rounded-xl overflow-hidden hover:shadow-2xl transition cursor-pointer flex flex-col"
               onMouseEnter={() => aggressivePreload(video.url, 8)}
@@ -325,7 +290,7 @@ export default function VideoGridClient({ videos = [] }) {
                   </p>
 
                   <p className="text-xs text-gray-500 mb-2">
-                    {VideoViewss[video._id] || 0} views
+                    {VideoViews[video._id] ?? 0} views
                   </p>
 
                   <div className="flex flex-wrap gap-1 mb-2">
