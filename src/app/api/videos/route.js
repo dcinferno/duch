@@ -67,15 +67,8 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     await connectToDB();
-    const {
-      title,
-      description,
-      thumbnail,
-      price,
-      creatorName,
-      url,
-      tags = "", // default to empty string
-    } = await request.json();
+    const { title, description, thumbnail, price, creatorName, url, tags } =
+      await request.json();
 
     // Normalize creator name
     const normalizedName = creatorName.trim();
@@ -91,12 +84,6 @@ export async function POST(request) {
 
     const socialMediaUrl = creator.url || creator.socialMediaUrl;
 
-    // Convert comma-separated tags into array
-    const tagsArray = tags
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
     // Create video record
     const video = await Videos.create({
       title,
@@ -106,7 +93,7 @@ export async function POST(request) {
       creatorName: creator.name,
       socialMediaUrl,
       url,
-      tags: tagsArray,
+      tags,
     });
 
     return Response.json(video, { status: 201 });
