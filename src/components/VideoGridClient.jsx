@@ -6,12 +6,12 @@ export default function VideoGridClient({ videos = [] }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
+  const [sortByViews, setSortByViews] = useState(false); // <-- new state
   const [VideoViews, setVideoViews] = useState({});
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
 
-  // 🗓️ Format date nicely
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
     const date = dateInput.$date
@@ -30,7 +30,6 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // 🧩 Filtering logic
   const filteredVideos = videos.filter((v) => {
     const matchesTags =
       selectedTags.length === 0 ||
@@ -39,7 +38,12 @@ export default function VideoGridClient({ videos = [] }) {
     return matchesTags && matchesPremium;
   });
 
-  // ⚡ Lazy-load video thumbnails
+  const videosToRender = sortByViews
+    ? [...filteredVideos].sort(
+        (a, b) => (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0)
+      )
+    : filteredVideos;
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -63,11 +67,9 @@ export default function VideoGridClient({ videos = [] }) {
     return () => observer.disconnect();
   }, [videos]);
 
-  // ⚡ Preload helpers
   const preloadVideoLink = (url) => {
     if (!url) return;
-    const existing = document.querySelector(`link[as="video"][href="${url}"]`);
-    if (!existing) {
+    if (!document.querySelector(`link[as="video"][href="${url}"]`)) {
       const link = document.createElement("link");
       link.rel = "preload";
       link.as = "video";
@@ -77,12 +79,11 @@ export default function VideoGridClient({ videos = [] }) {
   };
 
   const aggressivePreload = async (url, maxMB = 8) => {
-    if (!url) return;
-    try {
-      if (window.__preloadingVideos?.[url]) return;
-      window.__preloadingVideos = window.__preloadingVideos || {};
-      window.__preloadingVideos[url] = true;
+    if (!url || window.__preloadingVideos?.[url]) return;
+    window.__preloadingVideos = window.__preloadingVideos || {};
+    window.__preloadingVideos[url] = true;
 
+    try {
       const controller = new AbortController();
       const signal = controller.signal;
       const response = await fetch(url, { signal, mode: "cors" });
@@ -100,30 +101,28 @@ export default function VideoGridClient({ videos = [] }) {
           break;
         }
       }
-
+    } catch {
+    } finally {
       delete window.__preloadingVideos[url];
-    } catch {}
+    }
   };
 
-  // 🟢 Open modal
   const openVideo = (index) => {
-    const video = filteredVideos[index];
+    const video = videosToRender[index];
     setSelectedVideoIndex(index);
     setSelectedVideo(video);
     preloadVideoLink(video.url);
     aggressivePreload(video.url, 16);
   };
 
-  // 🎞️ Preload neighbor videos
   useEffect(() => {
     if (selectedVideoIndex === null) return;
-    const next = filteredVideos[selectedVideoIndex + 1];
-    const prev = filteredVideos[selectedVideoIndex - 1];
+    const next = videosToRender[selectedVideoIndex + 1];
+    const prev = videosToRender[selectedVideoIndex - 1];
     if (next) aggressivePreload(next.url, 6);
     if (prev) aggressivePreload(prev.url, 6);
   }, [selectedVideoIndex]);
 
-  // 🏷️ Tag logic
   const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
   const toggleTag = (tag) =>
     setSelectedTags((prev) =>
@@ -133,9 +132,9 @@ export default function VideoGridClient({ videos = [] }) {
   const clearFilters = () => {
     setSelectedTags([]);
     setShowPremiumOnly(false);
+    setSortByViews(false); // also reset sort
   };
 
-  // 📈 Log a video view
   const logVideoViews = async (videoId) => {
     if (!videoId || loggedVideosRef.current.has(videoId)) return;
     loggedVideosRef.current.add(videoId);
@@ -152,10 +151,8 @@ export default function VideoGridClient({ videos = [] }) {
     } catch {}
   };
 
-  // 🚀 Fetch all video views once on load
   useEffect(() => {
     if (videos.length === 0) return;
-
     const fetchAllViews = async () => {
       try {
         const ids = videos.map((v) => v._id).join(",");
@@ -167,16 +164,13 @@ export default function VideoGridClient({ videos = [] }) {
         console.error("❌ Error fetching all video views:", err);
       }
     };
-
     fetchAllViews();
   }, [videos]);
 
-  // ------------------- JSX -------------------
   return (
     <div className="w-full">
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-2 mb-6 justify-center">
-        {/* Premium toggle */}
         <button
           onClick={togglePremium}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
@@ -188,7 +182,19 @@ export default function VideoGridClient({ videos = [] }) {
           💎 Featured Only
         </button>
 
-        {/* Dropdown for tags */}
+        {/* Most Viewed Toggle */}
+        <button
+          onClick={() => setSortByViews((prev) => !prev)}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            sortByViews
+              ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+          }`}
+        >
+          🔥 Most Viewed
+        </button>
+
+        {/* Tags Dropdown */}
         <div className="relative">
           <button
             onClick={() => setShowTagsDropdown((prev) => !prev)}
@@ -239,7 +245,7 @@ export default function VideoGridClient({ videos = [] }) {
           )}
         </div>
 
-        {(selectedTags.length > 0 || showPremiumOnly) && (
+        {(selectedTags.length > 0 || showPremiumOnly || sortByViews) && (
           <button
             onClick={clearFilters}
             className="px-3 py-1.5 rounded-full border text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-800 transition-all"
@@ -250,13 +256,13 @@ export default function VideoGridClient({ videos = [] }) {
       </div>
 
       {/* Video Grid */}
-      {filteredVideos.length === 0 ? (
+      {videosToRender.length === 0 ? (
         <p className="text-center text-gray-600">
           No videos found matching current filters.
         </p>
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredVideos.map((video, index) => (
+          {videosToRender.map((video, index) => (
             <div
               key={video._id}
               ref={(el) => (videoRefs.current[video._id] = el)}
@@ -268,7 +274,6 @@ export default function VideoGridClient({ videos = [] }) {
                 alt={video.title}
                 className="w-full h-64 sm:h-72 object-cover"
               />
-
               <div className="p-3 flex flex-col flex-1">
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
@@ -281,18 +286,15 @@ export default function VideoGridClient({ videos = [] }) {
                       </span>
                     )}
                   </div>
-
                   <p className="text-xs text-gray-500 mb-2">
                     {formatDate(video.createdAt)}
                   </p>
                   <p className="text-sm text-gray-700 line-clamp-3 mb-2">
                     {video.description}
                   </p>
-
                   <p className="text-xs text-gray-500 mb-2">
                     {VideoViews[video._id] ?? 0} views
                   </p>
-
                   <div className="flex flex-wrap gap-1 mb-2">
                     {video.tags?.map((tag) => (
                       <span
@@ -303,7 +305,6 @@ export default function VideoGridClient({ videos = [] }) {
                       </span>
                     ))}
                   </div>
-
                   <div className="flex items-center justify-between text-sm text-gray-600">
                     {video.socialMediaUrl ? (
                       <a
@@ -322,7 +323,6 @@ export default function VideoGridClient({ videos = [] }) {
                     </span>
                   </div>
                 </div>
-
                 <button
                   onClick={() => openVideo(index)}
                   className="mt-3 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 w-full text-sm sm:text-base font-medium transition-all"
@@ -348,12 +348,10 @@ export default function VideoGridClient({ videos = [] }) {
             >
               &times;
             </button>
-
             <div className="p-6 flex flex-col items-center">
               <h2 className="text-xl font-bold mb-3 text-gray-900 text-center">
                 {selectedVideo.title}
               </h2>
-
               <video
                 key={selectedVideo.url}
                 src={selectedVideo.url}
@@ -364,32 +362,12 @@ export default function VideoGridClient({ videos = [] }) {
                 className="w-full max-h-[200px] sm:max-h-[300px] md:max-h-[400px] rounded mb-4 object-contain"
                 onPlay={() => logVideoViews(selectedVideo._id)}
               />
-
               <p className="text-sm text-gray-700 mb-4 text-center">
                 {selectedVideo.description}
               </p>
-
-              <div className="flex justify-between items-center w-full">
-                {selectedVideo.socialMediaUrl ? (
-                  <a
-                    href={selectedVideo.socialMediaUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline text-sm"
-                  >
-                    {selectedVideo.creatorName}
-                  </a>
-                ) : (
-                  <span className="text-sm text-gray-600">
-                    {selectedVideo.creatorName}
-                  </span>
-                )}
-                <span className="text-sm text-gray-800 font-semibold">
-                  {selectedVideo.price === 0
-                    ? "Free"
-                    : `$${selectedVideo.price}`}
-                </span>
-              </div>
+              <p className="text-xs text-gray-500 mb-2">
+                {VideoViews[selectedVideo._id] ?? 0} views
+              </p>
             </div>
           </div>
         </div>
