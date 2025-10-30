@@ -9,7 +9,7 @@ const VideosSchema = new mongoose.Schema(
     creatorName: { type: String, required: true, trim: true },
     socialMediaUrl: { type: String, required: true, trim: true },
     url: { type: String, required: true, trim: true },
-    tags: { type: array, default: [] },
+    tags: { type: [String], default: [] },
   },
   { timestamps: true }
 );

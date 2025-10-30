@@ -7,6 +7,7 @@ export default function VideoGridClient({ videos = [] }) {
   const [selectedTags, setSelectedTags] = useState([]);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
   const [VideoViewss, setVideoViewss] = useState({});
+  const [showTagsDropdown, setShowTagsDropdown] = useState(false);
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
   const fetchQueue = useRef([]);
@@ -173,7 +174,7 @@ export default function VideoGridClient({ videos = [] }) {
           setVideoViewss((prev) => ({ ...prev, [videoId]: 0 }));
         }
       }
-      await new Promise((r) => setTimeout(r, 500)); // 500ms delay between requests
+      await new Promise((r) => setTimeout(r, 250)); // delay between requests
     }
 
     isProcessingQueue.current = false;
@@ -207,6 +208,7 @@ export default function VideoGridClient({ videos = [] }) {
     <div className="w-full">
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-2 mb-6 justify-center">
+        {/* Premium toggle */}
         <button
           onClick={togglePremium}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
@@ -218,23 +220,59 @@ export default function VideoGridClient({ videos = [] }) {
           💎 Featured Only
         </button>
 
-        {allTags.map((tag) => {
-          const isSelected = selectedTags.includes(tag);
-          return (
-            <button
-              key={tag}
-              onClick={() => toggleTag(tag)}
-              className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
-                isSelected
-                  ? "bg-green-600 text-white border-green-600 shadow-lg scale-105"
-                  : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+        {/* Dropdown for tags */}
+        <div className="relative">
+          <button
+            onClick={() => setShowTagsDropdown((prev) => !prev)}
+            className="px-3 py-1.5 rounded-full border text-sm font-medium bg-white text-gray-800 border-gray-300 hover:bg-gray-100 flex items-center gap-1"
+          >
+            🏷️ Tags
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className={`w-4 h-4 transition-transform ${
+                showTagsDropdown ? "rotate-180" : "rotate-0"
               }`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              #{tag}
-            </button>
-          );
-        })}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
 
+          {/* Dropdown content */}
+          {showTagsDropdown && (
+            <div className="absolute left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-2">
+              {allTags.length === 0 ? (
+                <p className="text-gray-500 text-sm px-2">No tags available</p>
+              ) : (
+                allTags.map((tag) => {
+                  const isSelected = selectedTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag(tag)}
+                      className={`block w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                        isSelected
+                          ? "bg-green-600 text-white"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      #{tag}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Clear filters */}
         {(selectedTags.length > 0 || showPremiumOnly) && (
           <button
             onClick={clearFilters}
