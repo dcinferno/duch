@@ -9,8 +9,9 @@ const VideosSchema = new mongoose.Schema(
     creatorName: { type: String, required: true, trim: true },
     socialMediaUrl: { type: String, required: true, trim: true },
     url: { type: String, required: true, trim: true },
+    tags: { type: array, default: [] },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 export default mongoose.models.Videos || mongoose.model("Videos", VideosSchema);
