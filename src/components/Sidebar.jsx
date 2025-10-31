@@ -1,17 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import logo from "../app/logo.svg"; // adjust path if needed
 
 export default function Sidebar({ creators }) {
   const premiumCreators = creators.filter((creator) => creator.premium);
-  const otherCreators = creators.filter(
+  const topCreators = creators.filter(
     (creator) => !creator.premium && creator.urlHandle && !creator.secret
   );
-
-  const [isOpen, setIsOpen] = useState(false);
 
   const handleClick = (creator) => {
     if (typeof window.gtag !== "undefined") {
@@ -24,15 +21,15 @@ export default function Sidebar({ creators }) {
   };
 
   return (
-    <aside className="w-64 bg-gray-900 text-white flex flex-col h-full px-4 pt-4">
+    <aside className="w-64 bg-gray-900 text-white flex flex-col h-full px-4 pt-2">
       {/* Logo / Home Link */}
-      <Link href="/" className="mb-6 flex items-center justify-center">
+      <Link href="/" className="flex items-center justify-center mb-2">
         <Image src={logo} alt="App Logo" width={96} height={96} />
       </Link>
 
       {/* Featured Creators */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-3">Featured Creators</h2>
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold mb-2">Featured Creators</h2>
         {premiumCreators.length > 0 ? (
           <ul className="space-y-2">
             {premiumCreators.map((creator) => (
@@ -89,47 +86,28 @@ export default function Sidebar({ creators }) {
         )}
       </div>
 
-      {/* Accordion for Other Creators */}
-      <div className="mt-6 border-t border-gray-700 pt-4">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex justify-between items-center text-left text-lg font-semibold hover:text-yellow-400 transition-colors"
-        >
-          <span>Other Creators</span>
-          <span
-            className={`transform transition-transform duration-300 ${
-              isOpen ? "rotate-180" : "rotate-0"
-            }`}
-          >
-            ▼
-          </span>
-        </button>
-
-        <div
-          className={`overflow-hidden transition-all duration-500 ease-in-out ${
-            isOpen ? "max-h-96 opacity-100 mt-3" : "max-h-0 opacity-0"
-          }`}
-        >
-          {otherCreators.length > 0 ? (
-            <ul className="space-y-2">
-              {otherCreators.map((creator) => (
-                <li key={creator._id}>
-                  <a
-                    href={creator.urlHandle}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => handleClick(creator)}
-                    className="block text-sm text-gray-300 hover:text-yellow-400 transition-colors"
-                  >
-                    {creator.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-400 text-sm mt-2">No other creators yet.</p>
-          )}
-        </div>
+      {/* Top Creators */}
+      <div className="border-t border-gray-700 pt-3">
+        <h2 className="text-lg font-semibold mb-2">Top Creators</h2>
+        {topCreators.length > 0 ? (
+          <ul className="space-y-2">
+            {topCreators.map((creator) => (
+              <li key={creator._id}>
+                <a
+                  href={creator.urlHandle}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => handleClick(creator)}
+                  className="block text-sm text-gray-300 hover:text-yellow-400 transition-colors"
+                >
+                  {creator.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-400 text-sm mt-2">No top creators yet.</p>
+        )}
       </div>
 
       {/* Bottom Buttons */}
