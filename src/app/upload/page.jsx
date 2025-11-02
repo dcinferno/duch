@@ -264,7 +264,7 @@ export default function UploadPage() {
           type="text"
           placeholder="Enter tags separated by commas (e.g. tutorial, javascript, webdev)"
           value={tags}
-          onChange={(e) => setTags(e.target.value)}
+          onChange={(e) => setTags(e.target.value.toLowerCase())} // 👈 force lowercase
           className="w-full p-3 border rounded"
         />
 
