@@ -72,6 +72,10 @@ export default function Sidebar({ creators }) {
                     <span className="text-red-500 text-lg animate-cherry inline-block">
                       🍒
                     </span>
+                  ) : creator.icon === "crown" ? (
+                    <span className="text-yellow-300 text-2xl animate-shimmer inline-block">
+                      👑
+                    </span>
                   ) : (
                     <span className="text-yellow-400 text-lg animate-pulse inline-block">
                       ⭐
@@ -170,6 +174,7 @@ export default function Sidebar({ creators }) {
           background-size: 200% auto;
           animation: gradient-x 3s linear infinite;
         }
+
         @keyframes spin-slow {
           from {
             transform: rotate(0deg);
@@ -182,6 +187,7 @@ export default function Sidebar({ creators }) {
           animation: spin-slow 15s linear infinite;
           display: inline-block;
         }
+
         @keyframes bow {
           0%,
           100% {
@@ -195,6 +201,7 @@ export default function Sidebar({ creators }) {
           animation: bow 2.5s ease-in-out infinite;
           transform-origin: bottom center;
         }
+
         @keyframes flicker {
           0%,
           100% {
@@ -209,23 +216,50 @@ export default function Sidebar({ creators }) {
         .animate-flicker {
           animation: flicker 1s infinite ease-in-out;
         }
+
         @keyframes cherry-pulse {
           0%,
           100% {
             transform: scale(1);
-            filter: drop-shadow(0 0 10px rgba(255, 0, 80, 1))
-              drop-shadow(0 0 20px rgba(255, 0, 100, 0.95))
-              drop-shadow(0 0 30px rgba(255, 0, 120, 0.85));
+            filter: drop-shadow(0 0 6px rgba(255, 0, 80, 0.7))
+              drop-shadow(0 0 12px rgba(255, 0, 100, 0.6))
+              drop-shadow(0 0 18px rgba(255, 0, 120, 0.5));
           }
           50% {
-            transform: scale(1.4);
-            filter: drop-shadow(0 0 20px rgba(255, 0, 100, 1))
-              drop-shadow(0 0 40px rgba(255, 20, 150, 1))
-              drop-shadow(0 0 60px rgba(255, 60, 180, 1));
+            transform: scale(1.3);
+            filter: drop-shadow(0 0 12px rgba(255, 0, 100, 0.9))
+              drop-shadow(0 0 24px rgba(255, 20, 150, 0.8))
+              drop-shadow(0 0 36px rgba(255, 60, 180, 0.7));
           }
         }
         .animate-cherry {
           animation: cherry-pulse 1.8s ease-in-out infinite;
+        }
+
+        /* Softer shimmer animation */
+        @keyframes shimmer {
+          0% {
+            filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.5))
+              drop-shadow(0 0 4px rgba(255, 235, 100, 0.4));
+            transform: scale(1);
+            opacity: 0.9;
+          }
+          50% {
+            filter: drop-shadow(0 0 5px rgba(255, 235, 120, 0.6))
+              drop-shadow(0 0 8px rgba(255, 245, 160, 0.5));
+            transform: scale(1.08);
+            opacity: 1;
+          }
+          100% {
+            filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.5))
+              drop-shadow(0 0 4px rgba(255, 235, 100, 0.4));
+            transform: scale(1);
+            opacity: 0.9;
+          }
+        }
+
+        .animate-shimmer {
+          animation: shimmer 2s ease-in-out infinite;
         }
       `}</style>
     </aside>
