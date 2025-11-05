@@ -6,11 +6,15 @@ export default function VideoGridClient({ videos = [] }) {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
-  const [sortByViews, setSortByViews] = useState(false); // <-- new state
+  const [sortByViews, setSortByViews] = useState(false);
   const [VideoViews, setVideoViews] = useState({});
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
+
+  // Pagination / Infinite Scroll
+  const [visibleCount, setVisibleCount] = useState(12);
+  const loadMoreRef = useRef(null);
 
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
@@ -30,6 +34,7 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
+  // Filtering and sorting
   const filteredVideos = videos.filter((v) => {
     const matchesTags =
       selectedTags.length === 0 ||
@@ -44,6 +49,29 @@ export default function VideoGridClient({ videos = [] }) {
       )
     : filteredVideos;
 
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => prev + 12);
+        }
+      },
+      { rootMargin: "400px" }
+    );
+
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Reset visible count when filters/sort change
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [selectedTags, showPremiumOnly, sortByViews]);
+
+  const visibleVideos = videosToRender.slice(0, visibleCount);
+
+  // Lazy-load thumbnails
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -67,6 +95,7 @@ export default function VideoGridClient({ videos = [] }) {
     return () => observer.disconnect();
   }, [videos]);
 
+  // Preload and aggressive preload
   const preloadVideoLink = (url) => {
     if (!url) return;
     if (!document.querySelector(`link[as="video"][href="${url}"]`)) {
@@ -108,7 +137,7 @@ export default function VideoGridClient({ videos = [] }) {
   };
 
   const openVideo = (index) => {
-    const video = videosToRender[index];
+    const video = visibleVideos[index];
     setSelectedVideoIndex(index);
     setSelectedVideo(video);
     preloadVideoLink(video.url);
@@ -117,8 +146,8 @@ export default function VideoGridClient({ videos = [] }) {
 
   useEffect(() => {
     if (selectedVideoIndex === null) return;
-    const next = videosToRender[selectedVideoIndex + 1];
-    const prev = videosToRender[selectedVideoIndex - 1];
+    const next = visibleVideos[selectedVideoIndex + 1];
+    const prev = visibleVideos[selectedVideoIndex - 1];
     if (next) aggressivePreload(next.url, 6);
     if (prev) aggressivePreload(prev.url, 6);
   }, [selectedVideoIndex]);
@@ -132,7 +161,7 @@ export default function VideoGridClient({ videos = [] }) {
   const clearFilters = () => {
     setSelectedTags([]);
     setShowPremiumOnly(false);
-    setSortByViews(false); // also reset sort
+    setSortByViews(false);
   };
 
   const logVideoViews = async (videoId) => {
@@ -158,7 +187,7 @@ export default function VideoGridClient({ videos = [] }) {
         const ids = videos.map((v) => v._id).join(",");
         const res = await fetch(`/api/video-views?videoIds=${ids}`);
         if (!res.ok) throw new Error("Failed to fetch views");
-        const data = await res.json(); // { id1: 10, id2: 20, ... }
+        const data = await res.json();
         setVideoViews(data);
       } catch (err) {
         console.error("❌ Error fetching all video views:", err);
@@ -182,7 +211,6 @@ export default function VideoGridClient({ videos = [] }) {
           💎 Featured Only
         </button>
 
-        {/* Most Viewed Toggle */}
         <button
           onClick={() => setSortByViews((prev) => !prev)}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
@@ -256,13 +284,13 @@ export default function VideoGridClient({ videos = [] }) {
       </div>
 
       {/* Video Grid */}
-      {videosToRender.length === 0 ? (
+      {visibleVideos.length === 0 ? (
         <p className="text-center text-gray-600">
           No videos found matching current filters.
         </p>
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {videosToRender.map((video, index) => (
+          {visibleVideos.map((video, index) => (
             <div
               key={video._id}
               ref={(el) => (videoRefs.current[video._id] = el)}
@@ -335,7 +363,42 @@ export default function VideoGridClient({ videos = [] }) {
         </div>
       )}
 
-      {/* Video Modal */}
+      {/* Infinite Scroll Loader / End Indicator */}
+      {visibleVideos.length < videosToRender.length ? (
+        <div
+          ref={loadMoreRef}
+          className="flex justify-center items-center py-6 text-gray-500"
+        >
+          <svg
+            className="animate-spin h-5 w-5 mr-2 text-gray-400"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8H4z"
+            ></path>
+          </svg>
+          Loading more videos...
+        </div>
+      ) : (
+        videosToRender.length > 0 && (
+          <div className="text-center text-gray-400 py-6">
+            🎉 You’ve reached the end!
+          </div>
+        )
+      )}
+
       {/* Video Modal */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
@@ -370,7 +433,6 @@ export default function VideoGridClient({ videos = [] }) {
                 {selectedVideo.description}
               </p>
 
-              {/* Creator and Views row */}
               <div className="flex justify-between w-full px-2 text-sm text-gray-600 mb-2">
                 {selectedVideo.socialMediaUrl ? (
                   <a
