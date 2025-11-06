@@ -13,9 +13,10 @@ export default function TelegramApp() {
     const tg = window.Telegram?.WebApp;
     if (!tg) {
       console.warn("⚠️ Telegram WebApp SDK not found — open inside Telegram.");
+      alert("❌ Error initializing Telegram WebApp: " + err.message);
       return;
     }
-
+    tg.showAlert("✅ Telegram WebApp is working!");
     tg.ready();
     tg.expand();
 
