@@ -1,5 +1,5 @@
 "use client";
-
+import Script from "next/script";
 import { useEffect, useState } from "react";
 import VideoGridClient from "@/components/VideoGridClient";
 
@@ -61,18 +61,22 @@ export default function TelegramApp() {
   }
 
   return (
-    <div className="p-4 bg-gray-50 min-h-screen">
-      <h1 className="text-center text-2xl font-bold mb-4">
-        🎥 Telegram VideoStore
-      </h1>
-
-      {telegramUser && (
-        <p className="text-center text-gray-600 mb-4">
-          Hello, {telegramUser.first_name}!
-        </p>
-      )}
-
-      <VideoGridClient videos={videos} />
-    </div>
+    <>
+      <Script
+        src="https://telegram.org/js/telegram-web-app.js"
+        strategy="beforeInteractive"
+      />
+      <div className="p-4 bg-gray-50 min-h-screen">
+        <h1 className="text-center text-2xl font-bold mb-4">
+          🎥 Telegram VideoStore
+        </h1>
+        {telegramUser && (
+          <p className="text-center text-gray-600 mb-4">
+            Hello, {telegramUser.first_name}!
+          </p>
+        )}
+        <VideoGridClient videos={videos} />
+      </div>
+    </>
   );
 }
