@@ -5,7 +5,9 @@ import Image from "next/image";
 import logo from "../app/logo.svg"; // adjust path if needed
 
 export default function Sidebar({ creators }) {
-  const premiumCreators = creators.filter((creator) => creator.premium);
+  const premiumCreators = creators
+    .filter((creator) => creator.premium)
+    .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity));
   const topCreators = creators.filter(
     (creator) => !creator.premium && creator.urlHandle && !creator.secret
   );
