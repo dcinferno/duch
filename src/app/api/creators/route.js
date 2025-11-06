@@ -54,6 +54,8 @@ export async function POST(req) {
       url: body.url,
       premium: body.premium || false,
       urlHandle: body.urlHandle || "",
+      premium: body.premium ?? false,
+      secret: body.secret ?? false,
       photo: body.photo || "",
       createdAt: new Date(),
     });
