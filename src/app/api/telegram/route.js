@@ -2,8 +2,12 @@ import { Telegraf } from "telegraf";
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-bot.on("text", async (ctx) => {
+bot.command("text", async (ctx) => {
   await ctx.reply(`You said: ${ctx.message.text}`);
+});
+
+bot.hears(/.*/, (ctx) => {
+  ctx.reply(`You said: ${ctx.message.text}`);
 });
 
 export async function POST() {
