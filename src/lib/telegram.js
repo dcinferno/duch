@@ -11,12 +11,14 @@ export async function sendTelegramMessage(video) {
 
   // Format the message
   const message = `
-🎬 *${video.title}* by *${video.creatorName}*
-${video.description ? `\n${video.description}` : ""}
+<b>${video.title}</b>
 
-🔗 [Watch Now](${video.url})
-${video.price > 0 ? `💰 Price: $${video.price}` : "🆓 Free"}
-${video.tags?.length ? `\n🏷️ Tags: ${video.tags.join(", ")}` : ""}
+${video.description}
+
+👤 <a href="${video.socialMediaUrl}">${video.creatorName}</a>
+💎 ${video.price === 0 ? "Free" : `$${video.price}`}
+🏷️ ${video.tags?.map((t) => `#${t}`).join(" ")}
+🎥 <a href="${video.url}">Watch Video</a>
 `;
 
   try {
