@@ -1,16 +1,17 @@
 import { Telegraf } from "telegraf";
-import { uploadToS3 } from "./pushrS3.js"; // your existing S3 helper
-import { sendTelegramMessage } from "./telegram.js"; // your existing function
+import { uploadToS3 } from "@/lib/pushrS3.js";
+import { sendTelegramMessage } from "@/lib/telegram.js";
 import Creators from "@/models/creators.js";
 import Videos from "@/models/videos.js";
 import { connectToDB } from "@/lib/mongodb.js";
 
-export const bot = new Telegraf(process.env.BOT_TOKEN);
+// --- Bot setup ---
+const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// State storage for each user in memory (simple approach)
+// --- State storage (in-memory for simplicity) ---
 const userStates = new Map();
 
-// Helper to ask a question and store response
+// --- Helper: ask a step ---
 async function askStep(ctx, step, question) {
   userStates.set(ctx.from.id, {
     step,
@@ -19,20 +20,19 @@ async function askStep(ctx, step, question) {
   await ctx.reply(question);
 }
 
-// /upload command
+// --- /upload command ---
 bot.command("upload", async (ctx) => {
   await connectToDB();
-
   const uploader = await Creators.findOne({ telegramId: ctx.from.id });
   if (!uploader) return ctx.reply("❌ You are not registered as a creator.");
 
   await askStep(ctx, "title", "📌 Please enter the video title:");
 });
 
-// Listen for messages to handle the step-by-step flow
+// --- Handle messages for step-by-step flow ---
 bot.on("message", async (ctx) => {
   const state = userStates.get(ctx.from.id);
-  if (!state) return; // no ongoing flow
+  if (!state) return; // no active flow
 
   const { step, data } = state;
   const text = ctx.message.text;
@@ -53,51 +53,49 @@ bot.on("message", async (ctx) => {
       await askStep(
         ctx,
         "video",
-        "🎥 Please send the video file now (Telegram video):"
+        "🎥 Please send the video file now (as Telegram video):"
       );
       break;
 
     case "video":
-      if (!ctx.message.video) return ctx.reply("❌ Please send a video file.");
+      if (!ctx.message.video)
+        return ctx.reply("❌ Please send a video file (Telegram video).");
 
       const telegramVideo = ctx.message.video;
-      const fileId = telegramVideo.file_id;
 
       try {
-        // Get download URL from Telegram
-        const fileUrlRes = await fetch(
-          `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${fileId}`
+        // --- Get Telegram video URL ---
+        const fileRes = await fetch(
+          `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${telegramVideo.file_id}`
         );
-        const fileData = await fileUrlRes.json();
-        const telegramFilePath = fileData.result.file_path;
-        const telegramVideoUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${telegramFilePath}`;
+        const fileData = await fileRes.json();
+        const filePath = fileData.result.file_path;
+        const telegramVideoUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${filePath}`;
 
-        // Upload video to S3
-        const s3Video = await uploadToS3(
+        // --- Upload video to S3 ---
+        const s3VideoUrl = await uploadToS3(
           telegramVideoUrl,
           telegramVideo.file_name || "video.mp4",
           "videos"
         );
 
-        // Use Telegram thumbnail automatically
-        let thumbnailUrl = null;
+        // --- Handle Telegram thumbnail ---
+        let s3ThumbnailUrl = null;
         if (telegramVideo.thumb) {
-          const thumbFileId = telegramVideo.thumb.file_id;
           const thumbFileRes = await fetch(
-            `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${thumbFileId}`
+            `https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${telegramVideo.thumb.file_id}`
           );
           const thumbData = await thumbFileRes.json();
           const thumbPath = thumbData.result.file_path;
           const thumbUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${thumbPath}`;
-          const s3Thumb = await uploadToS3(
+          s3ThumbnailUrl = await uploadToS3(
             thumbUrl,
             "thumbnail.jpg",
             "thumbnails"
           );
-          thumbnailUrl = s3Thumb;
         }
 
-        // Save video to DB
+        // --- Save to DB ---
         await connectToDB();
         const creator = await Creators.findOne({ telegramId: ctx.from.id });
         const video = await Videos.create({
@@ -106,11 +104,11 @@ bot.on("message", async (ctx) => {
           price: data.price,
           creatorName: creator.name,
           socialMediaUrl: creator.socialMediaUrl,
-          url: s3Video,
-          thumbnail: thumbnailUrl,
+          url: s3VideoUrl,
+          thumbnail: s3ThumbnailUrl,
         });
 
-        // Notify channel
+        // --- Notify channel ---
         await sendTelegramMessage(video);
 
         ctx.reply("✅ Video uploaded successfully!");
@@ -119,7 +117,7 @@ bot.on("message", async (ctx) => {
         ctx.reply("❌ Failed to upload video. Check logs.");
       }
 
-      // Clear state
+      // --- Clear state ---
       userStates.delete(ctx.from.id);
       break;
 
