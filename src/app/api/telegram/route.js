@@ -1,25 +1,12 @@
-import { Telegraf } from "telegraf";
+import { bot } from "@/lib/telegramBot.js";
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
-
-bot.command("text", async (ctx) => {
-  await ctx.reply(`You said: ${ctx.message.text}`);
-});
-
-bot.hears(/.*/, (ctx) => {
-  ctx.reply(`You said: ${ctx.message.text}`);
-});
-
-export async function POST(request) {
-  /*
+export async function POST(req) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     await bot.handleUpdate(body);
-    return new Response("OK", { status: 200 });
+    return new Response("OK");
   } catch (err) {
-    console.error(err);
+    console.error("❌ Telegram webhook error:", err);
     return new Response("Error", { status: 500 });
   }
-    */
-  return;
 }
