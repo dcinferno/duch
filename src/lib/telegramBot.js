@@ -6,7 +6,7 @@ import Videos from "@/models/videos.js";
 import { connectToDB } from "@/lib/mongodb.js";
 
 // --- Bot setup ---
-const bot = new Telegraf(process.env.BOT_TOKEN);
+export const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // --- State storage (in-memory for simplicity) ---
 const userStates = new Map();
