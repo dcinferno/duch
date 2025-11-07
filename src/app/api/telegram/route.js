@@ -11,6 +11,7 @@ bot.hears(/.*/, (ctx) => {
 });
 
 export async function POST(request) {
+  /*
   try {
     const body = await request.json();
     await bot.handleUpdate(body);
@@ -19,4 +20,6 @@ export async function POST(request) {
     console.error(err);
     return new Response("Error", { status: 500 });
   }
+    */
+  return;
 }
