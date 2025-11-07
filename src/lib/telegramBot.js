@@ -1,137 +1,99 @@
-import { Telegraf, session } from "telegraf";
-import { connectToDB } from "../lib/mongodb.js";
-import Creators from "../models/creators.js";
-import Videos from "../models/videos.js";
+import { Telegraf } from "telegraf";
+import { uploadToS3 } from "./s3Upload.js"; // your S3 helper
+import { connectToDB } from "./mongodb.js";
+import Videos from "./models/videos.js";
+import Creators from "./models/creators.js";
 import { sendTelegramMessage } from "./telegram.js";
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
-bot.use(session());
 
-// ✅ Helper: Upload file (video or thumbnail) to your /api/upload route
-async function uploadToS3(fileUrl, fileName, folder = "videos") {
-  const res = await fetch(fileUrl);
-  const buffer = await res.arrayBuffer();
-  const contentType = fileUrl.endsWith(".jpg") ? "image/jpeg" : "video/mp4";
+const userStates = new Map();
 
-  // Ask your /api/upload endpoint for a signed URL
-  const signRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/upload`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      secret: process.env.UPLOAD_SECRET_KEY,
-      fileName,
-      contentType,
-      folder,
-    }),
-  });
-
-  const { uploadUrl, publicUrl } = await signRes.json();
-  if (!uploadUrl) throw new Error("Failed to get upload URL from server");
-
-  // Upload binary file directly to S3
-  await fetch(uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: buffer,
-  });
-
-  return publicUrl;
-}
-
-// 🧩 Step 1: Start upload
+// Start upload
 bot.command("upload", async (ctx) => {
-  ctx.session = { step: "title" };
-  await ctx.reply("🎬 Please send the video title:");
+  userStates.set(ctx.from.id, { step: "title" });
+  await ctx.reply("📝 Enter the title of your video:");
 });
 
-// 🧩 Step 2: Collect metadata
-bot.hears(/.*/, async (ctx) => {
-  if (!ctx.session) ctx.session = {};
-
-  switch (ctx.session.step) {
-    case "title":
-      ctx.session.title = ctx.message.text;
-      ctx.session.step = "description";
-      return ctx.reply("📝 Send the video description:");
-
-    case "description":
-      ctx.session.description = ctx.message.text;
-      ctx.session.step = "price";
-      return ctx.reply("💰 What’s the price? (0 for free)");
-
-    case "price":
-      ctx.session.price = parseFloat(ctx.message.text) || 0;
-      ctx.session.step = "video";
-      return ctx.reply("📹 Send the video file now.");
-
-    default:
-      return ctx.reply("Use /upload to start a new video upload.");
-  }
-});
-
-// 🧩 Step 3: Handle video
-bot.on("video", async (ctx) => {
-  if (ctx.session?.step !== "video") return;
+// Handle messages
+bot.on("message", async (ctx) => {
+  const state = userStates.get(ctx.from.id);
+  if (!state) return;
 
   try {
-    await connectToDB();
+    if (state.step === "title") {
+      state.title = ctx.message.text;
+      state.step = "description";
+      await ctx.reply("✏️ Enter the description:");
+    } else if (state.step === "description") {
+      state.description = ctx.message.text;
+      state.step = "price";
+      await ctx.reply("💰 Enter the price (0 for free):");
+    } else if (state.step === "price") {
+      state.price = parseFloat(ctx.message.text) || 0;
+      state.step = "creator";
+      await ctx.reply("👤 Enter your creator name (must be registered):");
+    } else if (state.step === "creator") {
+      // Verify creator exists
+      await connectToDB();
+      const creator = await Creators.findOne({ name: ctx.message.text });
+      if (!creator) {
+        await ctx.reply("❌ Creator not found. Enter a valid name:");
+        return;
+      }
+      state.creator = creator;
+      state.step = "video";
+      await ctx.reply("🎬 Send your video file now:");
+    } else if (state.step === "video") {
+      const video = ctx.message.video;
+      if (!video) {
+        await ctx.reply("❌ Please send a video file.");
+        return;
+      }
 
-    const telegramId = ctx.message.from.id;
-    const creator =
-      (await Creators.findOne({ telegramId })) ||
-      (await Creators.findOne({ username: ctx.message.from.username }));
+      // Telegram thumbnail
+      const thumbFileId = video.thumb?.file_id;
 
-    if (!creator) {
-      return ctx.reply("❌ You are not authorized to upload videos.");
-    }
-
-    const fileId = ctx.message.video.file_id;
-    const file = await ctx.telegram.getFile(fileId);
-    const telegramVideoUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
-
-    // ✅ Thumbnail (optional)
-    let thumbnailUrl = null;
-    if (ctx.message.video.thumbnail?.file_id) {
-      const thumbFile = await ctx.telegram.getFile(
-        ctx.message.video.thumbnail.file_id
+      // Upload video to S3
+      const fileLink = await ctx.telegram.getFileLink(video.file_id);
+      const s3VideoUrl = await uploadToS3(
+        fileLink.href,
+        video.file_name || "video.mp4",
+        "videos"
       );
-      const telegramThumbUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${thumbFile.file_path}`;
 
-      thumbnailUrl = await uploadToS3(
-        telegramThumbUrl,
-        "thumbnail.jpg",
-        "thumbnails"
-      );
+      // Upload thumbnail to S3 (if exists)
+      let s3ThumbUrl = null;
+      if (thumbFileId) {
+        const thumbLink = await ctx.telegram.getFileLink(thumbFileId);
+        s3ThumbUrl = await uploadToS3(
+          thumbLink.href,
+          "thumb.jpg",
+          "thumbnails"
+        );
+      }
+
+      // Save to DB
+      const newVideo = await Videos.create({
+        title: state.title,
+        description: state.description,
+        price: state.price,
+        creatorName: state.creator.name,
+        socialMediaUrl: state.creator.socialMediaUrl,
+        url: s3VideoUrl,
+        thumbnail: s3ThumbUrl,
+      });
+
+      // Optional: post to channel
+      await sendTelegramMessage(newVideo);
+
+      await ctx.reply("✅ Video uploaded successfully!");
+      userStates.delete(ctx.from.id);
     }
-
-    // ✅ Upload video to S3
-    const s3VideoUrl = await uploadToS3(
-      telegramVideoUrl,
-      "video.mp4",
-      "videos"
-    );
-
-    const { title, description, price } = ctx.session;
-
-    // ✅ Save to DB
-    const video = await Videos.create({
-      title,
-      description,
-      thumbnail: thumbnailUrl,
-      price,
-      creatorName: creator.name,
-      socialMediaUrl: creator.socialMediaUrl,
-      url: s3VideoUrl,
-    });
-
-    // ✅ Post to Telegram channel
-    await sendTelegramMessage(video);
-
-    await ctx.reply("✅ Video uploaded successfully and published!");
-    ctx.session = null;
   } catch (err) {
-    console.error("Upload error:", err);
-    ctx.reply("❌ Failed to upload video. Please try again later.");
+    console.error(err);
+    await ctx.reply("❌ Something went wrong. Try again.");
+    userStates.delete(ctx.from.id);
   }
 });
 
