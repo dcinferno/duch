@@ -10,9 +10,9 @@ bot.hears(/.*/, (ctx) => {
   ctx.reply(`You said: ${ctx.message.text}`);
 });
 
-export async function POST() {
+export async function POST(request) {
   try {
-    const body = await req.json();
+    const body = await request.json();
     await bot.handleUpdate(body);
     return new Response("OK", { status: 200 });
   } catch (err) {
