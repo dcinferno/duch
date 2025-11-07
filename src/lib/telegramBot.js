@@ -50,16 +50,11 @@ bot.on("message", async (ctx) => {
 
     case "price":
       data.price = parseFloat(text) || 0;
-      await askStep(
-        ctx,
-        "video",
-        "🎥 Please send the video file now (as Telegram video):"
-      );
+      await askStep(ctx, "video", "🎥 Please send the video file now:");
       break;
 
     case "video":
-      if (!ctx.message.video)
-        return ctx.reply("❌ Please send a video file (Telegram video).");
+      if (!ctx.message.video) return ctx.reply("❌ Please send a video file.");
 
       const telegramVideo = ctx.message.video;
 
@@ -103,7 +98,7 @@ bot.on("message", async (ctx) => {
           description: data.description,
           price: data.price,
           creatorName: creator.name,
-          socialMediaUrl: creator.socialMediaUrl,
+          socialMediaUrl: creator.url,
           url: s3VideoUrl,
           thumbnail: s3ThumbnailUrl,
         });
