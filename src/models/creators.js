@@ -9,6 +9,7 @@ const CreatorSchema = new mongoose.Schema({
   icon: { type: String }, // optional sidebar icon image
   secret: { type: Boolean, default: false, sparse: true }, // hidden from public listing
   rank: { type: Number },
+  telegramId: { type: Number },
 });
 
 export default mongoose.models.Creators ||
