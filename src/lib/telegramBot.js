@@ -1,5 +1,5 @@
 import { Telegraf } from "telegraf";
-import { uploadToS3 } from "./s3.js"; // your existing S3 helper
+import { uploadToS3 } from "./pushrS3.js"; // your existing S3 helper
 import { sendTelegramMessage } from "./telegram.js"; // your existing function
 import Creators from "@/models/creators.js";
 import Videos from "@/models/videos.js";

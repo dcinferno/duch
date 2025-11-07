@@ -1,5 +1,5 @@
 // lib/pushrS3.js
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const {
   PUSHR_ENDPOINT,
@@ -17,8 +17,9 @@ if (
   console.warn("⚠️ Missing S3 environment variables in .env.local");
 }
 
+// S3 client for Pushr
 const s3 = new S3Client({
-  region: "auto", // Pushr uses S3-compatible API; region often doesn't matter
+  region: "auto", // Pushr uses S3-compatible API
   endpoint: PUSHR_ENDPOINT,
   credentials: {
     accessKeyId: PUSHR_ACCESS_KEY,
@@ -29,3 +30,27 @@ const s3 = new S3Client({
 
 export default s3;
 export const BUCKET_ID = PUSHR_BUCKET_ID;
+
+/**
+ * Upload a file to Pushr S3
+ * @param {Buffer|Uint8Array|Blob|string} fileData - File content
+ * @param {string} key - S3 object key (e.g., "videos/video.mp4")
+ * @param {string} contentType - MIME type (e.g., "video/mp4", "image/jpeg")
+ * @returns {string} public URL to the uploaded file
+ */
+export async function uploadToS3(fileData, key, contentType) {
+  if (!fileData || !key) throw new Error("Missing fileData or key");
+
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_ID,
+    Key: key,
+    Body: fileData,
+    ContentType: contentType,
+    ACL: "public-read",
+  });
+
+  await s3.send(command);
+
+  // Construct public URL for Pushr
+  return `${PUSHR_ENDPOINT.replace(/\/$/, "")}/${BUCKET_ID}/${key}`;
+}
