@@ -1,6 +1,7 @@
 import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
 import Creators from "../../../models/creators.js";
+import { sendTelegramMessage } from "../../../lib/telegram.js";
 
 export async function GET(request) {
   try {
@@ -70,10 +71,7 @@ export async function POST(request) {
     const { title, description, thumbnail, price, creatorName, url, tags } =
       await request.json();
 
-    // Normalize creator name
     const normalizedName = creatorName.trim();
-
-    // Find creator
     const creator = await Creators.findOne({
       name: new RegExp(`^${normalizedName}$`, "i"),
     });
@@ -84,7 +82,6 @@ export async function POST(request) {
 
     const socialMediaUrl = creator.url || creator.socialMediaUrl;
 
-    // Create video record
     const video = await Videos.create({
       title,
       description,
@@ -95,6 +92,9 @@ export async function POST(request) {
       url,
       tags,
     });
+
+    // 🚀 Post to Telegram channel
+    sendTelegramMessage(video);
 
     return Response.json(video, { status: 201 });
   } catch (err) {
