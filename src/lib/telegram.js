@@ -3,7 +3,8 @@
 export async function sendTelegramMessage(video) {
   const token = process.env.BOT_TOKEN;
   const channelId = process.env.CHANNEL_ID;
-  const trackingUrl = `https://${NEXT_REDIRECT_URL}/api/redirect?videoId=${video._id}`;
+  const redirectUrl = process.env.NEXT_REDIRECT_URL;
+  const trackingUrl = `https://${redirectUrl}/api/redirect?videoId=${video._id}`;
 
   if (!token || !channelId) {
     console.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHANNEL_ID");
