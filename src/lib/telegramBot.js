@@ -132,3 +132,8 @@ bot.on("message", async (ctx) => {
       break;
   }
 });
+// Start the bot
+bot
+  .launch()
+  .then(() => console.log("Bot started"))
+  .catch(console.error);
