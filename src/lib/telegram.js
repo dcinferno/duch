@@ -28,7 +28,7 @@ ${video.description}
       body: JSON.stringify({
         chat_id: channelId,
         photo: video.thumbnail,
-        text: message,
+        caption: message,
         parse_mode: "HTML",
         disable_web_page_preview: false,
       }),
