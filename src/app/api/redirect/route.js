@@ -1,6 +1,7 @@
 // app/api/redirect/route.js
 import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
+import VideoViews from "../../../models/videoViews.js";
 
 export async function GET(request) {
   try {
@@ -13,16 +14,16 @@ export async function GET(request) {
       return Response.json({ error: "No videoId provided" }, { status: 400 });
     }
 
-    // Increment the view count
-    await Videos.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
-
-    // Fetch the video URL to redirect
+    // Check video exists
     const video = await Videos.findById(videoId);
     if (!video) {
       return Response.json({ error: "Video not found" }, { status: 404 });
     }
 
-    // Redirect to the actual video
+    // 🔹 Log a new view directly using the VideoViews model
+    await VideoViews.create({ videoId: String(videoId) });
+
+    // Redirect user to the real video URL
     return Response.redirect(video.url, 302);
   } catch (err) {
     console.error("❌ Redirect error:", err);
