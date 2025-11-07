@@ -7,10 +7,6 @@ import { connectToDB } from "@/lib/mongodb.js";
 
 export const bot = new Telegraf(process.env.BOT_TOKEN);
 
-bot.on("message", (ctx) => {
-  console.log(ctx.from.username, ctx.from.id);
-});
-
 // State storage for each user in memory (simple approach)
 const userStates = new Map();
 
@@ -132,8 +128,3 @@ bot.on("message", async (ctx) => {
       break;
   }
 });
-// Start the bot
-bot
-  .launch()
-  .then(() => console.log("Bot started"))
-  .catch(console.error);
