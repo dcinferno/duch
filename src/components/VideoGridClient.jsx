@@ -199,7 +199,12 @@ export default function VideoGridClient({ videos = [] }) {
   return (
     <div className="w-full">
       {/* Filter Bar */}
-      <div className="flex flex-wrap gap-2 mb-6 justify-center">
+      <div className="flex flex-wrap gap-3 mb-6 justify-center items-center">
+        <span className="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-full shadow-sm">
+          {videosToRender.length}{" "}
+          {videosToRender.length === 1 ? "video" : "videos"}
+        </span>
+
         <button
           onClick={togglePremium}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
