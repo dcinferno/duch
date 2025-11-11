@@ -1,5 +1,23 @@
 // lib/telegram.js
 
+// --- Helper: Safe fetch with retry ---
+async function safeFetch(url, options, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Bad response: ${res.status} - ${text}`);
+      }
+      return res;
+    } catch (err) {
+      console.warn(`⚠️ Telegram fetch attempt ${i + 1} failed:`, err.message);
+      if (i === retries - 1) throw err;
+      await new Promise((r) => setTimeout(r, 1000 * (i + 1))); // exponential-ish delay
+    }
+  }
+}
+
 export async function sendTelegramMessage(video) {
   const token = process.env.BOT_TOKEN;
   const channelId = process.env.CHANNEL_ID;
@@ -24,17 +42,20 @@ ${video.description}
 `;
 
   try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: channelId,
-        photo: video.thumbnail,
-        caption: message,
-        parse_mode: "HTML",
-        disable_web_page_preview: false,
-      }),
-    });
+    const res = await safeFetch(
+      `https://api.telegram.org/bot${token}/sendPhoto`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: channelId,
+          photo: video.thumbnail,
+          caption: message,
+          parse_mode: "HTML",
+          disable_web_page_preview: false,
+        }),
+      }
+    );
 
     const data = await res.json();
     if (!data.ok) {
