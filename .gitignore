@@ -48,3 +48,5 @@ next-env.d.ts
 
 /src/scripts/
 /src/video-store-bot
+
+/src/lib/telegram_copy.*

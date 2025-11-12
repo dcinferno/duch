@@ -38,29 +38,41 @@ ${video.description}
 👤 <a href="${video.socialMediaUrl}">${video.creatorName}</a>
 💎 ${video.price === 0 ? "Free" : `$${video.price}`}
 🏷️ ${video.tags?.map((t) => `#${t}`).join(" ")}
-🎥 <a href="${trackingUrl}">Watch Video</a>
 `;
 
   try {
+    const payload = {
+      chat_id: channelId,
+      photo: video.thumbnail, // <-- your S3 thumbnail URL
+      caption: message,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "▶️ Watch Video",
+              url: trackingUrl, // your redirect-tracking link
+            },
+          ],
+        ],
+      },
+    };
+
+    // 👇 Send via Telegram API
     const res = await safeFetch(
       `https://api.telegram.org/bot${token}/sendPhoto`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: channelId,
-          photo: video.thumbnail,
-          caption: message,
-          parse_mode: "HTML",
-          disable_web_page_preview: false,
-        }),
+        body: JSON.stringify(payload),
       }
     );
 
     const data = await res.json();
-    if (!data.ok) {
-      console.error("Telegram API error:", data);
+    if (!res.ok || !data.ok) {
+      console.error("❌ Telegram API error:", data);
     }
+    return data;
   } catch (err) {
     console.error("Failed to send Telegram message:", err);
   }
