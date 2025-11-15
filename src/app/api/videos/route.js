@@ -94,7 +94,7 @@ export async function POST(request) {
     });
 
     // 🚀 Post to Telegram channel
-    sendTelegramMessage(video);
+    await sendTelegramMessage(video);
 
     return Response.json(video, { status: 201 });
   } catch (err) {
