@@ -1,7 +1,27 @@
 // lib/telegramUpload.js
+import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import fetch from "node-fetch";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 
+import fetch from "node-fetch";
+import s3 from "../../../lib/pushrS3";
+
+// Utility to generate unique filename
+function generateUniqueFileName(originalName) {
+  // Extract extension (e.g. ".mp4", ".png")
+  const ext = originalName.includes(".")
+    ? originalName.substring(originalName.lastIndexOf("."))
+    : "";
+
+  // Clean base name (remove extension + spaces)
+  const base = originalName
+    .replace(/\.[^/.]+$/, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^\w-]/g, "");
+
+  // ✅ Combine with nanoid for uniqueness
+  return `${nanoid(10)}_${base}${ext}`;
+}
 /**
  * Upload a file (image/video) to S3 using your /api/upload route
  * Preserves original file extension.
@@ -57,4 +77,36 @@ export async function uploadToS3(fileUrl, folder = "videos") {
   });
 
   return publicUrl;
+}
+
+export async function POST(req) {
+  try {
+    const formData = await req.formData();
+    const file = formData.get("file");
+    const folder = formData.get("folder");
+
+    if (!file)
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const uniqueFileName = generateUniqueFileName(file.name);
+    const key = folder ? `${folder}/${uniqueFileName}` : uniqueFileName;
+
+    const params = {
+      Bucket: process.env.PUSHR_BUCKET_ID, // 🔹 include bucket name
+      Key: key,
+      Body: buffer,
+      ContentType: file.type,
+      ACL: "public-read",
+    };
+
+    await s3.send(new PutObjectCommand(params));
+
+    const publicUrl = `${process.env.PUSHR_CDN_URL.replace(/\/$/, "")}/${key}`;
+
+    return NextResponse.json({ url: publicUrl, key });
+  } catch (err) {
+    console.error("❌ Upload failed:", err);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+  }
 }
