@@ -9,12 +9,22 @@ export default function VideoGridClient({ videos = [] }) {
   const [sortByViews, setSortByViews] = useState(false);
   const [VideoViews, setVideoViews] = useState({});
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
+
+  const [FFWednesday, setFFWednesday] = useState(false);
+  const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
+
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
 
   // Pagination / Infinite Scroll
   const [visibleCount, setVisibleCount] = useState(12);
   const loadMoreRef = useRef(null);
+
+  // Determine if today is Wednesday
+  useEffect(() => {
+    const today = new Date().getDay(); // 3 = Wednesday
+    setFFWednesday(today === 3);
+  }, []);
 
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
@@ -34,13 +44,17 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // Filtering and sorting
+  //  (Wednesday logic added here)
   const filteredVideos = videos.filter((v) => {
     const matchesTags =
       selectedTags.length === 0 ||
       selectedTags.every((tag) => v.tags?.includes(tag));
+
     const matchesPremium = !showPremiumOnly || v.premium === true;
-    return matchesTags && matchesPremium;
+
+    const matchesWednesday = !wednesdayFilterOn || v.tags.includes("wagon");
+
+    return matchesTags && matchesPremium && matchesWednesday;
   });
 
   const videosToRender = sortByViews
@@ -67,7 +81,7 @@ export default function VideoGridClient({ videos = [] }) {
   // Reset visible count when filters/sort change
   useEffect(() => {
     setVisibleCount(12);
-  }, [selectedTags, showPremiumOnly, sortByViews]);
+  }, [selectedTags, showPremiumOnly, sortByViews, wednesdayFilterOn]);
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
@@ -95,7 +109,6 @@ export default function VideoGridClient({ videos = [] }) {
     return () => observer.disconnect();
   }, [videos]);
 
-  // Preload and aggressive preload
   const preloadVideoLink = (url) => {
     if (!url) return;
     if (!document.querySelector(`link[as="video"][href="${url}"]`)) {
@@ -121,6 +134,7 @@ export default function VideoGridClient({ videos = [] }) {
       const reader = response.body.getReader();
       let bytesFetched = 0;
       const maxBytes = maxMB * 1024 * 1024;
+
       while (true) {
         const { done, value } = await reader.read();
         if (done || !value) break;
@@ -153,15 +167,19 @@ export default function VideoGridClient({ videos = [] }) {
   }, [selectedVideoIndex]);
 
   const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
+
   const toggleTag = (tag) =>
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
+
   const togglePremium = () => setShowPremiumOnly((prev) => !prev);
+
   const clearFilters = () => {
     setSelectedTags([]);
     setShowPremiumOnly(false);
     setSortByViews(false);
+    setWednesdayFilterOn(false);
   };
 
   const logVideoViews = async (videoId) => {
@@ -171,6 +189,7 @@ export default function VideoGridClient({ videos = [] }) {
       ...prev,
       [videoId]: (prev[videoId] || 0) + 1,
     }));
+
     try {
       await fetch("/api/video-views", {
         method: "POST",
@@ -182,17 +201,20 @@ export default function VideoGridClient({ videos = [] }) {
 
   useEffect(() => {
     if (videos.length === 0) return;
+
     const fetchAllViews = async () => {
       try {
         const ids = videos.map((v) => v._id).join(",");
         const res = await fetch(`/api/video-views?videoIds=${ids}`);
         if (!res.ok) throw new Error("Failed to fetch views");
+
         const data = await res.json();
         setVideoViews(data);
       } catch (err) {
         console.error("❌ Error fetching all video views:", err);
       }
     };
+
     fetchAllViews();
   }, [videos]);
 
@@ -201,8 +223,8 @@ export default function VideoGridClient({ videos = [] }) {
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-3 mb-6 justify-center items-center">
         <span className="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-full shadow-sm">
-          {videosToRender.length}{" "}
-          {videosToRender.length === 1 ? "video" : "videos"}
+          {videosToRender.length}
+          {videosToRender.length === 1 ? " video" : " videos"}
         </span>
 
         <button
@@ -226,6 +248,20 @@ export default function VideoGridClient({ videos = [] }) {
         >
           🔥 Most Viewed
         </button>
+
+        {/* ⭐ Wednesday Filter Button (only shows ON Wednesday) */}
+        {FFWednesday && (
+          <button
+            onClick={() => setWednesdayFilterOn((s) => !s)}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+              wednesdayFilterOn
+                ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
+                : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+            }`}
+          >
+            Wagon Wednesday
+          </button>
+        )}
 
         {/* Tags Dropdown */}
         <div className="relative">
@@ -278,7 +314,10 @@ export default function VideoGridClient({ videos = [] }) {
           )}
         </div>
 
-        {(selectedTags.length > 0 || showPremiumOnly || sortByViews) && (
+        {(selectedTags.length > 0 ||
+          showPremiumOnly ||
+          sortByViews ||
+          wednesdayFilterOn) && (
           <button
             onClick={clearFilters}
             className="px-3 py-1.5 rounded-full border text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-800 transition-all"
@@ -338,6 +377,8 @@ export default function VideoGridClient({ videos = [] }) {
                       </span>
                     ))}
                   </div>
+
+                  {/* PRICE WITH JAZZ DISCOUNT */}
                   <div className="flex items-center justify-between text-sm text-gray-600">
                     {video.socialMediaUrl ? (
                       <a
@@ -351,11 +392,24 @@ export default function VideoGridClient({ videos = [] }) {
                     ) : (
                       <span>{video.creatorName}</span>
                     )}
-                    <span>
-                      {video.price === 0 ? "Free" : `$${video.price}`}
-                    </span>
+
+                    {video.tags?.includes("wagon") ? (
+                      <span className="flex items-center gap-1">
+                        <span className="line-through text-gray-400">
+                          {video.price === 0 ? "Free" : `$${video.price}`}
+                        </span>
+                        <span className="text-green-600 font-semibold">
+                          $13.34
+                        </span>
+                      </span>
+                    ) : (
+                      <span>
+                        {video.price === 0 ? "Free" : `$${video.price}`}
+                      </span>
+                    )}
                   </div>
                 </div>
+
                 <button
                   onClick={() => openVideo(index)}
                   className="mt-3 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 w-full text-sm sm:text-base font-medium transition-all"
@@ -399,7 +453,7 @@ export default function VideoGridClient({ videos = [] }) {
       ) : (
         videosToRender.length > 0 && (
           <div className="text-center text-gray-400 py-6">
-            🎉 You’ve reached the end!
+            You’ve reached the end👿
           </div>
         )
       )}
