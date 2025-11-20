@@ -9,7 +9,8 @@ export default function VideoGridClient({ videos = [] }) {
   const [sortByViews, setSortByViews] = useState(false);
   const [VideoViews, setVideoViews] = useState({});
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
-
+  const [FFThursday, setFFThursday] = useState(false);
+  const [thursdayFilterOn, setThursdayFilterOn] = useState(false);
   const [FFWednesday, setFFWednesday] = useState(false);
   const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
 
@@ -24,6 +25,7 @@ export default function VideoGridClient({ videos = [] }) {
   useEffect(() => {
     const today = new Date().getDay(); // 3 = Wednesday
     setFFWednesday(today === 3);
+    setFFThursday(today === 4);
   }, []);
 
   const formatDate = (dateInput) => {
@@ -54,7 +56,10 @@ export default function VideoGridClient({ videos = [] }) {
 
     const matchesWednesday = !wednesdayFilterOn || v.tags.includes("wagon");
 
-    return matchesTags && matchesPremium && matchesWednesday;
+    const matchesThursday =
+      !thursdayFilterOn || v.creatorName.includes("pudding");
+
+    return matchesTags && matchesPremium && matchesWednesday && matchesThursday;
   });
 
   const videosToRender = sortByViews
@@ -81,7 +86,13 @@ export default function VideoGridClient({ videos = [] }) {
   // Reset visible count when filters/sort change
   useEffect(() => {
     setVisibleCount(12);
-  }, [selectedTags, showPremiumOnly, sortByViews, wednesdayFilterOn]);
+  }, [
+    selectedTags,
+    showPremiumOnly,
+    sortByViews,
+    wednesdayFilterOn,
+    thursdayFilterOn,
+  ]);
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
@@ -180,6 +191,7 @@ export default function VideoGridClient({ videos = [] }) {
     setShowPremiumOnly(false);
     setSortByViews(false);
     setWednesdayFilterOn(false);
+    setThursdayFilterOn(false);
   };
 
   const logVideoViews = async (videoId) => {
@@ -262,7 +274,18 @@ export default function VideoGridClient({ videos = [] }) {
             Wagon Wednesday
           </button>
         )}
-
+        {FFThursday && (
+          <button
+            onClick={() => setThursdayFilterOn((s) => !s)}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+              thursdayFilterOn
+                ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
+                : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+            }`}
+          >
+            🍷Thirsty Thursday
+          </button>
+        )}
         {/* Tags Dropdown */}
         <div className="relative">
           <button
@@ -317,7 +340,8 @@ export default function VideoGridClient({ videos = [] }) {
         {(selectedTags.length > 0 ||
           showPremiumOnly ||
           sortByViews ||
-          wednesdayFilterOn) && (
+          wednesdayFilterOn ||
+          thursdayFilterOn) && (
           <button
             onClick={clearFilters}
             className="px-3 py-1.5 rounded-full border text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-800 transition-all"
@@ -393,7 +417,17 @@ export default function VideoGridClient({ videos = [] }) {
                       <span>{video.creatorName}</span>
                     )}
 
-                    {video.tags?.includes("wagon") ? (
+                    {video.creatorName.toLowerCase().includes("pudding") &&
+                    FFThursday ? (
+                      <span className="flex items-center gap-1">
+                        <span className="line-through text-gray-400">
+                          {video.price === 0 ? "" : `$${video.price}`}
+                        </span>
+                        <span className="text-blue-600 font-semibold">
+                          ${(video.price * 0.75).toFixed(2)}
+                        </span>
+                      </span>
+                    ) : video.tags?.includes("wagon") && FFWednesday ? (
                       <span className="flex items-center gap-1">
                         <span className="line-through text-gray-400">
                           {video.price === 0 ? "Free" : `$${video.price}`}
