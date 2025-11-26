@@ -1,13 +1,16 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function VideoGridClient({ videos = [] }) {
+  const router = useRouter();
+
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
   const [sortByViews, setSortByViews] = useState(false);
-  const [sortByPrice, setSortByPrice] = useState(false); // BROKE FILTER
+  const [sortByPrice, setSortByPrice] = useState(false);
   const [VideoViews, setVideoViews] = useState({});
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
   const [FFThursday, setFFThursday] = useState(false);
@@ -17,14 +20,15 @@ export default function VideoGridClient({ videos = [] }) {
 
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
+  const searchParams = useSearchParams();
 
-  // Pagination / Infinite Scroll
+  // Pagination
   const [visibleCount, setVisibleCount] = useState(12);
   const loadMoreRef = useRef(null);
 
-  // Determine if today is Wednesday / Thursday
+  // Wed / Thu logic
   useEffect(() => {
-    const today = new Date().getDay(); // 3 = Wed, 4 = Thu
+    const today = new Date().getDay();
     setFFWednesday(today === 3);
     setFFThursday(today === 4);
   }, []);
@@ -40,6 +44,7 @@ export default function VideoGridClient({ videos = [] }) {
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays <= 7) return `${diffDays} days ago`;
+
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -47,49 +52,52 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // Apply filters
+  // Filters
   const filteredVideos = videos.filter((v) => {
     const matchesTags =
       selectedTags.length === 0 ||
       selectedTags.every((tag) => v.tags?.includes(tag));
 
     const matchesPremium = !showPremiumOnly || v.premium === true;
-
     const matchesWednesday = !wednesdayFilterOn || v.tags.includes("wagon");
-
     const matchesThursday =
       !thursdayFilterOn || v.creatorName.includes("pudding");
 
     return matchesTags && matchesPremium && matchesWednesday && matchesThursday;
   });
 
-  // APPLY SORTING (Broke → then Views)
+  // Sorting
   const videosToRender = (() => {
     if (sortByPrice) {
       return [...filteredVideos].sort((a, b) => {
-        // 1. Cheapest first
         if (a.price !== b.price) return a.price - b.price;
-        // 2. If same price → most viewed first
         return (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0);
       });
     }
-
     if (sortByViews) {
       return [...filteredVideos].sort(
         (a, b) => (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0)
       );
     }
-
     return filteredVideos;
   })();
 
-  // Infinite Scroll Observer
+  // Auto-open modal on page load if ?view= is present
+  useEffect(() => {
+    const id = searchParams.get("video");
+    if (!id) return;
+
+    const index = videos.findIndex((v) => v._id === id);
+    if (index !== -1) {
+      openVideo(index); // <-- PRELOADS restored
+    }
+  }, [searchParams, videos]);
+
+  // Infinite scroll
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => prev + 12);
-        }
+        if (entries[0].isIntersecting) setVisibleCount((prev) => prev + 12);
       },
       { rootMargin: "400px" }
     );
@@ -98,7 +106,7 @@ export default function VideoGridClient({ videos = [] }) {
     return () => observer.disconnect();
   }, []);
 
-  // Reset visible videos on filter/sort change
+  // Reset on filter change
   useEffect(() => {
     setVisibleCount(12);
   }, [
@@ -112,17 +120,17 @@ export default function VideoGridClient({ videos = [] }) {
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
-  // Lazy-load thumbnails
+  // Lazy-load images
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            const videoEl = entry.target;
-            if (videoEl.dataset.src) {
-              videoEl.src = videoEl.dataset.src;
-              videoEl.preload = "metadata";
-              videoEl.removeAttribute("data-src");
+            const el = entry.target;
+            if (el.dataset.src) {
+              el.src = el.dataset.src;
+              el.preload = "metadata";
+              el.removeAttribute("data-src");
             }
           }
         });
@@ -136,6 +144,7 @@ export default function VideoGridClient({ videos = [] }) {
     return () => observer.disconnect();
   }, [videos]);
 
+  // Preload helpers
   const preloadVideoLink = (url) => {
     if (!url) return;
     if (!document.querySelector(`link[as="video"][href="${url}"]`)) {
@@ -154,9 +163,7 @@ export default function VideoGridClient({ videos = [] }) {
 
     try {
       const controller = new AbortController();
-      const signal = controller.signal;
-      const response = await fetch(url, { signal, mode: "cors" });
-      if (!response.ok || !response.body) return;
+      const response = await fetch(url, { signal: controller.signal });
 
       const reader = response.body.getReader();
       let bytesFetched = 0;
@@ -165,6 +172,7 @@ export default function VideoGridClient({ videos = [] }) {
       while (true) {
         const { done, value } = await reader.read();
         if (done || !value) break;
+
         bytesFetched += value.length;
         if (bytesFetched > maxBytes) {
           controller.abort();
@@ -177,14 +185,21 @@ export default function VideoGridClient({ videos = [] }) {
     }
   };
 
+  // OPEN MODAL + UPDATE URL
   const openVideo = (index) => {
     const video = visibleVideos[index];
-    setSelectedVideoIndex(index);
+
     setSelectedVideo(video);
+    setSelectedVideoIndex(index);
+
+    // URL becomes ?view=<id> but page doesn't navigate
+    router.push(`?video=${video._id}`, { shallow: true });
+
     preloadVideoLink(video.url);
     aggressivePreload(video.url, 16);
   };
 
+  // PRELOAD next/previous videos when modal open
   useEffect(() => {
     if (selectedVideoIndex === null) return;
     const next = visibleVideos[selectedVideoIndex + 1];
@@ -211,10 +226,11 @@ export default function VideoGridClient({ videos = [] }) {
     setThursdayFilterOn(false);
   };
 
-  // View logging
+  // View counter
   const logVideoViews = async (videoId) => {
     if (!videoId || loggedVideosRef.current.has(videoId)) return;
     loggedVideosRef.current.add(videoId);
+
     setVideoViews((prev) => ({
       ...prev,
       [videoId]: (prev[videoId] || 0) + 1,
@@ -229,6 +245,7 @@ export default function VideoGridClient({ videos = [] }) {
     } catch {}
   };
 
+  // Fetch views
   useEffect(() => {
     if (videos.length === 0) return;
 
@@ -236,100 +253,119 @@ export default function VideoGridClient({ videos = [] }) {
       try {
         const ids = videos.map((v) => v._id).join(",");
         const res = await fetch(`/api/video-views?videoIds=${ids}`);
-        if (!res.ok) throw new Error("Failed to fetch views");
-
         const data = await res.json();
         setVideoViews(data);
       } catch (err) {
-        console.error("❌ Error fetching all video views:", err);
+        console.error("Failed to fetch views:", err);
       }
     };
 
     fetchAllViews();
   }, [videos]);
 
+  // AUTO-OPEN MODAL IF URL HAS ?view=<id>
+  useEffect(() => {
+    if (videos.length === 0) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("view");
+    if (!id) return;
+
+    const idx = visibleVideos.findIndex((v) => v._id === id);
+    if (idx !== -1) openVideo(idx);
+  }, [videos, visibleVideos]);
+
+  // CLOSE MODAL + CLEAN URL
+  const closeModal = () => {
+    router.push("?", undefined, { shallow: true });
+    setSelectedVideo(null);
+    setSelectedVideoIndex(null);
+  };
+
   return (
     <div className="w-full">
-      {/* Filter Bar */}
+      {/* FILTER BAR */}
       <div className="flex flex-wrap gap-3 mb-6 justify-center items-center">
-        <span className="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-full shadow-sm">
-          {videosToRender.length}
-          {videosToRender.length === 1 ? " video" : " videos"}
+        <span className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full shadow-sm">
+          {videosToRender.length}{" "}
+          {videosToRender.length === 1 ? "video" : "videos"}
         </span>
 
+        {/* PREMIUM */}
         <button
           onClick={togglePremium}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             showPremiumOnly
-              ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
-              : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+              ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
           }`}
         >
           💎 Featured Only
         </button>
 
+        {/* MOST VIEWED */}
         <button
           onClick={() => {
-            setSortByViews((prev) => !prev);
-            if (!sortByViews) setSortByPrice(false); // disable Broke
+            setSortByViews((p) => !p);
+            if (!sortByViews) setSortByPrice(false);
           }}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             sortByViews
               ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
-              : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
           }`}
         >
           🔥 Most Viewed
         </button>
 
-        {/* 💸😭 BROKE FILTER */}
+        {/* BROKE */}
         <button
           onClick={() => {
-            setSortByPrice((prev) => !prev);
-            if (!sortByPrice) setSortByViews(false); // disable views sort
+            setSortByPrice((p) => !p);
+            if (!sortByPrice) setSortByViews(false);
           }}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             sortByPrice
               ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
-              : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
           }`}
         >
           💸😭 Broke
         </button>
 
-        {/* Wednesday Filter */}
+        {/* WEDNESDAY FILTER */}
         {FFWednesday && (
           <button
             onClick={() => setWednesdayFilterOn((s) => !s)}
             className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
               wednesdayFilterOn
-                ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
-                : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+                ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
+                : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
             }`}
           >
             Wagon Wednesday
           </button>
         )}
 
-        {/* Thursday Filter */}
+        {/* THURSDAY FILTER */}
         {FFThursday && (
           <button
             onClick={() => setThursdayFilterOn((s) => !s)}
             className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
               thursdayFilterOn
-                ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
-                : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+                ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
+                : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
             }`}
           >
             🍷Thirsty Thursday
           </button>
         )}
 
-        {/* Tags Dropdown */}
+        {/* TAGS DROPDOWN */}
         <div className="relative">
           <button
             onClick={() => setShowTagsDropdown((prev) => !prev)}
-            className="px-3 py-1.5 rounded-full border text-sm font-medium bg-white text-gray-800 border-gray-300 hover:bg-gray-100 flex items-center gap-1"
+            className="px-3 py-1.5 rounded-full border text-sm font-medium bg-white text-gray-800 border-gray-300 hover:bg-blue-100 flex items-center gap-1"
           >
             🏷️ Tags
             <svg
@@ -350,8 +386,9 @@ export default function VideoGridClient({ videos = [] }) {
             </svg>
           </button>
 
+          {/* TAGS LIST */}
           {showTagsDropdown && (
-            <div className="absolute left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-2">
+            <div className="absolute left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl z-10 p-2">
               {allTags.length === 0 ? (
                 <p className="text-gray-500 text-sm px-2">No tags available</p>
               ) : (
@@ -363,8 +400,8 @@ export default function VideoGridClient({ videos = [] }) {
                       onClick={() => toggleTag(tag)}
                       className={`block w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                         isSelected
-                          ? "bg-green-600 text-white"
-                          : "text-gray-700 hover:bg-gray-100"
+                          ? "bg-blue-600 text-white"
+                          : "text-gray-700 hover:bg-blue-100"
                       }`}
                     >
                       #{tag}
@@ -384,14 +421,14 @@ export default function VideoGridClient({ videos = [] }) {
           thursdayFilterOn) && (
           <button
             onClick={clearFilters}
-            className="px-3 py-1.5 rounded-full border text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-800 transition-all"
+            className="px-3 py-1.5 rounded-full border text-sm font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 transition-all"
           >
             Clear Filters ✖️
           </button>
         )}
       </div>
 
-      {/* Video Grid */}
+      {/* VIDEO GRID */}
       {visibleVideos.length === 0 ? (
         <p className="text-center text-gray-600">
           No videos found matching current filters.
@@ -402,7 +439,7 @@ export default function VideoGridClient({ videos = [] }) {
             <div
               key={video._id}
               ref={(el) => (videoRefs.current[video._id] = el)}
-              className="bg-white shadow-lg rounded-xl overflow-hidden hover:shadow-2xl transition cursor-pointer flex flex-col"
+              className="bg-white shadow-lg rounded-xl overflow-hidden transition cursor-pointer hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
               onMouseEnter={() => aggressivePreload(video.url, 8)}
             >
               <img
@@ -417,7 +454,7 @@ export default function VideoGridClient({ videos = [] }) {
                       {video.title}
                     </h3>
                     {video.premium && (
-                      <span className="text-purple-600 text-sm font-semibold">
+                      <span className="text-blue-600 text-sm font-semibold">
                         💎
                       </span>
                     )}
@@ -439,7 +476,7 @@ export default function VideoGridClient({ videos = [] }) {
                     {video.tags?.map((tag) => (
                       <span
                         key={tag}
-                        className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full"
+                        className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
                       >
                         #{tag}
                       </span>
@@ -453,12 +490,14 @@ export default function VideoGridClient({ videos = [] }) {
                         href={video.socialMediaUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
+                        className="text-blue-600 hover:text-blue-700 hover:underline"
                       >
                         {video.creatorName}
                       </a>
                     ) : (
-                      <span>{video.creatorName}</span>
+                      <span className="text-blue-700 font-medium">
+                        {video.creatorName}
+                      </span>
                     )}
 
                     {video.creatorName.toLowerCase().includes("pudding") &&
@@ -476,12 +515,12 @@ export default function VideoGridClient({ videos = [] }) {
                         <span className="line-through text-gray-400">
                           {video.price === 0 ? "Free" : `$${video.price}`}
                         </span>
-                        <span className="text-green-600 font-semibold">
+                        <span className="text-blue-600 font-semibold">
                           $13.34
                         </span>
                       </span>
                     ) : (
-                      <span>
+                      <span className="text-blue-700">
                         {video.price === 0 ? "Free" : `$${video.price}`}
                       </span>
                     )}
@@ -490,7 +529,7 @@ export default function VideoGridClient({ videos = [] }) {
 
                 <button
                   onClick={() => openVideo(index)}
-                  className="mt-3 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 w-full text-sm sm:text-base font-medium transition-all"
+                  className="mt-3 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 w-full text-sm sm:text-base font-medium transition-all"
                 >
                   Preview
                 </button>
@@ -500,14 +539,14 @@ export default function VideoGridClient({ videos = [] }) {
         </div>
       )}
 
-      {/* Infinite Scroll */}
+      {/* LOAD MORE */}
       {visibleVideos.length < videosToRender.length ? (
         <div
           ref={loadMoreRef}
           className="flex justify-center items-center py-6 text-gray-500"
         >
           <svg
-            className="animate-spin h-5 w-5 mr-2 text-gray-400"
+            className="animate-spin h-5 w-5 mr-2 text-blue-400"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -530,22 +569,19 @@ export default function VideoGridClient({ videos = [] }) {
         </div>
       ) : (
         videosToRender.length > 0 && (
-          <div className="text-center text-gray-400 py-6">
-            You’ve reached the end👿
+          <div className="text-center text-blue-400 py-6">
+            You’ve reached the end 👿
           </div>
         )
       )}
 
-      {/* Video Modal */}
+      {/* MODAL */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md md:max-w-lg relative overflow-auto">
             <button
-              onClick={() => {
-                setSelectedVideo(null);
-                setSelectedVideoIndex(null);
-              }}
-              className="absolute top-2 right-3 text-gray-500 hover:text-black text-xl"
+              onClick={closeModal}
+              className="absolute top-2 right-3 text-blue-600 hover:text-blue-800 text-2xl"
             >
               &times;
             </button>
@@ -576,12 +612,12 @@ export default function VideoGridClient({ videos = [] }) {
                     href={selectedVideo.socialMediaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline font-medium"
+                    className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
                   >
                     {selectedVideo.creatorName}
                   </a>
                 ) : (
-                  <span className="font-medium">
+                  <span className="font-medium text-blue-700">
                     {selectedVideo.creatorName}
                   </span>
                 )}
