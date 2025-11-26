@@ -74,6 +74,10 @@ export default function Sidebar({ creators }) {
                     <span className="text-red-500 text-lg animate-cherry inline-block">
                       🍒
                     </span>
+                  ) : creator.icon === "princess" ? (
+                    <span className="text-pink-300 text-2xl animate-princess inline-block">
+                      🧝🏻‍♀️
+                    </span>
                   ) : creator.icon === "crown" ? (
                     <span className="text-yellow-300 text-2xl animate-shimmer inline-block">
                       👑
@@ -242,6 +246,30 @@ export default function Sidebar({ creators }) {
 
         .animate-shimmer {
           animation: shimmer 2s ease-in-out infinite;
+        }
+        @keyframes princess-glow {
+          0% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 2px rgba(255, 170, 255, 0.4))
+              drop-shadow(0 0 4px rgba(255, 190, 255, 0.3));
+            opacity: 0.9;
+          }
+          50% {
+            transform: scale(1.08);
+            filter: drop-shadow(0 0 4px rgba(255, 170, 255, 0.5))
+              drop-shadow(0 0 7px rgba(255, 200, 255, 0.4));
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 2px rgba(255, 170, 255, 0.4))
+              drop-shadow(0 0 4px rgba(255, 190, 255, 0.3));
+            opacity: 0.9;
+          }
+        }
+
+        .animate-princess {
+          animation: princess-glow 2.2s ease-in-out infinite;
         }
       `}</style>
     </aside>
