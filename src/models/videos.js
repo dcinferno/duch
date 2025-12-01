@@ -10,6 +10,9 @@ const VideosSchema = new mongoose.Schema(
     socialMediaUrl: { type: String, required: true, trim: true },
     url: { type: String, required: true, trim: true },
     tags: { type: [String], default: [] },
+    password: { type: String, sparse: true },
+    type: { type: String, enum: ["video", "image"], default: "video" },
+    locked: { type: Boolean, default: false, sparse: true },
   },
   { timestamps: true }
 );
