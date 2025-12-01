@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 export default function VideoGridClient({ videos = [] }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -11,6 +12,7 @@ export default function VideoGridClient({ videos = [] }) {
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
   const [sortByViews, setSortByViews] = useState(false);
   const [sortByPrice, setSortByPrice] = useState(false);
+  const [showJonusOnly, setShowJonusOnly] = useState(false);
   const [VideoViews, setVideoViews] = useState({});
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
   const [FFThursday, setFFThursday] = useState(false);
@@ -20,19 +22,19 @@ export default function VideoGridClient({ videos = [] }) {
 
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
-  const searchParams = useSearchParams();
+  const loadMoreRef = useRef(null);
 
   // Pagination
   const [visibleCount, setVisibleCount] = useState(12);
-  const loadMoreRef = useRef(null);
 
-  // Wed / Thu logic
+  // Set weekday flags
   useEffect(() => {
-    const today = new Date().getDay();
+    const today = new Date().getDay(); // 0 = Sunday
     setFFWednesday(today === 3);
     setFFThursday(today === 4);
   }, []);
 
+  // Format date helper
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
     const date = dateInput.$date
@@ -44,7 +46,6 @@ export default function VideoGridClient({ videos = [] }) {
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays <= 7) return `${diffDays} days ago`;
-
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -52,21 +53,58 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // Filters
-  const filteredVideos = videos.filter((v) => {
-    const matchesTags =
-      selectedTags.length === 0 ||
-      selectedTags.every((tag) => v.tags?.includes(tag));
+  // FILTERING
+  const currentDay = new Date().getUTCDate();
+  const isDecember = new Date().getUTCMonth() + 1 === 12;
 
-    const matchesPremium = !showPremiumOnly || v.premium === true;
-    const matchesWednesday = !wednesdayFilterOn || v.tags.includes("wagon");
-    const matchesThursday =
-      !thursdayFilterOn || v.creatorName.includes("pudding");
+  const filteredVideos = videos
+    .filter((video) => {
+      const matchesTags =
+        selectedTags.length === 0 ||
+        selectedTags.every((tag) => video.tags?.includes(tag));
 
-    return matchesTags && matchesPremium && matchesWednesday && matchesThursday;
-  });
+      const matchesPremium = !showPremiumOnly || video.premium;
 
-  // Sorting
+      // Wagon Wednesday (videos only)
+      const matchesWednesday =
+        !wednesdayFilterOn ||
+        (video.type === "video" && video.tags?.includes("wagon"));
+
+      // Thirsty Thursday (videos only)
+      const matchesThursday =
+        !thursdayFilterOn ||
+        (video.type === "video" &&
+          video.creatorName?.toLowerCase().includes("pudding"));
+
+      // 25 Days of Jonus (images only)
+      let matchesJonus = true;
+      if (showJonusOnly) {
+        if (video.type !== "image") matchesJonus = false;
+        else if (!video.tags?.includes("25daysofjonus")) matchesJonus = false;
+        else if (!video.date) matchesJonus = false;
+        else {
+          const d = new Date(video.date);
+          const month = d.getUTCMonth() + 1;
+          const day = d.getUTCDate();
+          if (month !== 12 || day < 1 || day > 25) matchesJonus = false;
+          else if (isDecember && day > currentDay) matchesJonus = false;
+        }
+      }
+
+      return (
+        matchesTags &&
+        matchesPremium &&
+        matchesWednesday &&
+        matchesThursday &&
+        matchesJonus
+      );
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
+    ); // Chronological
+
+  // SORTING
   const videosToRender = (() => {
     if (sortByPrice) {
       return [...filteredVideos].sort((a, b) => {
@@ -82,16 +120,7 @@ export default function VideoGridClient({ videos = [] }) {
     return filteredVideos;
   })();
 
-  // Auto-open modal on page load if ?view= is present
-  useEffect(() => {
-    const id = searchParams.get("video");
-    if (!id) return;
-
-    const index = videos.findIndex((v) => v._id === id);
-    if (index !== -1) {
-      openVideo(index); // <-- PRELOADS restored
-    }
-  }, [searchParams, videos]);
+  const visibleVideos = videosToRender.slice(0, visibleCount);
 
   // Infinite scroll
   useEffect(() => {
@@ -101,12 +130,11 @@ export default function VideoGridClient({ videos = [] }) {
       },
       { rootMargin: "400px" }
     );
-
     if (loadMoreRef.current) observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
   }, []);
 
-  // Reset on filter change
+  // Reset visible count on filter change
   useEffect(() => {
     setVisibleCount(12);
   }, [
@@ -116,9 +144,8 @@ export default function VideoGridClient({ videos = [] }) {
     sortByPrice,
     wednesdayFilterOn,
     thursdayFilterOn,
+    showJonusOnly,
   ]);
-
-  const visibleVideos = videosToRender.slice(0, visibleCount);
 
   // Lazy-load images
   useEffect(() => {
@@ -129,7 +156,6 @@ export default function VideoGridClient({ videos = [] }) {
             const el = entry.target;
             if (el.dataset.src) {
               el.src = el.dataset.src;
-              el.preload = "metadata";
               el.removeAttribute("data-src");
             }
           }
@@ -144,93 +170,24 @@ export default function VideoGridClient({ videos = [] }) {
     return () => observer.disconnect();
   }, [videos]);
 
-  // Preload helpers
-  const preloadVideoLink = (url) => {
-    if (!url) return;
-    if (!document.querySelector(`link[as="video"][href="${url}"]`)) {
-      const link = document.createElement("link");
-      link.rel = "preload";
-      link.as = "video";
-      link.href = url;
-      document.head.appendChild(link);
-    }
-  };
-
-  const aggressivePreload = async (url, maxMB = 8) => {
-    if (!url || window.__preloadingVideos?.[url]) return;
-    window.__preloadingVideos = window.__preloadingVideos || {};
-    window.__preloadingVideos[url] = true;
-
-    try {
-      const controller = new AbortController();
-      const response = await fetch(url, { signal: controller.signal });
-
-      const reader = response.body.getReader();
-      let bytesFetched = 0;
-      const maxBytes = maxMB * 1024 * 1024;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done || !value) break;
-
-        bytesFetched += value.length;
-        if (bytesFetched > maxBytes) {
-          controller.abort();
-          break;
-        }
-      }
-    } catch {
-    } finally {
-      delete window.__preloadingVideos[url];
-    }
-  };
-
   // OPEN MODAL + UPDATE URL
   const openVideo = (index) => {
     const video = visibleVideos[index];
-
     setSelectedVideo(video);
     setSelectedVideoIndex(index);
-
-    // URL becomes ?view=<id> but page doesn't navigate
     router.push(`?video=${video._id}`, { shallow: true });
-
-    preloadVideoLink(video.url);
-    aggressivePreload(video.url, 16);
   };
 
-  // PRELOAD next/previous videos when modal open
-  useEffect(() => {
-    if (selectedVideoIndex === null) return;
-    const next = visibleVideos[selectedVideoIndex + 1];
-    const prev = visibleVideos[selectedVideoIndex - 1];
-    if (next) aggressivePreload(next.url, 6);
-    if (prev) aggressivePreload(prev.url, 6);
-  }, [selectedVideoIndex]);
-
-  const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
-
-  const toggleTag = (tag) =>
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-
-  const togglePremium = () => setShowPremiumOnly((prev) => !prev);
-
-  const clearFilters = () => {
-    setSelectedTags([]);
-    setShowPremiumOnly(false);
-    setSortByPrice(false);
-    setSortByViews(false);
-    setWednesdayFilterOn(false);
-    setThursdayFilterOn(false);
+  const closeModal = () => {
+    router.push("?", undefined, { shallow: true });
+    setSelectedVideo(null);
+    setSelectedVideoIndex(null);
   };
 
-  // View counter
+  // VIEW COUNTER
   const logVideoViews = async (videoId) => {
     if (!videoId || loggedVideosRef.current.has(videoId)) return;
     loggedVideosRef.current.add(videoId);
-
     setVideoViews((prev) => ({
       ...prev,
       [videoId]: (prev[videoId] || 0) + 1,
@@ -248,7 +205,6 @@ export default function VideoGridClient({ videos = [] }) {
   // Fetch views
   useEffect(() => {
     if (videos.length === 0) return;
-
     const fetchAllViews = async () => {
       try {
         const ids = videos.map((v) => v._id).join(",");
@@ -259,27 +215,24 @@ export default function VideoGridClient({ videos = [] }) {
         console.error("Failed to fetch views:", err);
       }
     };
-
     fetchAllViews();
   }, [videos]);
 
-  // AUTO-OPEN MODAL IF URL HAS ?view=<id>
-  useEffect(() => {
-    if (videos.length === 0) return;
-
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get("view");
-    if (!id) return;
-
-    const idx = visibleVideos.findIndex((v) => v._id === id);
-    if (idx !== -1) openVideo(idx);
-  }, [videos, visibleVideos]);
-
-  // CLOSE MODAL + CLEAN URL
-  const closeModal = () => {
-    router.push("?", undefined, { shallow: true });
-    setSelectedVideo(null);
-    setSelectedVideoIndex(null);
+  // ALL TAGS
+  const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
+  const toggleTag = (tag) =>
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  const togglePremium = () => setShowPremiumOnly((prev) => !prev);
+  const clearFilters = () => {
+    setSelectedTags([]);
+    setShowPremiumOnly(false);
+    setSortByPrice(false);
+    setSortByViews(false);
+    setWednesdayFilterOn(false);
+    setThursdayFilterOn(false);
+    setShowJonusOnly(false);
   };
 
   return (
@@ -288,7 +241,7 @@ export default function VideoGridClient({ videos = [] }) {
       <div className="flex flex-wrap gap-3 mb-6 justify-center items-center">
         <span className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full shadow-sm">
           {videosToRender.length}{" "}
-          {videosToRender.length === 1 ? "video" : "videos"}
+          {videosToRender.length === 1 ? "item" : "items"}
         </span>
 
         {/* PREMIUM */}
@@ -333,7 +286,7 @@ export default function VideoGridClient({ videos = [] }) {
           💸😭 Broke
         </button>
 
-        {/* WEDNESDAY FILTER */}
+        {/* WAGON WEDNESDAY */}
         {FFWednesday && (
           <button
             onClick={() => setWednesdayFilterOn((s) => !s)}
@@ -357,9 +310,21 @@ export default function VideoGridClient({ videos = [] }) {
                 : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
             }`}
           >
-            🍷Thirsty Thursday
+            🍷 Thirsty Thursday
           </button>
         )}
+
+        {/* 25 DAYS OF JONUS */}
+        <button
+          onClick={() => setShowJonusOnly((s) => !s)}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            showJonusOnly
+              ? "bg-red-600 text-white border-red-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-red-100"
+          }`}
+        >
+          🎄 25 Days of Jonus
+        </button>
 
         {/* TAGS DROPDOWN */}
         <div className="relative">
@@ -386,7 +351,6 @@ export default function VideoGridClient({ videos = [] }) {
             </svg>
           </button>
 
-          {/* TAGS LIST */}
           {showTagsDropdown && (
             <div className="absolute left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl z-10 p-2">
               {allTags.length === 0 ? (
@@ -418,7 +382,8 @@ export default function VideoGridClient({ videos = [] }) {
           sortByViews ||
           sortByPrice ||
           wednesdayFilterOn ||
-          thursdayFilterOn) && (
+          thursdayFilterOn ||
+          showJonusOnly) && (
           <button
             onClick={clearFilters}
             className="px-3 py-1.5 rounded-full border text-sm font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 transition-all"
@@ -428,10 +393,10 @@ export default function VideoGridClient({ videos = [] }) {
         )}
       </div>
 
-      {/* VIDEO GRID */}
+      {/* GRID */}
       {visibleVideos.length === 0 ? (
         <p className="text-center text-gray-600">
-          No videos found matching current filters.
+          No items found matching current filters.
         </p>
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -440,7 +405,7 @@ export default function VideoGridClient({ videos = [] }) {
               key={video._id}
               ref={(el) => (videoRefs.current[video._id] = el)}
               className="bg-white shadow-lg rounded-xl overflow-hidden transition cursor-pointer hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
-              onMouseEnter={() => aggressivePreload(video.url, 8)}
+              onMouseEnter={() => {}}
             >
               <img
                 src={video.thumbnail}
@@ -483,23 +448,8 @@ export default function VideoGridClient({ videos = [] }) {
                     ))}
                   </div>
 
-                  {/* PRICE + DISCOUNTS */}
+                  {/* PRICE */}
                   <div className="flex items-center justify-between text-sm text-gray-600">
-                    {video.socialMediaUrl ? (
-                      <a
-                        href={video.socialMediaUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-700 hover:underline"
-                      >
-                        {video.creatorName}
-                      </a>
-                    ) : (
-                      <span className="text-blue-700 font-medium">
-                        {video.creatorName}
-                      </span>
-                    )}
-
                     {video.creatorName.toLowerCase().includes("pudding") &&
                     FFThursday ? (
                       <span className="flex items-center gap-1">
@@ -518,6 +468,10 @@ export default function VideoGridClient({ videos = [] }) {
                         <span className="text-blue-600 font-semibold">
                           $13.34
                         </span>
+                      </span>
+                    ) : showJonusOnly && video.type === "image" ? (
+                      <span className="text-red-600 font-semibold">
+                        🎄 Special
                       </span>
                     ) : (
                       <span className="text-blue-700">
@@ -540,7 +494,7 @@ export default function VideoGridClient({ videos = [] }) {
       )}
 
       {/* LOAD MORE */}
-      {visibleVideos.length < videosToRender.length ? (
+      {visibleVideos.length < videosToRender.length && (
         <div
           ref={loadMoreRef}
           className="flex justify-center items-center py-6 text-gray-500"
@@ -565,14 +519,8 @@ export default function VideoGridClient({ videos = [] }) {
               d="M4 12a8 8 0 018-8v8H4z"
             ></path>
           </svg>
-          Loading more videos...
+          Loading more...
         </div>
-      ) : (
-        videosToRender.length > 0 && (
-          <div className="text-center text-blue-400 py-6">
-            You’ve reached the end 👿
-          </div>
-        )
       )}
 
       {/* MODAL */}
@@ -585,42 +533,38 @@ export default function VideoGridClient({ videos = [] }) {
             >
               &times;
             </button>
-
             <div className="p-6 flex flex-col items-center">
               <h2 className="text-xl font-bold mb-3 text-gray-900 text-center">
                 {selectedVideo.title}
               </h2>
 
-              <video
-                key={selectedVideo.url}
-                src={selectedVideo.url}
-                controls
-                preload="auto"
-                autoPlay
-                playsInline
-                className="w-full max-h-[200px] sm:max-h-[300px] md:max-h-[400px] rounded mb-4 object-contain"
-                onPlay={() => logVideoViews(selectedVideo._id)}
-              />
+              {selectedVideo.type === "video" ? (
+                <video
+                  key={selectedVideo.url}
+                  src={selectedVideo.url}
+                  controls
+                  preload="auto"
+                  autoPlay
+                  playsInline
+                  className="w-full max-h-[300px] rounded mb-4 object-contain"
+                  onPlay={() => logVideoViews(selectedVideo._id)}
+                />
+              ) : (
+                <img
+                  src={selectedVideo.url}
+                  alt={selectedVideo.title}
+                  className="w-full max-h-[300px] rounded mb-4 object-contain"
+                />
+              )}
 
               <p className="text-sm text-gray-700 mb-4 text-center">
                 {selectedVideo.description}
               </p>
 
               <div className="flex justify-between w-full px-2 text-sm text-gray-600 mb-2">
-                {selectedVideo.socialMediaUrl ? (
-                  <a
-                    href={selectedVideo.socialMediaUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
-                  >
-                    {selectedVideo.creatorName}
-                  </a>
-                ) : (
-                  <span className="font-medium text-blue-700">
-                    {selectedVideo.creatorName}
-                  </span>
-                )}
+                <span className="font-medium text-blue-700">
+                  {selectedVideo.creatorName}
+                </span>
                 <span>{VideoViews[selectedVideo._id] ?? 0} views</span>
               </div>
             </div>
