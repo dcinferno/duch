@@ -1,5 +1,5 @@
 // app/api/unlock-jonus/route.js
-import { connectToDatabase } from "@/lib/mongodb"; // adjust path to your DB helper
+import { connectToDB } from "@/lib/mongodb"; // adjust path to your DB helper
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
@@ -14,7 +14,7 @@ export async function POST(req) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    const { db } = await connectToDB();
 
     const video = await db.collection("videos").findOne({ _id: videoId });
     if (!video || video.type !== "image" || !video.locked) {
