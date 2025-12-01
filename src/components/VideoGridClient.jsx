@@ -96,9 +96,9 @@ export default function VideoGridClient({ videos = [] }) {
       if (showJonusOnly) {
         if (video.type !== "image") matchesJonus = false;
         else if (!video.tags?.includes("25daysofjonus")) matchesJonus = false;
-        else if (!video.date) matchesJonus = false;
+        else if (!video.createdAt) matchesJonus = false;
         else {
-          const d = new Date(video.date);
+          const d = new Date(video.createdAt);
           const month = d.getUTCMonth() + 1;
           const day = d.getUTCDate();
           if (month !== 12 || day < 1 || day > 25) matchesJonus = false;
