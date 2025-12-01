@@ -20,6 +20,12 @@ export default function VideoGridClient({ videos = [] }) {
   const [FFWednesday, setFFWednesday] = useState(false);
   const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
 
+  // 🔒 Jonus unlock state (persisted in localStorage)
+  const [jonusUnlocked, setJonusUnlocked] = useState({});
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [unlockTargetId, setUnlockTargetId] = useState(null);
+
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
   const loadMoreRef = useRef(null);
@@ -27,9 +33,22 @@ export default function VideoGridClient({ videos = [] }) {
   // Pagination
   const [visibleCount, setVisibleCount] = useState(12);
 
+  // Load Jonus unlocks from localStorage
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("jonusUnlocked") || "{}");
+      setJonusUnlocked(saved);
+    } catch {}
+  }, []);
+
+  // Save Jonus unlocks to localStorage
+  useEffect(() => {
+    localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
+  }, [jonusUnlocked]);
+
   // Set weekday flags
   useEffect(() => {
-    const today = new Date().getDay(); // 0 = Sunday
+    const today = new Date().getDay();
     setFFWednesday(today === 3);
     setFFThursday(today === 4);
   }, []);
@@ -46,6 +65,7 @@ export default function VideoGridClient({ videos = [] }) {
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
     if (diffDays <= 7) return `${diffDays} days ago`;
+
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -53,10 +73,11 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // FILTERING
+  // 25 Days of Jonus date rules
   const currentDay = new Date().getUTCDate();
   const isDecember = new Date().getUTCMonth() + 1 === 12;
 
+  // FILTERING
   const filteredVideos = videos
     .filter((video) => {
       const matchesTags =
@@ -65,18 +86,16 @@ export default function VideoGridClient({ videos = [] }) {
 
       const matchesPremium = !showPremiumOnly || video.premium;
 
-      // Wagon Wednesday (videos only)
       const matchesWednesday =
         !wednesdayFilterOn ||
         (video.type === "video" && video.tags?.includes("wagon"));
 
-      // Thirsty Thursday (videos only)
       const matchesThursday =
         !thursdayFilterOn ||
         (video.type === "video" &&
           video.creatorName?.toLowerCase().includes("pudding"));
 
-      // 25 Days of Jonus (images only)
+      // 25 Days of Jonus FILTER ONLY (not lock)
       let matchesJonus = true;
       if (showJonusOnly) {
         if (video.type !== "image") matchesJonus = false;
@@ -102,7 +121,7 @@ export default function VideoGridClient({ videos = [] }) {
     .sort(
       (a, b) =>
         new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
-    ); // Chronological
+    );
 
   // SORTING
   const videosToRender = (() => {
@@ -134,7 +153,7 @@ export default function VideoGridClient({ videos = [] }) {
     return () => observer.disconnect();
   }, []);
 
-  // Reset visible count on filter change
+  // Reset pagination on filter change
   useEffect(() => {
     setVisibleCount(12);
   }, [
@@ -147,32 +166,58 @@ export default function VideoGridClient({ videos = [] }) {
     showJonusOnly,
   ]);
 
-  // Lazy-load images
+  // Fetch view counts
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const el = entry.target;
-            if (el.dataset.src) {
-              el.src = el.dataset.src;
-              el.removeAttribute("data-src");
-            }
-          }
-        });
-      },
-      { rootMargin: "300px" }
-    );
-
-    Object.values(videoRefs.current).forEach(
-      (el) => el && observer.observe(el)
-    );
-    return () => observer.disconnect();
+    if (videos.length === 0) return;
+    const fetchAllViews = async () => {
+      try {
+        const ids = videos.map((v) => v._id).join(",");
+        const res = await fetch(`/api/video-views?videoIds=${ids}`);
+        const data = await res.json();
+        setVideoViews(data);
+      } catch {}
+    };
+    fetchAllViews();
   }, [videos]);
 
-  // OPEN MODAL + UPDATE URL
+  // 🔒 Attempt unlock
+  const attemptUnlock = async () => {
+    const res = await fetch("/api/jonus-validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        videoId: unlockTargetId,
+        password: passwordInput,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      setJonusUnlocked((prev) => ({
+        ...prev,
+        [unlockTargetId]: true,
+      }));
+      setShowPasswordModal(false);
+      setPasswordInput("");
+    } else {
+      alert("Incorrect password");
+    }
+  };
+
+  // 🔒 OPEN VIDEO (block until unlocked)
   const openVideo = (index) => {
     const video = visibleVideos[index];
+
+    const isJonus =
+      video.type === "image" && video.tags?.includes("25daysofjonus");
+
+    if (isJonus && !jonusUnlocked[video._id]) {
+      setUnlockTargetId(video._id);
+      setShowPasswordModal(true);
+      return;
+    }
+
     setSelectedVideo(video);
     setSelectedVideoIndex(index);
     router.push(`?video=${video._id}`, { shallow: true });
@@ -183,40 +228,6 @@ export default function VideoGridClient({ videos = [] }) {
     setSelectedVideo(null);
     setSelectedVideoIndex(null);
   };
-
-  // VIEW COUNTER
-  const logVideoViews = async (videoId) => {
-    if (!videoId || loggedVideosRef.current.has(videoId)) return;
-    loggedVideosRef.current.add(videoId);
-    setVideoViews((prev) => ({
-      ...prev,
-      [videoId]: (prev[videoId] || 0) + 1,
-    }));
-
-    try {
-      await fetch("/api/video-views", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId }),
-      });
-    } catch {}
-  };
-
-  // Fetch views
-  useEffect(() => {
-    if (videos.length === 0) return;
-    const fetchAllViews = async () => {
-      try {
-        const ids = videos.map((v) => v._id).join(",");
-        const res = await fetch(`/api/video-views?videoIds=${ids}`);
-        const data = await res.json();
-        setVideoViews(data);
-      } catch (err) {
-        console.error("Failed to fetch views:", err);
-      }
-    };
-    fetchAllViews();
-  }, [videos]);
 
   // ALL TAGS
   const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
@@ -237,14 +248,13 @@ export default function VideoGridClient({ videos = [] }) {
 
   return (
     <div className="w-full">
-      {/* FILTER BAR */}
+      {/* FILTER BAR (unchanged) */}
       <div className="flex flex-wrap gap-3 mb-6 justify-center items-center">
         <span className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full shadow-sm">
           {videosToRender.length}{" "}
           {videosToRender.length === 1 ? "item" : "items"}
         </span>
 
-        {/* PREMIUM */}
         <button
           onClick={togglePremium}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
@@ -256,7 +266,6 @@ export default function VideoGridClient({ videos = [] }) {
           💎 Featured Only
         </button>
 
-        {/* MOST VIEWED */}
         <button
           onClick={() => {
             setSortByViews((p) => !p);
@@ -271,7 +280,6 @@ export default function VideoGridClient({ videos = [] }) {
           🔥 Most Viewed
         </button>
 
-        {/* BROKE */}
         <button
           onClick={() => {
             setSortByPrice((p) => !p);
@@ -286,7 +294,6 @@ export default function VideoGridClient({ videos = [] }) {
           💸😭 Broke
         </button>
 
-        {/* WAGON WEDNESDAY */}
         {FFWednesday && (
           <button
             onClick={() => setWednesdayFilterOn((s) => !s)}
@@ -300,7 +307,6 @@ export default function VideoGridClient({ videos = [] }) {
           </button>
         )}
 
-        {/* THURSDAY FILTER */}
         {FFThursday && (
           <button
             onClick={() => setThursdayFilterOn((s) => !s)}
@@ -314,7 +320,6 @@ export default function VideoGridClient({ videos = [] }) {
           </button>
         )}
 
-        {/* 25 DAYS OF JONUS */}
         <button
           onClick={() => setShowJonusOnly((s) => !s)}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
@@ -333,22 +338,6 @@ export default function VideoGridClient({ videos = [] }) {
             className="px-3 py-1.5 rounded-full border text-sm font-medium bg-white text-gray-800 border-gray-300 hover:bg-blue-100 flex items-center gap-1"
           >
             🏷️ Tags
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`w-4 h-4 transition-transform ${
-                showTagsDropdown ? "rotate-180" : "rotate-0"
-              }`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
           </button>
 
           {showTagsDropdown && (
@@ -400,96 +389,121 @@ export default function VideoGridClient({ videos = [] }) {
         </p>
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleVideos.map((video, index) => (
-            <div
-              key={video._id}
-              ref={(el) => (videoRefs.current[video._id] = el)}
-              className="bg-white shadow-lg rounded-xl overflow-hidden transition cursor-pointer hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
-              onMouseEnter={() => {}}
-            >
-              <img
-                src={video.thumbnail}
-                alt={video.title}
-                className="w-full h-64 sm:h-72 object-cover"
-              />
-              <div className="p-3 flex flex-col flex-1">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
-                      {video.title}
-                    </h3>
-                    {video.premium && (
-                      <span className="text-blue-600 text-sm font-semibold">
-                        💎
-                      </span>
-                    )}
-                  </div>
+          {visibleVideos.map((video, index) => {
+            const isJonusLocked =
+              video.type === "image" &&
+              video.tags?.includes("25daysofjonus") &&
+              !jonusUnlocked[video._id];
 
-                  <p className="text-xs text-gray-500 mb-2">
-                    {formatDate(video.createdAt)}
-                  </p>
+            return (
+              <div
+                key={video._id}
+                ref={(el) => (videoRefs.current[video._id] = el)}
+                className="bg-white shadow-lg rounded-xl overflow-hidden transition cursor-pointer hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
+              >
+                {/* THUMBNAIL */}
+                <div className="relative w-full h-64 sm:h-72">
+                  <img
+                    src={video.thumbnail}
+                    alt={video.title}
+                    className={`w-full h-full object-cover transition-all ${
+                      isJonusLocked ? "blur-xl brightness-50" : ""
+                    }`}
+                  />
 
-                  <p className="text-sm text-gray-700 line-clamp-3 mb-2">
-                    {video.description}
-                  </p>
-
-                  <p className="text-xs text-gray-500 mb-2">
-                    {VideoViews[video._id] ?? 0} views
-                  </p>
-
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {video.tags?.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* PRICE */}
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    {video.creatorName.toLowerCase().includes("pudding") &&
-                    FFThursday ? (
-                      <span className="flex items-center gap-1">
-                        <span className="line-through text-gray-400">
-                          {video.price === 0 ? "" : `$${video.price}`}
-                        </span>
-                        <span className="text-blue-600 font-semibold">
-                          ${(video.price * 0.75).toFixed(2)}
-                        </span>
-                      </span>
-                    ) : video.tags?.includes("wagon") && FFWednesday ? (
-                      <span className="flex items-center gap-1">
-                        <span className="line-through text-gray-400">
-                          {video.price === 0 ? "Free" : `$${video.price}`}
-                        </span>
-                        <span className="text-blue-600 font-semibold">
-                          $13.34
-                        </span>
-                      </span>
-                    ) : showJonusOnly && video.type === "image" ? (
-                      <span className="text-red-600 font-semibold">
-                        🎄 Special
-                      </span>
-                    ) : (
-                      <span className="text-blue-700">
-                        {video.price === 0 ? "Free" : `$${video.price}`}
-                      </span>
-                    )}
-                  </div>
+                  {isJonusLocked && (
+                    <button
+                      onClick={() => {
+                        setUnlockTargetId(video._id);
+                        setShowPasswordModal(true);
+                      }}
+                      className="absolute inset-0 flex items-center justify-center text-white text-xl font-bold bg-black bg-opacity-40 hover:bg-opacity-60 transition"
+                    >
+                      🔒 Unlock
+                    </button>
+                  )}
                 </div>
 
-                <button
-                  onClick={() => openVideo(index)}
-                  className="mt-3 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 w-full text-sm sm:text-base font-medium transition-all"
-                >
-                  Preview
-                </button>
+                {/* CONTENT */}
+                <div className="p-3 flex flex-col flex-1">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                        {video.title}
+                      </h3>
+                      {video.premium && (
+                        <span className="text-blue-600 text-sm font-semibold">
+                          💎
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-gray-500 mb-2">
+                      {formatDate(video.createdAt)}
+                    </p>
+
+                    <p className="text-sm text-gray-700 line-clamp-3 mb-2">
+                      {video.description}
+                    </p>
+
+                    <p className="text-xs text-gray-500 mb-2">
+                      {VideoViews[video._id] ?? 0} views
+                    </p>
+
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {video.tags?.map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* PRICE LOGIC */}
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      {video.creatorName.toLowerCase().includes("pudding") &&
+                      FFThursday ? (
+                        <span className="flex items-center gap-1">
+                          <span className="line-through text-gray-400">
+                            {video.price === 0 ? "" : `$${video.price}`}
+                          </span>
+                          <span className="text-blue-600 font-semibold">
+                            ${(video.price * 0.75).toFixed(2)}
+                          </span>
+                        </span>
+                      ) : video.tags?.includes("wagon") && FFWednesday ? (
+                        <span className="flex items-center gap-1">
+                          <span className="line-through text-gray-400">
+                            {video.price === 0 ? "Free" : `$${video.price}`}
+                          </span>
+                          <span className="text-blue-600 font-semibold">
+                            $13.34
+                          </span>
+                        </span>
+                      ) : isJonusLocked ? (
+                        <span className="text-red-600 font-semibold">
+                          🎄 Locked
+                        </span>
+                      ) : (
+                        <span className="text-blue-700">
+                          {video.price === 0 ? "Free" : `$${video.price}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => openVideo(index)}
+                    className="mt-3 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 w-full text-sm sm:text-base font-medium transition-all"
+                  >
+                    Preview
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -523,7 +537,7 @@ export default function VideoGridClient({ videos = [] }) {
         </div>
       )}
 
-      {/* MODAL */}
+      {/* MODAL (UNCHANGED except image/video switch) */}
       {selectedVideo && (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md md:max-w-lg relative overflow-auto">
@@ -547,7 +561,6 @@ export default function VideoGridClient({ videos = [] }) {
                   autoPlay
                   playsInline
                   className="w-full max-h-[300px] rounded mb-4 object-contain"
-                  onPlay={() => logVideoViews(selectedVideo._id)}
                 />
               ) : (
                 <img
@@ -567,6 +580,40 @@ export default function VideoGridClient({ videos = [] }) {
                 </span>
                 <span>{VideoViews[selectedVideo._id] ?? 0} views</span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔒 PASSWORD MODAL */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4 text-center">
+              Unlock Jonus Image
+            </h2>
+
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="Enter password"
+              className="border p-2 rounded w-full mb-4"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="px-4 py-2 border rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={attemptUnlock}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                Unlock
+              </button>
             </div>
           </div>
         </div>

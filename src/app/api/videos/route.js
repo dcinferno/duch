@@ -35,12 +35,13 @@ export async function GET(request) {
     }
 
     // Fetch videos
-    const videos = await Videos.find(filter).sort({ createdAt: -1 });
-
+    const videos = await Videos.find(filter, { password: 0 }).sort({
+      createdAt: -1,
+    });
     // Fetch all creators to merge their data
     const creators = await Creators.find(
       {},
-      "name urlHandle premium icon socialMediaUrl"
+      "name urlHandle premium icon socialMediaUrl type"
     );
 
     // Merge creator info into each video
