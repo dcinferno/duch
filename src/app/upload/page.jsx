@@ -26,9 +26,11 @@ export default function UploadPage() {
   const [videoUrl, setVideoUrl] = useState(null);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
-  const [tags, setTags] = useState(""); // 🆕 comma-separated tags input
+  const [tags, setTags] = useState("");
+  const [customThumbnailFile, setCustomThumbnailFile] = useState(null); // 🆕 NEW
 
   const videoInputRef = useRef(null);
+  const customThumbnailInputRef = useRef(null); // 🆕 NEW
 
   // --- Fetch creators ---
   useEffect(() => {
@@ -126,6 +128,7 @@ export default function UploadPage() {
     setCreatorName("");
     setSocialMediaUrl("");
     setVideoFile(null);
+    setCustomThumbnailFile(null); // 🆕 RESET
     setVideoProgress(0);
     setThumbnailProgress(0);
     setVideoUrl(null);
@@ -134,9 +137,9 @@ export default function UploadPage() {
     setTags("");
     setSuccessMessage("");
 
-    if (videoInputRef.current) {
-      videoInputRef.current.value = "";
-    }
+    if (videoInputRef.current) videoInputRef.current.value = "";
+    if (customThumbnailInputRef.current)
+      customThumbnailInputRef.current.value = ""; // 🆕 RESET
   };
 
   // --- Submit handler ---
@@ -151,8 +154,14 @@ export default function UploadPage() {
     try {
       const folderSlug = slugify(creatorName);
 
-      // 1️⃣ Generate thumbnail
-      const thumbFile = await generateThumbnail(videoFile);
+      // 1️⃣ Custom thumbnail OR generated thumbnail
+      let thumbFile;
+      if (customThumbnailFile) {
+        thumbFile = customThumbnailFile;
+      } else {
+        thumbFile = await generateThumbnail(videoFile);
+      }
+
       const uploadedThumbnail = await handleUploadFile(
         thumbFile,
         `${folderSlug}/thumbnails`,
@@ -168,18 +177,18 @@ export default function UploadPage() {
       );
       setVideoUrl(uploadedVideo.publicUrl);
 
-      // 3️⃣ Determine social media URL
+      // 3️⃣ Derive social media URL
       const socialUrl =
         socialMediaUrl ||
         creators.find((c) => c.name === creatorName)?.socialMediaUrl;
 
-      // 4️⃣ Parse comma-separated tags into array
+      // 4️⃣ Parse tags
       const tagArray = tags
         .split(",")
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
-      // 5️⃣ Send metadata to backend
+      // 5️⃣ Save metadata
       await fetch("/api/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -259,12 +268,12 @@ export default function UploadPage() {
           ))}
         </select>
 
-        {/* 🆕 Tags input */}
+        {/* Tags Input */}
         <input
           type="text"
-          placeholder="Enter tags separated by commas (e.g. tutorial, javascript, webdev)"
+          placeholder="Enter tags separated by commas"
           value={tags}
-          onChange={(e) => setTags(e.target.value.toLowerCase())} // 👈 force lowercase
+          onChange={(e) => setTags(e.target.value.toLowerCase())}
           className="w-full p-3 border rounded"
         />
 
@@ -285,6 +294,35 @@ export default function UploadPage() {
           >
             {videoFile ? videoFile.name : "Select Video"}
           </button>
+        </div>
+
+        {/* Optional Thumbnail Upload */}
+        <div className="mb-4">
+          <span className="block mb-1 font-medium">Thumbnail (Optional)</span>
+
+          <input
+            type="file"
+            accept="image/*"
+            ref={customThumbnailInputRef}
+            className="hidden"
+            onChange={(e) => setCustomThumbnailFile(e.target.files[0])}
+          />
+
+          <button
+            type="button"
+            onClick={() => customThumbnailInputRef.current?.click()}
+            className="w-full bg-green-600 text-white py-3 rounded text-center hover:bg-blue-700 transition"
+          >
+            {customThumbnailFile
+              ? customThumbnailFile.name
+              : "Upload Thumbnail (Optional)"}
+          </button>
+
+          {customThumbnailFile && (
+            <p className="text-sm mt-2 text-green-700">
+              Custom thumbnail selected — automatic screenshot disabled.
+            </p>
+          )}
         </div>
 
         {/* Progress bars */}
