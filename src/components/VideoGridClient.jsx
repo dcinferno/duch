@@ -32,6 +32,50 @@ export default function VideoGridClient({ videos = [] }) {
 
   const [visibleCount, setVisibleCount] = useState(12);
 
+  // --- Helpers for aggressive video preload ------------------------------
+
+  const preloadVideoLink = (url) => {
+    if (typeof document === "undefined" || !url) return;
+    if (document.querySelector(`link[as="video"][href="${url}"]`)) return;
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "video";
+    link.href = url;
+    document.head.appendChild(link);
+  };
+
+  const aggressivePreload = async (url, maxMB = 8) => {
+    if (typeof window === "undefined" || !url) return;
+
+    window.__preloadingVideos = window.__preloadingVideos || {};
+    if (window.__preloadingVideos[url]) return;
+    window.__preloadingVideos[url] = true;
+
+    try {
+      const controller = new AbortController();
+      const response = await fetch(url, { signal: controller.signal });
+      const reader = response.body?.getReader();
+      if (!reader) return;
+
+      const maxBytes = maxMB * 1024 * 1024;
+      let bytesFetched = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done || !value) break;
+        bytesFetched += value.length;
+        if (bytesFetched > maxBytes) {
+          controller.abort();
+          break;
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      delete window.__preloadingVideos[url];
+    }
+  };
+
   // Load unlocks from localStorage
   useEffect(() => {
     try {
@@ -71,7 +115,7 @@ export default function VideoGridClient({ videos = [] }) {
     });
   };
 
-  // filter
+  // 25 Days of Jonus time logic
   const currentDay = new Date().getUTCDate();
   const isDecember = new Date().getUTCMonth() + 1 === 12;
 
@@ -136,7 +180,7 @@ export default function VideoGridClient({ videos = [] }) {
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
-  // infinite scroll
+  // Infinite scroll
   useEffect(() => {
     const ob = new IntersectionObserver(
       (entries) => {
@@ -148,7 +192,7 @@ export default function VideoGridClient({ videos = [] }) {
     return () => ob.disconnect();
   }, []);
 
-  // reset pagination
+  // Reset pagination on filter change
   useEffect(() => {
     setVisibleCount(12);
   }, [
@@ -161,7 +205,7 @@ export default function VideoGridClient({ videos = [] }) {
     showJonusOnly,
   ]);
 
-  // fetch views
+  // Fetch views
   useEffect(() => {
     if (videos.length === 0) return;
     const fetchAll = async () => {
@@ -175,7 +219,58 @@ export default function VideoGridClient({ videos = [] }) {
     fetchAll();
   }, [videos]);
 
-  // unlock attempt
+  // Log video views (only once per session per video)
+  const logVideoViews = async (videoId) => {
+    if (!videoId || loggedVideosRef.current.has(videoId)) return;
+    loggedVideosRef.current.add(videoId);
+
+    setVideoViews((prev) => ({
+      ...prev,
+      [videoId]: (prev[videoId] || 0) + 1,
+    }));
+
+    try {
+      await fetch("/api/video-views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId }),
+      });
+    } catch {}
+  };
+
+  // Auto-open modal if ?video=<id> in URL
+  useEffect(() => {
+    const id = searchParams.get("video");
+    if (!id) return;
+
+    const idx = visibleVideos.findIndex((v) => v._id === id);
+    if (idx === -1) return;
+
+    const video = visibleVideos[idx];
+    const isJonusLocked =
+      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
+
+    if (isJonusLocked) {
+      setUnlockTargetId(video._id);
+      setShowPasswordModal(true);
+      return;
+    }
+
+    setSelectedVideo(video);
+    setSelectedVideoIndex(idx);
+  }, [searchParams, visibleVideos, jonusUnlocked]);
+
+  // Preload next/prev videos when modal open
+  useEffect(() => {
+    if (selectedVideoIndex === null) return;
+    const next = visibleVideos[selectedVideoIndex + 1];
+    const prev = visibleVideos[selectedVideoIndex - 1];
+
+    if (next && next.type === "video") aggressivePreload(next.url, 6);
+    if (prev && prev.type === "video") aggressivePreload(prev.url, 6);
+  }, [selectedVideoIndex, visibleVideos]);
+
+  // Unlock attempt
   const attemptUnlock = async () => {
     const res = await fetch("/api/validate-lock", {
       method: "POST",
@@ -210,6 +305,11 @@ export default function VideoGridClient({ videos = [] }) {
     setSelectedVideo(video);
     setSelectedVideoIndex(index);
     router.push(`?video=${video._id}`, { shallow: true });
+
+    if (video.type === "video") {
+      preloadVideoLink(video.url);
+      aggressivePreload(video.url, 16);
+    }
   };
 
   const closeModal = () => {
@@ -395,7 +495,11 @@ export default function VideoGridClient({ videos = [] }) {
             return (
               <div
                 key={video._id}
+                ref={(el) => (videoRefs.current[video._id] = el)}
                 className="bg-white shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
+                onMouseEnter={() => {
+                  if (video.type === "video") aggressivePreload(video.url, 8);
+                }}
               >
                 {/* THUMBNAIL */}
                 <div className="relative w-full h-64 sm:h-72">
@@ -556,6 +660,7 @@ export default function VideoGridClient({ videos = [] }) {
                   controls
                   autoPlay
                   className="w-full max-h-[300px] rounded mb-4 object-contain"
+                  onPlay={() => logVideoViews(selectedVideo._id)}
                 />
               ) : (
                 <img
