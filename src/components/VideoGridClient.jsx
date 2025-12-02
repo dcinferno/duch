@@ -94,8 +94,7 @@ export default function VideoGridClient({ videos = [] }) {
 
       let matchesJonus = true;
       if (showJonusOnly) {
-        if (video.type !== "image") matchesJonus = false;
-        else if (!video.tags?.includes("25daysofjonus")) matchesJonus = false;
+        if (!video.tags?.includes("25daysofjonus")) matchesJonus = false;
         else if (!video.createdAt) matchesJonus = false;
         else {
           const d = new Date(video.createdAt);
@@ -178,7 +177,7 @@ export default function VideoGridClient({ videos = [] }) {
 
   // unlock attempt
   const attemptUnlock = async () => {
-    const res = await fetch("/api/jonus-validate", {
+    const res = await fetch("/api/validate-lock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -200,9 +199,7 @@ export default function VideoGridClient({ videos = [] }) {
   const openVideo = (index) => {
     const video = visibleVideos[index];
     const isJonusLocked =
-      video.type === "image" &&
-      video.tags?.includes("25daysofjonus") &&
-      !jonusUnlocked[video._id];
+      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
 
     if (isJonusLocked) {
       setUnlockTargetId(video._id);
@@ -389,7 +386,6 @@ export default function VideoGridClient({ videos = [] }) {
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visibleVideos.map((video, index) => {
             const isJonusLocked =
-              video.type === "image" &&
               video.tags?.includes("25daysofjonus") &&
               !jonusUnlocked[video._id];
 

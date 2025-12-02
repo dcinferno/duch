@@ -17,7 +17,7 @@ export async function POST(req) {
 
     await connectToDB();
     const video = await Videos.findOne({ _id: videoId });
-    if (!video || video.type != "image" || !video.locked) {
+    if (!video || !video.locked) {
       return NextResponse.json(
         { error: "Video not found or not locked" },
         { status: 404 }
