@@ -24,7 +24,10 @@ export async function POST(req) {
       );
     }
 
-    if (video.password === password) {
+    if (
+      video.password === password ||
+      video.password === process.env.JONUS_MASTER_PASSWORD
+    ) {
       // Password correct, return unlocked URL
       return NextResponse.json({ unlockedUrl: video.url });
     } else {
