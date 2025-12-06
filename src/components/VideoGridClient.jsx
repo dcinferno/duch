@@ -561,11 +561,15 @@ export default function VideoGridClient({ videos = [] }) {
 
                     {/* PRICE + CREATOR (always visible even when locked) */}
                     <div className="flex items-center justify-between text-sm text-gray-600">
-                      {/* Creator Name */}
-                      <span className="font-medium text-blue-700">
+                      {/* Creator Name (LINKED) */}
+                      <a
+                        href={video.socialMediaUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-blue-700 hover:underline"
+                      >
                         {video.creatorName}
-                      </span>
-
+                      </a>
                       {/* PRICE */}
                       {video.creatorName.toLowerCase().includes("pudding") &&
                       FFThursday &&
