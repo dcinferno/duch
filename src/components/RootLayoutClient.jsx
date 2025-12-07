@@ -63,13 +63,13 @@ export default function RootLayoutClient({ children }) {
             <div className="flex flex-col sm:flex-row justify-around gap-4 mt-4">
               <button
                 onClick={handleYes}
-                className="bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded text-lg sm:text-base transition-all"
+                className="bg-neutral-600 hover:bg-green-700 text-white py-3 px-6 rounded text-lg sm:text-base transition-all"
               >
                 {settings.yesText}
               </button>
               <button
                 onClick={handleNo}
-                className="bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded text-lg sm:text-base transition-all"
+                className="bg-neutral-600 hover:bg-red-700 text-white py-3 px-6 rounded text-lg sm:text-base transition-all"
               >
                 {settings.noText}
               </button>
