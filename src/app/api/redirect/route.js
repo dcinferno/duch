@@ -19,13 +19,16 @@ export async function GET(request) {
     if (!video) {
       return Response.json({ error: "Video not found" }, { status: 404 });
     }
-
+    try {
+      await VideoViews.findOneAndUpdate(
+        { videoId: String(videoId) },
+        { $inc: { totalViews: 1 } },
+        { upsert: true, new: true }
+      );
+    } catch (err) {
+      console.error("❌ Error logging view:", err);
+    }
     // 🔹 Log a new view directly using the VideoViews model
-    await VideoViews.findOneAndUpdate(
-      { videoId: String(videoId) },
-      { $inc: { totalViews: 1 } },
-      { upsert: true, new: true }
-    );
 
     // Redirect user to the real video URL
     return Response.redirect(video.url, 302);
