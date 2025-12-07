@@ -233,7 +233,7 @@ export default function VideoGridClient({ videos = [] }) {
       await fetch("/api/video-views", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId }),
+        body: JSON.stringify({ videoId, viewedAt: new Date().toISOString() }),
       });
     } catch {}
   };
