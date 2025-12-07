@@ -13,14 +13,43 @@ export default function Sidebar({ creators }) {
     (creator) => !creator.premium && creator.urlHandle && !creator.secret
   );
 
-  const handleClick = (creator) => {
-    if (typeof window.gtag !== "undefined") {
-      window.gtag("event", "creator_click", {
-        event_category: "Creators",
-        event_label: creator.name,
-        value: creator.urlHandle,
-      });
+  // Accept the click event so we can prevent default navigation
+  // and ensure the analytics event has time to be sent.
+  const handleClick = (e, creator) => {
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
     }
+
+    const url = creator?.urlHandle || creator?.url || "#";
+
+    // Send analytics (use transport_type: 'beacon' where supported)
+    try {
+      if (typeof window !== "undefined" && typeof window.gtag === "function") {
+        window.gtag("event", "creator_click", {
+          event_category: "Creators",
+          event_label: creator?.name,
+          value: url,
+          transport_type: "beacon",
+        });
+      }
+    } catch (err) {
+      // guard against any runtime errors in gtag
+      // eslint-disable-next-line no-console
+      console.warn("gtag send failed", err);
+    }
+
+    // Navigate in the same tab after a short delay so the event
+    // has time to be dispatched. This avoids opening a new tab.
+    setTimeout(() => {
+      if (url && url !== "#") {
+        try {
+          window.location.href = url;
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn("navigation failed", err);
+        }
+      }
+    }, 150);
   };
 
   return (
@@ -44,9 +73,7 @@ export default function Sidebar({ creators }) {
                 >
                   <a
                     href={creator.urlHandle}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => handleClick(creator)}
+                    onClick={(e) => handleClick(e, creator)}
                     className="block font-semibold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-400 animate-gradient-x hover:underline"
                   >
                     {creator.name}
@@ -108,9 +135,7 @@ export default function Sidebar({ creators }) {
                 <li key={creator._id}>
                   <a
                     href={creator.urlHandle}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => handleClick(creator)}
+                    onClick={(e) => handleClick(e, creator)}
                     className="block text-sm text-gray-300 hover:text-yellow-400 transition-colors"
                   >
                     {creator.name}

@@ -28,10 +28,18 @@ export default async function RootLayout({ children }) {
     <html lang="en" className="h-full">
       <body className="h-full flex flex-col">
         {/* Top header with logo */}
-        <header className="w-full flex justify-center items-center py-4 border-b border-gray-200">
+        <header
+          role="banner"
+          className="w-full flex justify-center items-center py-4 border-b border-gray-200"
+        >
           <GoogleAnalytics gaId="G-QNL24T0P74" />
           <Link href="/">
-            <Image src={logo} alt="App Logo" width={96} height={96} />
+            <Image
+              src={logo}
+              alt="App logo — go to homepage"
+              width={96}
+              height={96}
+            />
           </Link>
         </header>
 
