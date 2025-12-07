@@ -1,7 +1,7 @@
 // app/api/redirect/route.js
 import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
-import VideoViews from "../../../models/videoViews.js";
+import VideoViews from "../../../models/videoViewCounts.js";
 
 export async function GET(request) {
   try {
