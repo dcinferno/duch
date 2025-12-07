@@ -170,6 +170,7 @@ export default function Sidebar({ creators }) {
       </div>
 
       {/* Animations */}
+      {/* Custom animations */}
       <style jsx>{`
         @keyframes gradient-x {
           0% {
@@ -189,7 +190,7 @@ export default function Sidebar({ creators }) {
 
         @keyframes spin-slow {
           from {
-            transform: rotate(0);
+            transform: rotate(0deg);
           }
           to {
             transform: rotate(360deg);
@@ -203,7 +204,7 @@ export default function Sidebar({ creators }) {
         @keyframes bow {
           0%,
           100% {
-            transform: rotate(0) scale(1);
+            transform: rotate(0deg) scale(1);
           }
           50% {
             transform: rotate(25deg) scale(0.95);
@@ -233,39 +234,67 @@ export default function Sidebar({ creators }) {
           0%,
           100% {
             transform: scale(1);
+            filter: drop-shadow(0 0 6px rgba(255, 0, 80, 0.7))
+              drop-shadow(0 0 12px rgba(255, 0, 100, 0.6))
+              drop-shadow(0 0 18px rgba(255, 0, 120, 0.5));
           }
           50% {
             transform: scale(1.3);
+            filter: drop-shadow(0 0 12px rgba(255, 0, 100, 0.9))
+              drop-shadow(0 0 24px rgba(255, 20, 150, 0.8))
+              drop-shadow(0 0 36px rgba(255, 60, 180, 0.7));
           }
         }
         .animate-cherry {
           animation: cherry-pulse 1.8s ease-in-out infinite;
         }
 
+        /* Softer shimmer animation */
         @keyframes shimmer {
           0% {
+            filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.5))
+              drop-shadow(0 0 4px rgba(255, 235, 100, 0.4));
+            transform: scale(1);
             opacity: 0.9;
           }
           50% {
+            filter: drop-shadow(0 0 5px rgba(255, 235, 120, 0.6))
+              drop-shadow(0 0 8px rgba(255, 245, 160, 0.5));
+            transform: scale(1.08);
             opacity: 1;
           }
           100% {
+            filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.5))
+              drop-shadow(0 0 4px rgba(255, 235, 100, 0.4));
+            transform: scale(1);
             opacity: 0.9;
           }
         }
+
         .animate-shimmer {
           animation: shimmer 2s ease-in-out infinite;
         }
-
         @keyframes princess-glow {
-          0%,
-          100% {
+          0% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 2px rgba(255, 170, 255, 0.4))
+              drop-shadow(0 0 4px rgba(255, 190, 255, 0.3));
             opacity: 0.9;
           }
           50% {
+            transform: scale(1.08);
+            filter: drop-shadow(0 0 4px rgba(255, 170, 255, 0.5))
+              drop-shadow(0 0 7px rgba(255, 200, 255, 0.4));
             opacity: 1;
           }
+          100% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 2px rgba(255, 170, 255, 0.4))
+              drop-shadow(0 0 4px rgba(255, 190, 255, 0.3));
+            opacity: 0.9;
+          }
         }
+
         .animate-princess {
           animation: princess-glow 2.2s ease-in-out infinite;
         }
