@@ -21,7 +21,11 @@ export async function GET(request) {
     }
 
     // 🔹 Log a new view directly using the VideoViews model
-    await VideoViews.create({ videoId: String(videoId) });
+    await VideoViews.findOneAndUpdate(
+      { videoId: String(videoId) },
+      { $inc: { totalViews: 1 } },
+      { upsert: true, new: true }
+    );
 
     // Redirect user to the real video URL
     return Response.redirect(video.url, 302);
