@@ -41,7 +41,7 @@ export async function GET(request) {
     // Fetch all creators to merge their data
     const creators = await Creators.find(
       {},
-      "name urlHandle premium icon socialMediaUrl type"
+      "name urlHandle premium icon socialMediaUrl type pay"
     );
 
     // Merge creator info into each video
@@ -56,6 +56,7 @@ export async function GET(request) {
         premium: creator?.premium || false,
         icon: creator?.icon || null,
         socialMediaUrl: creator?.socialMediaUrl || video.socialMediaUrl,
+        pay: creator?.pay || false,
       };
     });
 

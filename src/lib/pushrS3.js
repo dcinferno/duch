@@ -35,10 +35,11 @@ export const BUCKET_ID = PUSHR_BUCKET_ID;
  * Upload a file to Pushr S3
  * @param {Buffer|Uint8Array|Blob|string} fileData - File content
  * @param {string} key - S3 object key (e.g., "videos/video.mp4")
- * @param {string} contentType - MIME type (e.g., "video/mp4", "image/jpeg")
- * @returns {string} public URL to the uploaded file
+ * @param {string} contentType - MIME type
+ * @param {boolean} isPublic - true for preview, false for private full videos
+ * @returns {string} public URL to the uploaded file (or non-working URL if private)
  */
-export async function uploadToS3(fileData, key, contentType) {
+export async function uploadToS3(fileData, key, contentType, isPublic = false) {
   if (!fileData || !key) throw new Error("Missing fileData or key");
 
   const command = new PutObjectCommand({
@@ -46,11 +47,11 @@ export async function uploadToS3(fileData, key, contentType) {
     Key: key,
     Body: fileData,
     ContentType: contentType,
-    ACL: "public-read",
+    ACL: isPublic ? "public-read" : "private", // 💥 Choose privacy here
   });
 
   await s3.send(command);
 
-  // Construct public URL for Pushr
+  // Public files work immediately, private ones require signed URLs
   return `${PUSHR_ENDPOINT.replace(/\/$/, "")}/${BUCKET_ID}/${key}`;
 }

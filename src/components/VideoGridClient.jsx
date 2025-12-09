@@ -1,10 +1,13 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 
 export default function VideoGridClient({ videos = [] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [purchasedVideos, setPurchasedVideos] = useState({});
 
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -31,6 +34,10 @@ export default function VideoGridClient({ videos = [] }) {
   const loadMoreRef = useRef(null);
 
   const [visibleCount, setVisibleCount] = useState(12);
+
+  const markAsPurchased = (videoId) => {
+    setPurchasedVideos((prev) => ({ ...prev, [videoId]: true }));
+  };
 
   // --- Helpers for aggressive video preload ------------------------------
 
@@ -75,6 +82,25 @@ export default function VideoGridClient({ videos = [] }) {
       delete window.__preloadingVideos[url];
     }
   };
+  const getCheckOutUrl = () => {
+    const isDev = process.env.NODE_ENV === "development";
+    return isDev
+      ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
+      : process.env.NEXT_PUBLIC_SERVER_URL;
+  };
+
+  // Load purchased videos from localStorage
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("purchasedVideos") || "{}");
+      setPurchasedVideos(saved);
+    } catch {}
+  }, []);
+
+  // Save purchases to localStorage
+  useEffect(() => {
+    localStorage.setItem("purchasedVideos", JSON.stringify(purchasedVideos));
+  }, [purchasedVideos]);
 
   // Load unlocks from localStorage
   useEffect(() => {
@@ -601,12 +627,57 @@ export default function VideoGridClient({ videos = [] }) {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => openVideo(index)}
-                    className="mt-3 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
-                  >
-                    Preview
-                  </button>
+                  {/* ACTION BUTTONS: always show Preview, optionally show Pay */}
+                  {/* ACTION BUTTONS: Preview + (optional) Pay */}
+                  <div className="mt-3 flex flex-col sm:flex-row gap-2 w-full">
+                    {/* Preview is always available */}
+                    <button
+                      onClick={() => openVideo(index)}
+                      className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
+                    >
+                      Preview
+                    </button>
+
+                    {/* Pay appears ONLY if creator has pay enabled and price > 0 */}
+                    {video.pay && video.price > 0 && (
+                      <button
+                        onClick={async () => {
+                          const userId = getOrCreateUserId();
+
+                          localStorage.setItem("userId", userId);
+
+                          const payload = {
+                            userId,
+                            videoId: video._id,
+                            amount: video.price,
+                            site: "A",
+                          };
+                          const url = getCheckOutUrl();
+                          try {
+                            const res = await fetch(`${url}/api/checkout`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify(payload),
+                            });
+
+                            const data = await res.json();
+
+                            if (data.url) {
+                              window.location.href = data.url;
+                            } else {
+                              alert("Unable to start checkout.");
+                            }
+                          } catch (err) {
+                            console.error("Checkout error:", err);
+                            alert("Checkout failed. Try again." + err);
+                          }
+                        }}
+                        className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
+                      >
+                        Pay ${video.price}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );

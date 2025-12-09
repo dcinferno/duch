@@ -10,6 +10,7 @@ const CreatorSchema = new mongoose.Schema({
   secret: { type: Boolean, default: false, sparse: true }, // hidden from public listing
   rank: { type: Number },
   telegramId: { type: Number },
+  pay: { type: Boolean, default: false },
 });
 
 export default mongoose.models.Creators ||
