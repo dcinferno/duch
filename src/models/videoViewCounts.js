@@ -7,5 +7,5 @@ const VideoCountSchema = new mongoose.Schema({
 });
 
 // Avoid recompiling model
-export default mongoose.models.VideoCount ||
+export default mongoose.models.VideoViews ||
   mongoose.model("VideoViews", VideoCountSchema);
