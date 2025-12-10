@@ -27,27 +27,40 @@ export default function VideoGridClient({ videos = [] }) {
   const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
   const [thursdayFilterOn, setThursdayFilterOn] = useState(false);
 
+  // ✅ Jonus lock state
   const [jonusUnlocked, setJonusUnlocked] = useState({});
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [unlockTargetId, setUnlockTargetId] = useState(null);
 
-  const videoRefs = useRef({});
-  const loggedVideosRef = useRef(new Set());
   const loadMoreRef = useRef(null);
   const [visibleCount, setVisibleCount] = useState(12);
 
   // ---------------- PURCHASE STATE ----------------
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("purchasedVideos") || "{}");
-      setPurchasedVideos(saved);
+      setPurchasedVideos(
+        JSON.parse(localStorage.getItem("purchasedVideos") || "{}")
+      );
     } catch {}
   }, []);
 
   useEffect(() => {
     localStorage.setItem("purchasedVideos", JSON.stringify(purchasedVideos));
   }, [purchasedVideos]);
+
+  // ---------------- JONUS UNLOCK STATE ----------------
+  useEffect(() => {
+    try {
+      setJonusUnlocked(
+        JSON.parse(localStorage.getItem("jonusUnlocked") || "{}")
+      );
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
+  }, [jonusUnlocked]);
 
   // ---------------- WEEKDAY FLAGS ----------------
   useEffect(() => {
@@ -62,9 +75,7 @@ export default function VideoGridClient({ videos = [] }) {
 
   const filteredVideos = videos.filter((video) => {
     if (showPremiumOnly && !video.premium) return false;
-
     if (wednesdayFilterOn && !video.tags?.includes("wagon")) return false;
-
     if (
       thursdayFilterOn &&
       !video.creatorName?.toLowerCase().includes("pudding")
@@ -90,17 +101,12 @@ export default function VideoGridClient({ videos = [] }) {
   });
 
   const videosToRender = (() => {
-    if (sortByPrice) {
-      return [...filteredVideos].sort((a, b) => {
-        if (a.price !== b.price) return a.price - b.price;
-        return (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0);
-      });
-    }
-    if (sortByViews) {
+    if (sortByPrice)
+      return [...filteredVideos].sort((a, b) => a.price - b.price);
+    if (sortByViews)
       return [...filteredVideos].sort(
         (a, b) => (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0)
       );
-    }
     return filteredVideos;
   })();
 
@@ -109,29 +115,21 @@ export default function VideoGridClient({ videos = [] }) {
   // ---------------- LOAD MORE ----------------
   useEffect(() => {
     const ob = new IntersectionObserver(
-      (entries) => entries[0].isIntersecting && setVisibleCount((p) => p + 12),
-      { rootMargin: "400px" }
+      (e) => e[0].isIntersecting && setVisibleCount((p) => p + 12),
+      { rootMargin: "300px" }
     );
     if (loadMoreRef.current) ob.observe(loadMoreRef.current);
     return () => ob.disconnect();
   }, []);
 
-  useEffect(
-    () => setVisibleCount(12),
-    [
-      selectedTags,
-      showPremiumOnly,
-      sortByViews,
-      sortByPrice,
-      wednesdayFilterOn,
-      thursdayFilterOn,
-      showJonusOnly,
-    ]
-  );
-
   // ---------------- OPEN PREVIEW ----------------
-  const openVideo = (index) => {
-    const video = visibleVideos[index];
+  const openVideo = (video, index) => {
+    if (video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id]) {
+      setUnlockTargetId(video._id);
+      setShowPasswordModal(true);
+      return;
+    }
+
     setSelectedVideo(video);
     setSelectedVideoIndex(index);
     router.push(`?video=${video._id}`, { shallow: true });
@@ -139,6 +137,12 @@ export default function VideoGridClient({ videos = [] }) {
 
   // ---------------- PLAY FULL ----------------
   const playFullVideo = async (video, index) => {
+    if (video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id]) {
+      setUnlockTargetId(video._id);
+      setShowPasswordModal(true);
+      return;
+    }
+
     const userId = getOrCreateUserId();
 
     const res = await fetch("/api/unlock-video", {
@@ -148,6 +152,7 @@ export default function VideoGridClient({ videos = [] }) {
     });
 
     if (!res.ok) return alert("Unable to unlock video.");
+
     const data = await res.json();
     if (!data.url) return alert("No full video available.");
 
@@ -156,58 +161,53 @@ export default function VideoGridClient({ videos = [] }) {
     router.push(`?video=${video._id}`, { shallow: true });
   };
 
+  // ---------------- JONUS PASSWORD ----------------
+  const attemptUnlock = async () => {
+    const res = await fetch("/api/validate-lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        videoId: unlockTargetId,
+        password: passwordInput,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.unlockedUrl) {
+      setJonusUnlocked((p) => ({ ...p, [unlockTargetId]: true }));
+      setShowPasswordModal(false);
+      setPasswordInput("");
+    } else {
+      alert("Incorrect password");
+    }
+  };
+
   // ---------------- RENDER ----------------
   return (
     <div className="w-full">
-      {/* FILTER BAR */}
-      <div className="flex flex-wrap gap-3 mb-6 justify-center">
-        <button onClick={() => setShowPremiumOnly((p) => !p)}>
-          💎 Featured
-        </button>
-        <button onClick={() => setSortByViews((p) => !p)}>🔥 Views</button>
-        <button onClick={() => setSortByPrice((p) => !p)}>💸 Broke</button>
-        {FFWednesday && (
-          <button onClick={() => setWednesdayFilterOn((p) => !p)}>
-            Wagon Wednesday
-          </button>
-        )}
-        {FFThursday && (
-          <button onClick={() => setThursdayFilterOn((p) => !p)}>
-            🍷 Thirsty Thursday
-          </button>
-        )}
-        <button onClick={() => setShowJonusOnly((p) => !p)}>
-          🎄 25 Days of Jonus
-        </button>
-      </div>
-
       {/* GRID */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {visibleVideos.map((video, index) => {
           const purchased = purchasedVideos[video._id];
 
           return (
-            <div
-              key={video._id}
-              className="bg-white rounded-xl shadow flex flex-col"
-            >
+            <div key={video._id} className="bg-white rounded-xl shadow">
               <img
                 src={video.thumbnail || video.url}
                 className="h-64 w-full object-cover"
               />
 
-              <div className="p-3 flex flex-col flex-1">
-                <h3 className="font-semibold mb-1">{video.title}</h3>
+              <div className="p-3 flex flex-col">
+                <h3 className="font-semibold">{video.title}</h3>
 
-                <div className="flex gap-2 mb-2">
-                  {purchased && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                      ✅ Purchased
-                    </span>
-                  )}
-                </div>
+                {purchased && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full w-fit mt-1">
+                    ✅ Purchased
+                  </span>
+                )}
 
-                <div className="mt-auto flex gap-2">
+                <div className="mt-3 flex gap-2">
                   {purchased ? (
                     <button
                       onClick={() => playFullVideo(video, index)}
@@ -218,36 +218,13 @@ export default function VideoGridClient({ videos = [] }) {
                   ) : (
                     <>
                       <button
-                        onClick={() => openVideo(index)}
+                        onClick={() => openVideo(video, index)}
                         className="w-full bg-blue-600 text-white py-2 rounded"
                       >
                         Preview
                       </button>
                       {video.pay && video.price > 0 && (
-                        <button
-                          onClick={async () => {
-                            const userId = getOrCreateUserId();
-                            localStorage.setItem("userId", userId);
-
-                            const res = await fetch(
-                              `${process.env.NEXT_PUBLIC_SERVER_URL}/api/checkout`,
-                              {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  userId,
-                                  videoId: video._id,
-                                  amount: video.price,
-                                  site: "A",
-                                }),
-                              }
-                            );
-
-                            const data = await res.json();
-                            if (data.url) window.location.href = data.url;
-                          }}
-                          className="w-full bg-purple-600 text-white py-2 rounded"
-                        >
+                        <button className="w-full bg-purple-600 text-white py-2 rounded">
                           Pay ${video.price}
                         </button>
                       )}
@@ -262,17 +239,53 @@ export default function VideoGridClient({ videos = [] }) {
 
       <div ref={loadMoreRef} className="h-10" />
 
-      {/* MODAL */}
+      {/* VIDEO MODAL (✅ smaller, scroll-safe) */}
       {selectedVideo && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
-          <div className="bg-white p-4 rounded max-w-lg w-full">
-            <button onClick={() => setSelectedVideo(null)}>×</button>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto relative p-4">
+            <button
+              onClick={() => setSelectedVideo(null)}
+              className="absolute top-2 right-3 text-2xl"
+            >
+              ×
+            </button>
+
             <video
               src={selectedVideo.url}
               controls
               autoPlay
-              className="w-full mt-4"
+              className="w-full rounded mt-6 max-h-[60vh]"
             />
+          </div>
+        </div>
+      )}
+
+      {/* PASSWORD MODAL (unchanged but smaller) */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
+          <div className="bg-white p-6 rounded w-full max-w-sm">
+            <h2 className="font-bold text-lg mb-3 text-center">
+              Unlock Jonus Video
+            </h2>
+
+            <input
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="Enter password"
+              className="border w-full p-2 rounded mb-4"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowPasswordModal(false)}>
+                Cancel
+              </button>
+              <button
+                onClick={attemptUnlock}
+                className="bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                Unlock
+              </button>
+            </div>
           </div>
         </div>
       )}
