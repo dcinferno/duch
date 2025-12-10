@@ -24,24 +24,22 @@ export default function SuccessView({ videoId, urlHandle, router }) {
   useEffect(() => {
     if (!videoId) return;
 
-    async function unlockFullVideo() {
+    async function fetchDownloadUrl() {
       const userId = localStorage.getItem("userId");
 
-      const res = await fetch("/api/unlock-video", {
+      const res = await fetch("/api/download-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, videoId }),
       });
-      alert(res.status);
-      const data = await res.json();
 
+      const data = await res.json();
       if (data.url) {
-        // Save the signed full video URL so VideoGridClient can use it
         localStorage.setItem(`full_${videoId}`, data.url);
       }
     }
 
-    unlockFullVideo();
+    fetchDownloadUrl();
   }, [videoId]);
 
   //
