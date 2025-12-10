@@ -4,7 +4,7 @@ import { getSignedVideoUrl } from "@/lib/getSignedVideoUrl";
 import Videos from "@/models/videos";
 import { connectToDB } from "@/lib/mongodb";
 
-const allowedOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL;
+const allowedOrigin = process.env.NEXT_PUBLIC_BASE_URL;
 
 // -----------------------------
 // OPTIONS — Preflight for CORS
