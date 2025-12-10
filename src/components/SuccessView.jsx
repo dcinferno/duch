@@ -96,19 +96,33 @@ export default function SuccessView({ videoId, urlHandle, router }) {
         )}
 
         <div className="flex flex-col gap-3 mt-6">
+          {/* DOWNLOAD NOW */}
           <button
-            onClick={() =>
-              router.push(
-                urlHandle
-                  ? `/${urlHandle}?video=${videoId}&full=1`
-                  : `/?video=${videoId}&full=1`
-              )
-            }
+            onClick={() => {
+              const fullUrl = localStorage.getItem(`full_${videoId}`);
+              if (!fullUrl) {
+                alert("Download not ready yet. Please try again.");
+                return;
+              }
+
+              const link = document.createElement("a");
+              link.href = fullUrl;
+
+              const filename = video?.title
+                ? video.title.replace(/\s+/g, "_") + ".mp4"
+                : `${videoId}.mp4`;
+
+              link.download = filename;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
             className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 text-md font-medium"
           >
-            Watch Now
+            Download Now
           </button>
 
+          {/* BACK TO HOME */}
           <button
             onClick={() => router.push(urlHandle ? `/${urlHandle}` : "/")}
             className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 text-md font-medium"
