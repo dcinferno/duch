@@ -206,6 +206,14 @@ export default function VideoGridClient({ videos = [] }) {
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
+  const isPurchased = (videoId) => {
+    if (purchasedVideos[videoId]) return true;
+    if (typeof window !== "undefined") {
+      return !!localStorage.getItem(`full_${videoId}`);
+    }
+    return false;
+  };
+
   // Infinite scroll
   useEffect(() => {
     const ob = new IntersectionObserver(
@@ -343,6 +351,8 @@ export default function VideoGridClient({ videos = [] }) {
 
   const openVideo = (index) => {
     const video = visibleVideos[index];
+
+    // 🔒 Jonus lock check FIRST
     const isJonusLocked =
       video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
 
@@ -352,13 +362,22 @@ export default function VideoGridClient({ videos = [] }) {
       return;
     }
 
-    setSelectedVideo(video);
+    // ✅ Purchased / full video logic
+    const purchased = isPurchased(video._id);
+    const fullUrl = purchased && localStorage.getItem(`full_${video._id}`);
+
+    setSelectedVideo({
+      ...video,
+      url: fullUrl || video.url, // swap preview → full
+    });
+
     setSelectedVideoIndex(index);
     router.push(`?video=${video._id}`, { shallow: true });
 
+    // Optional preloading
     if (video.type === "video") {
-      preloadVideoLink(video.url);
-      aggressivePreload(video.url, 16);
+      preloadVideoLink(fullUrl || video.url);
+      aggressivePreload(fullUrl || video.url, 16);
     }
   };
 
@@ -653,52 +672,54 @@ export default function VideoGridClient({ videos = [] }) {
 
                   {/* ACTION BUTTONS: always show Preview, optionally show Pay */}
                   {/* ACTION BUTTONS: Preview + (optional) Pay */}
-                  <div className="mt-3 flex flex-col sm:flex-row gap-2 w-full">
-                    {/* Preview is always available */}
-                    <button
-                      onClick={() => openVideo(index)}
-                      className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
-                    >
-                      Preview
-                    </button>
-
-                    {/* Pay appears ONLY if creator has pay enabled and price > 0 */}
-                    {video.pay && video.price > 0 && (
+                  <div className="mt-3 flex flex-col gap-2 w-full">
+                    {isPurchased(video._id) ? (
+                      // ✅ WATCH FULL VIDEO
                       <button
-                        onClick={async () => {
-                          const userId = getOrCreateUserId();
-
-                          localStorage.setItem("userId", userId);
-
-                          const payload = {
-                            userId,
-                            videoId: video._id,
-                            site: "A",
-                          };
-                          const url = getCheckOutUrl();
-                          try {
-                            const res = await fetch(`${url}/api/checkout`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify(payload),
-                            });
-
-                            const data = await res.json();
-
-                            if (data.url) {
-                              window.location.href = data.url;
-                            } else {
-                              alert("Unable to start checkout.");
-                            }
-                          } catch (err) {
-                            console.error("Checkout error:", err);
-                            alert("Checkout failed. Try again." + err);
-                          }
-                        }}
-                        className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
+                        onClick={() => openVideo(index)}
+                        className="w-full bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 text-sm font-medium"
                       >
-                        Pay ${getDisplayPrice(video)}
+                        ▶ Watch Full Video
                       </button>
+                    ) : (
+                      <>
+                        {/* PREVIEW */}
+                        <button
+                          onClick={() => openVideo(index)}
+                          className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
+                        >
+                          Preview
+                        </button>
+
+                        {/* PAY */}
+                        {video.pay && video.price > 0 && (
+                          <button
+                            onClick={async () => {
+                              const userId = getOrCreateUserId();
+                              localStorage.setItem("userId", userId);
+
+                              const payload = {
+                                userId,
+                                videoId: video._id,
+                                site: "A",
+                              };
+
+                              const url = getCheckOutUrl();
+                              const res = await fetch(`${url}/api/checkout`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload),
+                              });
+
+                              const data = await res.json();
+                              if (data.url) window.location.href = data.url;
+                            }}
+                            className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
+                          >
+                            Pay ${video.price}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
