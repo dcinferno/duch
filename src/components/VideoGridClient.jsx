@@ -8,7 +8,9 @@ export default function VideoGridClient({ videos = [] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ---------------- STATE ----------------
+  // --------------------------------------------------
+  // STATE
+  // --------------------------------------------------
   const [purchasedVideos, setPurchasedVideos] = useState({});
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -27,16 +29,21 @@ export default function VideoGridClient({ videos = [] }) {
   const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
   const [thursdayFilterOn, setThursdayFilterOn] = useState(false);
 
-  // ✅ Jonus lock state
+  // 🔒 Jonus locking
   const [jonusUnlocked, setJonusUnlocked] = useState({});
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [unlockTargetId, setUnlockTargetId] = useState(null);
 
+  const videoRefs = useRef({});
   const loadMoreRef = useRef(null);
+  const loggedVideosRef = useRef(new Set());
+
   const [visibleCount, setVisibleCount] = useState(12);
 
-  // ---------------- PURCHASE STATE ----------------
+  // --------------------------------------------------
+  // PURCHASE PERSISTENCE
+  // --------------------------------------------------
   useEffect(() => {
     try {
       setPurchasedVideos(
@@ -49,7 +56,9 @@ export default function VideoGridClient({ videos = [] }) {
     localStorage.setItem("purchasedVideos", JSON.stringify(purchasedVideos));
   }, [purchasedVideos]);
 
-  // ---------------- JONUS UNLOCK STATE ----------------
+  // --------------------------------------------------
+  // JONUS PERSISTENCE
+  // --------------------------------------------------
   useEffect(() => {
     try {
       setJonusUnlocked(
@@ -62,68 +71,98 @@ export default function VideoGridClient({ videos = [] }) {
     localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
   }, [jonusUnlocked]);
 
-  // ---------------- WEEKDAY FLAGS ----------------
+  // --------------------------------------------------
+  // DAY FLAGS
+  // --------------------------------------------------
   useEffect(() => {
     const d = new Date().getDay();
     setFFWednesday(d === 3);
     setFFThursday(d === 4);
   }, []);
 
-  // ---------------- FILTERING ----------------
+  // --------------------------------------------------
+  // FILTERING LOGIC (unchanged behavior)
+  // --------------------------------------------------
   const currentDay = new Date().getUTCDate();
   const isDecember = new Date().getUTCMonth() + 1 === 12;
 
-  const filteredVideos = videos.filter((video) => {
-    if (showPremiumOnly && !video.premium) return false;
-    if (wednesdayFilterOn && !video.tags?.includes("wagon")) return false;
-    if (
-      thursdayFilterOn &&
-      !video.creatorName?.toLowerCase().includes("pudding")
-    )
-      return false;
+  const filteredVideos = videos
+    .filter((video) => {
+      if (
+        selectedTags.length &&
+        !selectedTags.every((t) => video.tags?.includes(t))
+      )
+        return false;
 
-    if (showJonusOnly) {
-      if (!video.tags?.includes("25daysofjonus")) return false;
-      const d = new Date(video.createdAt || video.date);
-      const day = d.getUTCDate();
-      const month = d.getUTCMonth() + 1;
-      if (month !== 12 || day < 1 || day > 25) return false;
-      if (isDecember && day > currentDay) return false;
-    }
+      if (showPremiumOnly && !video.premium) return false;
 
-    if (
-      selectedTags.length &&
-      !selectedTags.every((t) => video.tags?.includes(t))
-    )
-      return false;
+      if (wednesdayFilterOn && !video.tags?.includes("wagon")) return false;
 
-    return true;
-  });
+      if (
+        thursdayFilterOn &&
+        !video.creatorName?.toLowerCase().includes("pudding")
+      )
+        return false;
+
+      if (showJonusOnly) {
+        if (!video.tags?.includes("25daysofjonus")) return false;
+        const d = new Date(video.createdAt);
+        const m = d.getUTCMonth() + 1;
+        const day = d.getUTCDate();
+        if (m !== 12 || day < 1 || day > 25) return false;
+        if (isDecember && day > currentDay) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const videosToRender = (() => {
-    if (sortByPrice)
-      return [...filteredVideos].sort((a, b) => a.price - b.price);
-    if (sortByViews)
+    if (sortByPrice) {
+      return [...filteredVideos].sort((a, b) =>
+        a.price !== b.price
+          ? a.price - b.price
+          : (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0)
+      );
+    }
+    if (sortByViews) {
       return [...filteredVideos].sort(
         (a, b) => (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0)
       );
+    }
     return filteredVideos;
   })();
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
-  // ---------------- LOAD MORE ----------------
+  // --------------------------------------------------
+  // DEEP LINK RESTORE (searchParams)
+  // --------------------------------------------------
   useEffect(() => {
-    const ob = new IntersectionObserver(
-      (e) => e[0].isIntersecting && setVisibleCount((p) => p + 12),
-      { rootMargin: "300px" }
-    );
-    if (loadMoreRef.current) ob.observe(loadMoreRef.current);
-    return () => ob.disconnect();
-  }, []);
+    const id = searchParams.get("video");
+    if (!id) return;
 
-  // ---------------- OPEN PREVIEW ----------------
-  const openVideo = (video, index) => {
+    const idx = visibleVideos.findIndex((v) => v._id === id);
+    if (idx === -1) return;
+
+    const video = visibleVideos[idx];
+
+    if (video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id]) {
+      setUnlockTargetId(video._id);
+      setShowPasswordModal(true);
+      return;
+    }
+
+    setSelectedVideo(video);
+    setSelectedVideoIndex(idx);
+  }, [searchParams, visibleVideos, jonusUnlocked]);
+
+  // --------------------------------------------------
+  // OPEN / CLOSE
+  // --------------------------------------------------
+  const openVideo = (index) => {
+    const video = visibleVideos[index];
+
     if (video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id]) {
       setUnlockTargetId(video._id);
       setShowPasswordModal(true);
@@ -135,33 +174,15 @@ export default function VideoGridClient({ videos = [] }) {
     router.push(`?video=${video._id}`, { shallow: true });
   };
 
-  // ---------------- PLAY FULL ----------------
-  const playFullVideo = async (video, index) => {
-    if (video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id]) {
-      setUnlockTargetId(video._id);
-      setShowPasswordModal(true);
-      return;
-    }
-
-    const userId = getOrCreateUserId();
-
-    const res = await fetch("/api/unlock-video", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, videoId: video._id }),
-    });
-
-    if (!res.ok) return alert("Unable to unlock video.");
-
-    const data = await res.json();
-    if (!data.url) return alert("No full video available.");
-
-    setSelectedVideo({ ...video, url: data.url });
-    setSelectedVideoIndex(index);
-    router.push(`?video=${video._id}`, { shallow: true });
+  const closeModal = () => {
+    router.push("?", { shallow: true });
+    setSelectedVideo(null);
+    setSelectedVideoIndex(null);
   };
 
-  // ---------------- JONUS PASSWORD ----------------
+  // --------------------------------------------------
+  // JONUS UNLOCK
+  // --------------------------------------------------
   const attemptUnlock = async () => {
     const res = await fetch("/api/validate-lock", {
       method: "POST",
@@ -171,7 +192,6 @@ export default function VideoGridClient({ videos = [] }) {
         password: passwordInput,
       }),
     });
-
     const data = await res.json();
 
     if (data.unlockedUrl) {
@@ -183,31 +203,58 @@ export default function VideoGridClient({ videos = [] }) {
     }
   };
 
-  // ---------------- RENDER ----------------
+  // --------------------------------------------------
+  // UNLOCK / PLAY FULL VIDEO
+  // --------------------------------------------------
+  const playFullVideo = async (video, index) => {
+    const userId = getOrCreateUserId();
+
+    const res = await fetch("/api/unlock-video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, videoId: video._id }),
+    });
+
+    if (!res.ok) return alert("Unlock failed");
+
+    const data = await res.json();
+    if (!data.url) return alert("No full video");
+
+    setSelectedVideo({ ...video, url: data.url });
+    setSelectedVideoIndex(index);
+    router.push(`?video=${video._id}`, { shallow: true });
+  };
+
+  // --------------------------------------------------
+  // RENDER
+  // --------------------------------------------------
   return (
     <div className="w-full">
-      {/* GRID */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
         {visibleVideos.map((video, index) => {
           const purchased = purchasedVideos[video._id];
 
           return (
-            <div key={video._id} className="bg-white rounded-xl shadow">
+            <div
+              key={video._id}
+              className="bg-white rounded-xl shadow relative"
+            >
+              {purchased && (
+                <span className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded-full z-10">
+                  ✅ Purchased
+                </span>
+              )}
+
               <img
                 src={video.thumbnail || video.url}
                 className="h-64 w-full object-cover"
+                alt={video.title}
               />
 
-              <div className="p-3 flex flex-col">
+              <div className="p-3 flex flex-col gap-2">
                 <h3 className="font-semibold">{video.title}</h3>
 
-                {purchased && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full w-fit mt-1">
-                    ✅ Purchased
-                  </span>
-                )}
-
-                <div className="mt-3 flex gap-2">
+                <div className="flex gap-2">
                   {purchased ? (
                     <button
                       onClick={() => playFullVideo(video, index)}
@@ -218,13 +265,41 @@ export default function VideoGridClient({ videos = [] }) {
                   ) : (
                     <>
                       <button
-                        onClick={() => openVideo(video, index)}
+                        onClick={() => openVideo(index)}
                         className="w-full bg-blue-600 text-white py-2 rounded"
                       >
                         Preview
                       </button>
+
                       {video.pay && video.price > 0 && (
-                        <button className="w-full bg-purple-600 text-white py-2 rounded">
+                        <button
+                          onClick={async () => {
+                            const userId = getOrCreateUserId();
+                            localStorage.setItem("userId", userId);
+
+                            const payload = {
+                              userId,
+                              videoId: video._id,
+                              amount: video.price,
+                              site: "A",
+                            };
+
+                            const res = await fetch(
+                              `${process.env.NEXT_PUBLIC_SERVER_URL}/api/checkout`,
+                              {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify(payload),
+                              }
+                            );
+
+                            const data = await res.json();
+                            if (data.url) window.location.href = data.url;
+                          }}
+                          className="w-full bg-purple-600 text-white py-2 rounded"
+                        >
                           Pay ${video.price}
                         </button>
                       )}
@@ -237,51 +312,47 @@ export default function VideoGridClient({ videos = [] }) {
         })}
       </div>
 
-      <div ref={loadMoreRef} className="h-10" />
-
-      {/* VIDEO MODAL (✅ smaller, scroll-safe) */}
+      {/* VIDEO MODAL */}
       {selectedVideo && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
-          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto relative p-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg p-4 max-w-md w-full">
             <button
-              onClick={() => setSelectedVideo(null)}
-              className="absolute top-2 right-3 text-2xl"
+              onClick={closeModal}
+              className="float-right text-xl font-bold"
             >
               ×
             </button>
-
             <video
               src={selectedVideo.url}
               controls
               autoPlay
-              className="w-full rounded mt-6 max-h-[60vh]"
+              className="w-full mt-3 rounded"
             />
           </div>
         </div>
       )}
 
-      {/* PASSWORD MODAL (unchanged but smaller) */}
+      {/* PASSWORD MODAL */}
       {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
-          <div className="bg-white p-6 rounded w-full max-w-sm">
-            <h2 className="font-bold text-lg mb-3 text-center">
-              Unlock Jonus Video
-            </h2>
-
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white p-4 rounded max-w-sm w-full">
+            <h2 className="font-bold mb-3">Unlock Video</h2>
             <input
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
+              className="border rounded p-2 w-full mb-3"
               placeholder="Enter password"
-              className="border w-full p-2 rounded mb-4"
             />
-
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowPasswordModal(false)}>
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="px-3 py-2 rounded border"
+              >
                 Cancel
               </button>
               <button
                 onClick={attemptUnlock}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
+                className="px-3 py-2 bg-blue-600 text-white rounded"
               >
                 Unlock
               </button>
