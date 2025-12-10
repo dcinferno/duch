@@ -59,7 +59,7 @@ export async function GET(request) {
       filter.creatorName = { $in: publicCreators.map((c) => c.name) };
     }
 
-    const videos = await Videos.find(filter, { password: 0 }).sort({
+    const videos = await Videos.find(filter, { fullKey: 0, password: 0 }).sort({
       createdAt: -1,
     });
 
@@ -78,7 +78,7 @@ export async function GET(request) {
         creatorUrlHandle: creator?.urlHandle || null,
         premium: creator?.premium || false,
         icon: creator?.icon || null,
-        socialMediaUrl: creator?.socialMediaUrl || video.socialMediaUrl,
+        socialMediaUrl: creator?.url || video.socialMediaUrl,
         pay: creator?.pay || false,
       };
     });
