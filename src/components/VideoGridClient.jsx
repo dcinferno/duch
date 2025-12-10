@@ -83,14 +83,6 @@ export default function VideoGridClient({ videos = [] }) {
     }
   };
   const getCheckOutUrl = () => {
-    console.log("---- ENV CHECK ----");
-    console.log("NEXT_PUBLIC_SERVER_URL =", process.env.NEXT_PUBLIC_SERVER_URL);
-    console.log(
-      "NEXT_PUBLIC_SERVER_URL_DEV =",
-      process.env.NEXT_PUBLIC_SERVER_URL_DEV
-    );
-    console.log("VERCEL_ENV =", process.env.VERCEL_ENV);
-    console.log("-------------------");
     const isDev = process.env.NODE_ENV === "development";
     return isDev
       ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
