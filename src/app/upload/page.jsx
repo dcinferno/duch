@@ -10,6 +10,16 @@ function slugify(name) {
     .replace(/[^\w-]/g, "");
 }
 
+function generateFullVideoFileName(title, creatorName, originalFile) {
+  const creatorSlug = slugify(creatorName);
+  const titleSlug = slugify(title);
+
+  const ext = originalFile.name.split(".").pop(); // mp4, mov, etc.
+  const timestamp = Date.now(); // avoids collisions
+
+  return `${creatorSlug}/full/${titleSlug}-${timestamp}.${ext}`;
+}
+
 export default function UploadPage() {
   // --- State ---
   const [title, setTitle] = useState("");
@@ -184,7 +194,11 @@ export default function UploadPage() {
       let fullKeyValue = null;
 
       if (creator?.pay && fullFile) {
-        const fullPath = `${creatorSlug}/full/fullvideo.mp4`;
+        const fullPath = generateFullVideoFileName(
+          title,
+          creatorName,
+          fullFile
+        );
 
         const fullUpload = await uploadToPresigned(
           fullFile,
