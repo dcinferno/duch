@@ -8,12 +8,40 @@ export async function GET(request) {
     await connectToDB();
 
     const { searchParams } = new URL(request.url);
-    const creatorUrlHandle = searchParams.get("creator"); // ?creator=johnsmith
+    const videoId = searchParams.get("id");
+    const creatorUrlHandle = searchParams.get("creator");
 
+    // -----------------------------------
+    // ✅ 1️⃣ Fetch single video by ID
+    // -----------------------------------
+    if (videoId) {
+      const video = await Videos.findById(videoId, { password: 0 });
+
+      if (!video) {
+        return Response.json({ error: "Video not found" }, { status: 404 });
+      }
+
+      const creator = await Creators.findOne(
+        { name: new RegExp(`^${video.creatorName}$`, "i") },
+        "name urlHandle premium icon socialMediaUrl type pay"
+      );
+
+      return Response.json({
+        ...video.toObject(),
+        creatorUrlHandle: creator?.urlHandle || null,
+        premium: creator?.premium || false,
+        icon: creator?.icon || null,
+        socialMediaUrl: creator?.socialMediaUrl || video.socialMediaUrl,
+        pay: creator?.pay || false,
+      });
+    }
+
+    // -----------------------------------
+    // ✅ 2️⃣ Creator feed OR all public videos
+    // -----------------------------------
     let filter = {};
 
     if (creatorUrlHandle) {
-      // Fetch the specific creator
       const creator = await Creators.findOne({
         urlHandle: new RegExp(`^${creatorUrlHandle}$`, "i"),
       });
@@ -22,29 +50,24 @@ export async function GET(request) {
         return Response.json({ error: "Creator not found" }, { status: 404 });
       }
 
-      // Case-insensitive match for videos by creator name
       filter.creatorName = new RegExp(`^${creator.name}$`, "i");
     } else {
-      // If fetching ALL videos, exclude secret creators
       const publicCreators = await Creators.find(
         { secret: { $ne: true } },
         "name"
       );
-      const publicCreatorNames = publicCreators.map((c) => c.name);
-      filter.creatorName = { $in: publicCreatorNames };
+      filter.creatorName = { $in: publicCreators.map((c) => c.name) };
     }
 
-    // Fetch videos
     const videos = await Videos.find(filter, { password: 0 }).sort({
       createdAt: -1,
     });
-    // Fetch all creators to merge their data
+
     const creators = await Creators.find(
       {},
       "name urlHandle premium icon socialMediaUrl type pay"
     );
 
-    // Merge creator info into each video
     const videosWithCreatorData = videos.map((video) => {
       const creator = creators.find(
         (c) => c.name.toLowerCase() === video.creatorName.toLowerCase()
@@ -70,6 +93,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     await connectToDB();
+
     const { title, description, thumbnail, price, creatorName, url, tags } =
       await request.json();
 
@@ -95,7 +119,6 @@ export async function POST(request) {
       tags,
     });
 
-    // 🚀 Post to Telegram channel
     await sendTelegramMessage(video);
 
     return Response.json(video, { status: 201 });
