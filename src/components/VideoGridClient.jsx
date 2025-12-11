@@ -8,6 +8,7 @@ export default function VideoGridClient({ videos = [] }) {
   const searchParams = useSearchParams();
 
   const [purchasedVideos, setPurchasedVideos] = useState({});
+  const [fullVideoUrls, setFullVideoUrls] = useState({});
 
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -34,10 +35,6 @@ export default function VideoGridClient({ videos = [] }) {
   const loadMoreRef = useRef(null);
 
   const [visibleCount, setVisibleCount] = useState(12);
-
-  const markAsPurchased = (videoId) => {
-    setPurchasedVideos((prev) => ({ ...prev, [videoId]: true }));
-  };
 
   // --- Helpers for aggressive video preload ------------------------------
 
@@ -88,6 +85,12 @@ export default function VideoGridClient({ videos = [] }) {
       ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
       : process.env.NEXT_PUBLIC_SERVER_URL;
   };
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("fullVideoUrls") || "{}");
+      setFullVideoUrls(saved);
+    } catch {}
+  }, []);
 
   // Load purchased videos from localStorage
   useEffect(() => {
@@ -109,6 +112,10 @@ export default function VideoGridClient({ videos = [] }) {
       setJonusUnlocked(saved);
     } catch {}
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("fullVideoUrls", JSON.stringify(fullVideoUrls));
+  }, [fullVideoUrls]);
 
   // Save unlocks to localStorage
   useEffect(() => {
@@ -207,11 +214,7 @@ export default function VideoGridClient({ videos = [] }) {
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
   const isPurchased = (videoId) => {
-    if (purchasedVideos[videoId]) return true;
-    if (typeof window !== "undefined") {
-      return !!localStorage.getItem(`full_${videoId}`);
-    }
-    return false;
+    return !!purchasedVideos[videoId];
   };
 
   // Infinite scroll
@@ -362,9 +365,8 @@ export default function VideoGridClient({ videos = [] }) {
       return;
     }
 
-    // ✅ Purchased / full video logic
     const purchased = isPurchased(video._id);
-    const fullUrl = purchased && localStorage.getItem(`full_${video._id}`);
+    const fullUrl = purchased ? fullVideoUrls[video._id] : null;
 
     setSelectedVideo({
       ...video,
@@ -716,7 +718,7 @@ export default function VideoGridClient({ videos = [] }) {
                             }}
                             className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
                           >
-                            Pay ${video.price}
+                            Pay ${getDisplayPrice(video)}
                           </button>
                         )}
                       </>
