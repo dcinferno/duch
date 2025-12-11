@@ -271,17 +271,26 @@ export default function VideoGridClient({ videos = [] }) {
 
   // Fetch views
   useEffect(() => {
-    if (videos.length === 0) return;
-    const fetchAll = async () => {
+    if (!videos || videos.length === 0) return;
+
+    const fetchViews = async () => {
       try {
         const ids = videos.map((v) => v._id).join(",");
+
         const res = await fetch(`/api/video-views?videoIds=${ids}`);
         const data = await res.json();
-        setVideoViews(data);
-      } catch {}
+
+        setVideoViews((prev) => ({
+          ...prev, // KEEP EXISTING VIEW COUNTS
+          ...data, // MERGE IN NEW ONES
+        }));
+      } catch (e) {
+        console.error("Failed to load views:", e);
+      }
     };
-    fetchAll();
-  }, [videos]);
+
+    fetchViews();
+  }, []); // <-- IMPORTANT: RUN ONLY ONCE AT MOUNT
 
   // Log video views (only once per session per video)
   const logVideoViews = async (videoId) => {
