@@ -14,6 +14,7 @@ const VideosSchema = new mongoose.Schema(
     type: { type: String, enum: ["video", "image"], default: "video" },
     locked: { type: Boolean, default: false, sparse: true },
     fullKey: { type: String, required: false },
+    testMode: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

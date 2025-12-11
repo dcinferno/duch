@@ -11,6 +11,7 @@ const CreatorSchema = new mongoose.Schema({
   rank: { type: Number },
   telegramId: { type: Number },
   pay: { type: Boolean, default: false },
+  testMode: { type: Boolean, default: false },
 });
 
 export default mongoose.models.Creators ||
