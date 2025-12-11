@@ -21,17 +21,26 @@ export async function GET(request) {
         return Response.json({ error: "Video not found" }, { status: 404 });
       }
 
+      // 🔎 Fetch creator (now including telegramId!)
       const creator = await Creators.findOne(
         { name: new RegExp(`^${video.creatorName}$`, "i") },
-        "name urlHandle premium icon socialMediaUrl type pay"
+        "name urlHandle premium icon socialMediaUrl type pay telegramId"
       );
 
       return Response.json({
         ...video.toObject(),
+
+        // creator public metadata
         creatorUrlHandle: creator?.urlHandle || null,
         premium: creator?.premium || false,
         icon: creator?.icon || null,
+
+        // ⭐️ FIXED: use creator.socialMediaUrl properly
         socialMediaUrl: creator?.socialMediaUrl || video.socialMediaUrl,
+
+        // ⭐ NEW: telegram ID support for tagging
+        creatorTelegramId: creator?.telegramId || null,
+
         pay: creator?.pay || false,
       });
     }
@@ -56,16 +65,19 @@ export async function GET(request) {
         { secret: { $ne: true } },
         "name"
       );
+
       filter.creatorName = { $in: publicCreators.map((c) => c.name) };
     }
 
+    // Fetch videos
     const videos = await Videos.find(filter, { fullKey: 0, password: 0 }).sort({
       createdAt: -1,
     });
 
+    // Fetch all creators so we can attach metadata
     const creators = await Creators.find(
       {},
-      "name urlHandle premium icon socialMediaUrl type pay"
+      "name urlHandle premium icon socialMediaUrl type pay telegramId"
     );
 
     const videosWithCreatorData = videos.map((video) => {
@@ -75,10 +87,15 @@ export async function GET(request) {
 
       return {
         ...video.toObject(),
+
         creatorUrlHandle: creator?.urlHandle || null,
         premium: creator?.premium || false,
         icon: creator?.icon || null,
+
         socialMediaUrl: creator?.url || video.socialMediaUrl,
+
+        creatorTelegramId: creator?.telegramId || null,
+
         pay: creator?.pay || false,
       };
     });
@@ -106,7 +123,7 @@ export async function POST(request) {
       return Response.json({ error: "Creator not found" }, { status: 400 });
     }
 
-    const socialMediaUrl = creator.url || creator.socialMediaUrl;
+    const socialMediaUrl = creator.socialMediaUrl;
 
     const video = await Videos.create({
       title,

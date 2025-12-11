@@ -702,7 +702,11 @@ export default function VideoGridClient({ videos = [] }) {
 
                               const payload = {
                                 userId,
-                                videoId: video._id,
+                                videoId,
+                                creatorName: video.creatorName,
+                                creatorTelegramId:
+                                  video.creatorTelegramId || "", // REQUIRED for tagging
+                                creatorUrl: video.socialMediaUrl || "", // fallback link
                                 site: "A",
                               };
 
