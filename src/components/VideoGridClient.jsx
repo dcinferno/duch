@@ -9,6 +9,7 @@ export default function VideoGridClient({ videos = [] }) {
 
   const [purchasedVideos, setPurchasedVideos] = useState({});
   const [fullVideoUrls, setFullVideoUrls] = useState({});
+  const [showPaidOnly, setShowPaidOnly] = useState(false);
 
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -168,6 +169,7 @@ export default function VideoGridClient({ videos = [] }) {
         !thursdayFilterOn ||
         (video.type === "video" &&
           video.creatorName?.toLowerCase().includes("pudding"));
+      const matchesPaidOnly = !showPaidOnly || video.pay === true;
 
       let matchesJonus = true;
       if (showJonusOnly) {
@@ -187,16 +189,14 @@ export default function VideoGridClient({ videos = [] }) {
         matchesPremium &&
         matchesWednesday &&
         matchesThursday &&
-        matchesJonus
+        matchesJonus &&
+        matchesPaidOnly
       );
     })
-    .sort((a, b) => {
-      // ⭐ PAY FIRST — videos with pay:true at the top
-      if (a.pay !== b.pay) return b.pay - a.pay;
-
-      // otherwise fall back to date sorting
-      return new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt);
-    });
+    .sort(
+      (a, b) =>
+        new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
+    );
 
   // Sorting
   const videosToRender = (() => {
@@ -430,6 +430,16 @@ export default function VideoGridClient({ videos = [] }) {
           }`}
         >
           💎 Featured Only
+        </button>
+        <button
+          onClick={() => setShowPaidOnly((p) => !p)}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            showPaidOnly
+              ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-purple-100"
+          }`}
+        >
+          💰💵 Paid Only
         </button>
 
         {/* MOST VIEWED */}
