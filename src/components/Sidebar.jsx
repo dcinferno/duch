@@ -13,8 +13,6 @@ export default function Sidebar({ creators }) {
     (creator) => !creator.premium && creator.urlHandle && !creator.secret
   );
 
-  // Accept the click event so we can prevent default navigation
-  // and ensure the analytics event has time to be sent.
   const handleClick = (e, creator) => {
     if (e && typeof e.preventDefault === "function") {
       e.preventDefault();
@@ -22,7 +20,6 @@ export default function Sidebar({ creators }) {
 
     const url = creator?.urlHandle || creator?.url || "#";
 
-    // Send analytics (use transport_type: 'beacon' where supported)
     try {
       if (typeof window !== "undefined" && typeof window.gtag === "function") {
         window.gtag("event", "creator_click", {
@@ -33,19 +30,14 @@ export default function Sidebar({ creators }) {
         });
       }
     } catch (err) {
-      // guard against any runtime errors in gtag
-      // eslint-disable-next-line no-console
       console.warn("gtag send failed", err);
     }
 
-    // Navigate in the same tab after a short delay so the event
-    // has time to be dispatched. This avoids opening a new tab.
     setTimeout(() => {
       if (url && url !== "#") {
         try {
           window.location.href = url;
         } catch (err) {
-          // eslint-disable-next-line no-console
           console.warn("navigation failed", err);
         }
       }
@@ -53,13 +45,13 @@ export default function Sidebar({ creators }) {
   };
 
   return (
-    <aside className="w-64 bg-gray-900 text-white flex flex-col h-full px-4 pt-1 sm:pt-2">
+    <aside className="bg-gray-900 text-white flex flex-col h-screen sticky top-0 w-64 px-4 pt-1 sm:pt-2">
       {/* Logo */}
       <Link href="/" className="flex items-center justify-center mb-2 sm:mb-3">
         <Image src={logo} alt="App Logo" width={96} height={96} />
       </Link>
 
-      {/* Scrollable CONTENT area */}
+      {/* Scrollable CONTENT area (creators) */}
       <div className="flex-1 overflow-y-auto pr-1">
         {/* Featured Creators */}
         <div className="mb-2">
@@ -149,9 +141,8 @@ export default function Sidebar({ creators }) {
         </div>
       </div>
 
-      {/* FIXED Bottom Buttons */}
-      <div className="mt-3 mb-4 space-y-3">
-        {/* Upload Button */}
+      {/* FIXED Bottom Buttons (within sticky sidebar) */}
+      <div className="shrink-0 mt-3 mb-4 space-y-3">
         <Link href="/upload">
           <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-shadow shadow-md hover:shadow-lg">
             <svg
@@ -172,7 +163,6 @@ export default function Sidebar({ creators }) {
           </button>
         </Link>
 
-        {/* Become a Creator Button */}
         <Link href="/sign-up">
           <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-shadow shadow-md hover:shadow-lg">
             <svg
@@ -194,8 +184,6 @@ export default function Sidebar({ creators }) {
         </Link>
       </div>
 
-      {/* Animations */}
-      {/* Custom animations */}
       <style jsx>{`
         @keyframes gradient-x {
           0% {
@@ -274,7 +262,6 @@ export default function Sidebar({ creators }) {
           animation: cherry-pulse 1.8s ease-in-out infinite;
         }
 
-        /* Softer shimmer animation */
         @keyframes shimmer {
           0% {
             filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.5))
@@ -295,10 +282,10 @@ export default function Sidebar({ creators }) {
             opacity: 0.9;
           }
         }
-
         .animate-shimmer {
           animation: shimmer 2s ease-in-out infinite;
         }
+
         @keyframes princess-glow {
           0% {
             transform: scale(1);
@@ -319,7 +306,6 @@ export default function Sidebar({ creators }) {
             opacity: 0.9;
           }
         }
-
         .animate-princess {
           animation: princess-glow 2.2s ease-in-out infinite;
         }
