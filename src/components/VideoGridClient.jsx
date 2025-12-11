@@ -702,7 +702,7 @@ export default function VideoGridClient({ videos = [] }) {
 
                               const payload = {
                                 userId,
-                                videoId,
+                                videoId: video._id,
                                 creatorName: video.creatorName,
                                 creatorTelegramId:
                                   video.creatorTelegramId || "", // REQUIRED for tagging
