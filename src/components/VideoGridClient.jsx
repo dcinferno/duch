@@ -190,10 +190,13 @@ export default function VideoGridClient({ videos = [] }) {
         matchesJonus
       );
     })
-    .sort(
-      (a, b) =>
-        new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
-    );
+    .sort((a, b) => {
+      // ⭐ PAY FIRST — videos with pay:true at the top
+      if (a.pay !== b.pay) return b.pay - a.pay;
+
+      // otherwise fall back to date sorting
+      return new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt);
+    });
 
   // Sorting
   const videosToRender = (() => {
