@@ -21,7 +21,12 @@ export async function GET(request) {
     try {
       await VideoViews.findOneAndUpdate(
         { videoId: String(videoId) },
-        { $inc: { totalViews: 1 } },
+        {
+          $inc: {
+            totalViews: 1,
+            "sources.telegram": 1,
+          },
+        },
         { upsert: true, new: true }
       );
     } catch (err) {
