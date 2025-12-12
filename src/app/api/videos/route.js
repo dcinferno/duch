@@ -85,8 +85,16 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     await connectToDB();
+
     const { title, description, thumbnail, price, creatorName, url, tags } =
       await request.json();
+
+    let normalizedUrl = url;
+    try {
+      normalizedUrl = new URL(url).pathname;
+    } catch {
+      // if it's already a pathname, leave it alone
+    }
 
     const normalizedName = creatorName.trim();
     const creator = await Creators.findOne({
@@ -106,7 +114,7 @@ export async function POST(request) {
       price,
       creatorName: creator.name,
       socialMediaUrl,
-      url,
+      url: normalizedUrl,
       tags,
     });
 
