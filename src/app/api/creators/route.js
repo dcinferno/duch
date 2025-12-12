@@ -7,8 +7,21 @@ export async function GET() {
   await connectToDB();
 
   try {
+    const CDN = process.env.CDN_URL;
     const creators = await Creators.find({});
-    return NextResponse.json(creators);
+
+    // 🔥 Prepend CDN to creator.photo if it's a relative path
+    const formatted = creators.map((creator) => {
+      const c = creator.toObject();
+
+      if (typeof c.photo === "string" && c.photo.startsWith("/")) {
+        c.photo = CDN + c.photo;
+      }
+
+      return c;
+    });
+
+    return NextResponse.json(formatted);
   } catch (error) {
     console.error("Failed to fetch creators:", error);
     return NextResponse.json(
@@ -52,7 +65,6 @@ export async function POST(req) {
     const newCreator = await Creators.create({
       name: body.name,
       url: body.url,
-      premium: body.premium || false,
       urlHandle: body.urlHandle || "",
       premium: body.premium ?? false,
       secret: body.secret ?? false,

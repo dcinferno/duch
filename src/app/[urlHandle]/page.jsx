@@ -29,13 +29,7 @@ export default function CreatorPage() {
         const videoData = await videosRes.json();
 
         // Attach creator info to videos
-        const videosWithCreator = videoData.map((video) => ({
-          ...video,
-          creatorPhoto: creatorData.photo || null,
-          socialMediaUrl: creatorData.url || video.socialMediaUrl,
-        }));
-
-        setVideos(videosWithCreator);
+        setVideos(videoData);
       } catch (err) {
         console.error(err);
         setCreator(null);
