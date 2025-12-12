@@ -7,12 +7,14 @@ export async function GET(request) {
   try {
     await connectToDB();
 
+    const CDN = process.env.CDN_URL || "";
     const { searchParams } = new URL(request.url);
+
     const videoId = searchParams.get("id");
     const creatorUrlHandle = searchParams.get("creator");
 
     // -----------------------------------
-    // ✅ 1️⃣ Fetch single video by ID
+    // 1️⃣ FETCH SINGLE VIDEO BY ID
     // -----------------------------------
     if (videoId) {
       const video = await Videos.findById(videoId, { password: 0 });
@@ -21,32 +23,38 @@ export async function GET(request) {
         return Response.json({ error: "Video not found" }, { status: 404 });
       }
 
-      // 🔎 Fetch creator (now including telegramId!)
       const creator = await Creators.findOne(
         { name: new RegExp(`^${video.creatorName}$`, "i") },
-        "name urlHandle premium icon socialMediaUrl type pay telegramId"
+        "name urlHandle premium icon socialMediaUrl type pay telegramId photo"
       );
+
+      // Build enriched single-video response
+      let creatorPhoto = null;
+      if (creator?.photo) {
+        let p = creator.photo;
+        if (!p.startsWith("/")) p = "/" + p;
+        creatorPhoto = CDN + p;
+      }
 
       return Response.json({
         ...video.toObject(),
 
-        // creator public metadata
+        // Canonical creator fields
+        creatorName: creator?.name || video.creatorName,
         creatorUrlHandle: creator?.urlHandle || null,
+        creatorPhoto,
         premium: creator?.premium || false,
         icon: creator?.icon || null,
-
-        // ⭐️ FIXED: use creator.socialMediaUrl properly
         socialMediaUrl: creator?.socialMediaUrl || video.socialMediaUrl,
 
-        // ⭐ NEW: telegram ID support for tagging
-        creatorTelegramId: creator?.telegramId || null,
-
+        // Payments features
         pay: creator?.pay || false,
+        creatorTelegramId: creator?.telegramId || null,
       });
     }
 
     // -----------------------------------
-    // ✅ 2️⃣ Creator feed OR all public videos
+    // 2️⃣ FETCH CREATOR FEED OR ALL
     // -----------------------------------
     let filter = {};
 
@@ -74,33 +82,52 @@ export async function GET(request) {
       createdAt: -1,
     });
 
-    // Fetch all creators so we can attach metadata
+    // Fetch creators for metadata injection
     const creators = await Creators.find(
       {},
-      "name urlHandle premium icon socialMediaUrl type pay telegramId"
+      "name urlHandle premium icon socialMediaUrl type pay telegramId photo"
     );
 
-    const videosWithCreatorData = videos.map((video) => {
+    // -----------------------------------
+    // 3️⃣ ENRICH EACH VIDEO WITH CREATOR DATA
+    // -----------------------------------
+    const enrichedVideos = videos.map((video) => {
+      const v = video.toObject();
+
       const creator = creators.find(
-        (c) => c.name.toLowerCase() === video.creatorName.toLowerCase()
+        (c) => c.name.toLowerCase() === v.creatorName.toLowerCase()
       );
 
-      return {
-        ...video.toObject(),
+      let creatorPhoto = null;
+      if (creator?.photo) {
+        let p = creator.photo;
+        if (!p.startsWith("/")) p = "/" + p;
+        creatorPhoto = CDN + p;
+      }
 
+      // Build canonical, enriched object
+      return {
+        ...v,
+
+        // Canonical creator metadata
+        creatorName: creator?.name || v.creatorName,
         creatorUrlHandle: creator?.urlHandle || null,
+        creatorPhoto,
         premium: creator?.premium || false,
         icon: creator?.icon || null,
+        socialMediaUrl: creator?.socialMediaUrl || v.socialMediaUrl || null,
 
-        socialMediaUrl: creator?.url || video.socialMediaUrl,
-
+        // Payments branch metadata
+        pay: creator?.pay || false,
         creatorTelegramId: creator?.telegramId || null,
 
-        pay: creator?.pay || false,
+        // Apply CDN to video URLs
+        url: v.url?.startsWith("/") ? CDN + v.url : v.url,
+        thumbnail: v.thumbnail?.startsWith("/") ? CDN + v.thumbnail : v.thumbnail,
       };
     });
 
-    return Response.json(videosWithCreatorData);
+    return Response.json(enrichedVideos);
   } catch (err) {
     console.error("❌ Error in /api/videos:", err);
     return Response.json({ error: "Failed to fetch videos" }, { status: 500 });
