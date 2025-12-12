@@ -9,8 +9,53 @@ export async function GET(request) {
 
     const CDN = process.env.CDN_URL || "";
     const { searchParams } = new URL(request.url);
+
+    const videoId = searchParams.get("id");
     const creatorUrlHandle = searchParams.get("creator");
 
+    // -----------------------------------
+    // 1️⃣ FETCH SINGLE VIDEO BY ID
+    // -----------------------------------
+    if (videoId) {
+      const video = await Videos.findById(videoId, { password: 0 });
+
+      if (!video) {
+        return Response.json({ error: "Video not found" }, { status: 404 });
+      }
+
+      const creator = await Creators.findOne(
+        { name: new RegExp(`^${video.creatorName}$`, "i") },
+        "name urlHandle premium icon socialMediaUrl type pay telegramId photo"
+      );
+
+      // Build enriched single-video response
+      let creatorPhoto = null;
+      if (creator?.photo) {
+        let p = creator.photo;
+        if (!p.startsWith("/")) p = "/" + p;
+        creatorPhoto = CDN + p;
+      }
+
+      return Response.json({
+        ...video.toObject(),
+
+        // Canonical creator fields
+        creatorName: creator?.name || video.creatorName,
+        creatorUrlHandle: creator?.urlHandle || null,
+        creatorPhoto,
+        premium: creator?.premium || false,
+        icon: creator?.icon || null,
+        socialMediaUrl: creator?.socialMediaUrl || video.socialMediaUrl,
+
+        // Payments features
+        pay: creator?.pay || false,
+        creatorTelegramId: creator?.telegramId || null,
+      });
+    }
+
+    // -----------------------------------
+    // 2️⃣ FETCH CREATOR FEED OR ALL
+    // -----------------------------------
     let filter = {};
 
     if (creatorUrlHandle) {
@@ -22,7 +67,6 @@ export async function GET(request) {
         return Response.json({ error: "Creator not found" }, { status: 404 });
       }
 
-      // Query videos using canonical creator name
       filter.creatorName = new RegExp(`^${creator.name}$`, "i");
     } else {
       const publicCreators = await Creators.find(
@@ -30,19 +74,23 @@ export async function GET(request) {
         "name"
       );
 
-      const allowedNames = publicCreators.map((c) => c.name);
-      filter.creatorName = { $in: allowedNames };
+      filter.creatorName = { $in: publicCreators.map((c) => c.name) };
     }
 
-    const videos = await Videos.find(filter, { password: 0 }).sort({
+    // Fetch videos
+    const videos = await Videos.find(filter, { fullKey: 0, password: 0 }).sort({
       createdAt: -1,
     });
 
+    // Fetch creators for metadata injection
     const creators = await Creators.find(
       {},
-      "name urlHandle premium icon socialMediaUrl type photo"
+      "name urlHandle premium icon socialMediaUrl type pay telegramId photo"
     );
 
+    // -----------------------------------
+    // 3️⃣ ENRICH EACH VIDEO WITH CREATOR DATA
+    // -----------------------------------
     const enrichedVideos = videos.map((video) => {
       const v = video.toObject();
 
@@ -50,29 +98,33 @@ export async function GET(request) {
         (c) => c.name.toLowerCase() === v.creatorName.toLowerCase()
       );
 
-      if (creator) {
-        v.creatorName = creator.name; // canonical
-        v.creatorUrlHandle = creator.urlHandle;
-
-        // PHOTO
-        if (creator.photo) {
-          let photo = creator.photo;
-          if (!photo.startsWith("/")) photo = "/" + photo;
-          v.creatorPhoto = CDN + photo;
-        } else {
-          v.creatorPhoto = null;
-        }
-
-        v.premium = creator.premium || false;
-        v.icon = creator.icon || null;
-        v.socialMediaUrl = creator.socialMediaUrl || v.socialMediaUrl || null;
+      let creatorPhoto = null;
+      if (creator?.photo) {
+        let p = creator.photo;
+        if (!p.startsWith("/")) p = "/" + p;
+        creatorPhoto = CDN + p;
       }
 
-      // VIDEO URLS
-      if (v.url?.startsWith("/")) v.url = CDN + v.url;
-      if (v.thumbnail?.startsWith("/")) v.thumbnail = CDN + v.thumbnail;
+      // Build canonical, enriched object
+      return {
+        ...v,
 
-      return v;
+        // Canonical creator metadata
+        creatorName: creator?.name || v.creatorName,
+        creatorUrlHandle: creator?.urlHandle || null,
+        creatorPhoto,
+        premium: creator?.premium || false,
+        icon: creator?.icon || null,
+        socialMediaUrl: creator?.socialMediaUrl || v.socialMediaUrl || null,
+
+        // Payments branch metadata
+        pay: creator?.pay || false,
+        creatorTelegramId: creator?.telegramId || null,
+
+        // Apply CDN to video URLs
+        url: v.url?.startsWith("/") ? CDN + v.url : v.url,
+        thumbnail: v.thumbnail?.startsWith("/") ? CDN + v.thumbnail : v.thumbnail,
+      };
     });
 
     return Response.json(enrichedVideos);
@@ -85,6 +137,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     await connectToDB();
+
     const { title, description, thumbnail, price, creatorName, url, tags } =
       await request.json();
 
@@ -97,7 +150,7 @@ export async function POST(request) {
       return Response.json({ error: "Creator not found" }, { status: 400 });
     }
 
-    const socialMediaUrl = creator.url || creator.socialMediaUrl;
+    const socialMediaUrl = creator.socialMediaUrl;
 
     const video = await Videos.create({
       title,
@@ -110,7 +163,6 @@ export async function POST(request) {
       tags,
     });
 
-    // 🚀 Post to Telegram channel
     await sendTelegramMessage(video);
 
     return Response.json(video, { status: 201 });

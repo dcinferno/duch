@@ -1,10 +1,15 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 
 export default function VideoGridClient({ videos = [] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [purchasedVideos, setPurchasedVideos] = useState({});
+  const [fullVideoUrls, setFullVideoUrls] = useState({});
+  const [showPaidOnly, setShowPaidOnly] = useState(false);
 
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -75,6 +80,31 @@ export default function VideoGridClient({ videos = [] }) {
       delete window.__preloadingVideos[url];
     }
   };
+  const getCheckOutUrl = () => {
+    const isDev = process.env.NODE_ENV === "development";
+    return isDev
+      ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
+      : process.env.NEXT_PUBLIC_SERVER_URL;
+  };
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("fullVideoUrls") || "{}");
+      setFullVideoUrls(saved);
+    } catch {}
+  }, []);
+
+  // Load purchased videos from localStorage
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("purchasedVideos") || "{}");
+      setPurchasedVideos(saved);
+    } catch {}
+  }, []);
+
+  // Save purchases to localStorage
+  useEffect(() => {
+    localStorage.setItem("purchasedVideos", JSON.stringify(purchasedVideos));
+  }, [purchasedVideos]);
 
   // Load unlocks from localStorage
   useEffect(() => {
@@ -83,6 +113,10 @@ export default function VideoGridClient({ videos = [] }) {
       setJonusUnlocked(saved);
     } catch {}
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("fullVideoUrls", JSON.stringify(fullVideoUrls));
+  }, [fullVideoUrls]);
 
   // Save unlocks to localStorage
   useEffect(() => {
@@ -135,6 +169,7 @@ export default function VideoGridClient({ videos = [] }) {
         !thursdayFilterOn ||
         (video.type === "video" &&
           video.creatorName?.toLowerCase().includes("pudding"));
+      const matchesPaidOnly = !showPaidOnly || video.pay === true;
 
       let matchesJonus = true;
       if (showJonusOnly) {
@@ -154,7 +189,8 @@ export default function VideoGridClient({ videos = [] }) {
         matchesPremium &&
         matchesWednesday &&
         matchesThursday &&
-        matchesJonus
+        matchesJonus &&
+        matchesPaidOnly
       );
     })
     .sort(
@@ -179,6 +215,10 @@ export default function VideoGridClient({ videos = [] }) {
   })();
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
+
+  const isPurchased = (videoId) => {
+    return !!purchasedVideos[videoId];
+  };
 
   // Infinite scroll
   useEffect(() => {
@@ -205,19 +245,52 @@ export default function VideoGridClient({ videos = [] }) {
     showJonusOnly,
   ]);
 
+  const getDisplayPrice = (video) => {
+    let price = video.price;
+
+    // 🍷 Thirsty Thursday — 25% off pudding creators
+    if (
+      FFThursday &&
+      video.type === "video" &&
+      video.creatorName?.toLowerCase().includes("pudding")
+    ) {
+      price = +(price * 0.75).toFixed(2);
+    }
+
+    // 🚚 Wagon Wednesday — fixed promo price
+    if (
+      FFWednesday &&
+      video.type === "video" &&
+      video.tags?.includes("wagon")
+    ) {
+      price = 13.34;
+    }
+
+    return price;
+  };
+
   // Fetch views
   useEffect(() => {
-    if (videos.length === 0) return;
-    const fetchAll = async () => {
+    if (!videos || videos.length === 0) return;
+
+    const fetchViews = async () => {
       try {
         const ids = videos.map((v) => v._id).join(",");
+
         const res = await fetch(`/api/video-views?videoIds=${ids}`);
         const data = await res.json();
-        setVideoViews(data);
-      } catch {}
+
+        setVideoViews((prev) => ({
+          ...prev, // KEEP EXISTING VIEW COUNTS
+          ...data, // MERGE IN NEW ONES
+        }));
+      } catch (e) {
+        console.error("Failed to load views:", e);
+      }
     };
-    fetchAll();
-  }, [videos]);
+
+    fetchViews();
+  }, []); // <-- IMPORTANT: RUN ONLY ONCE AT MOUNT
 
   // Log video views (only once per session per video)
   const logVideoViews = async (videoId) => {
@@ -293,6 +366,8 @@ export default function VideoGridClient({ videos = [] }) {
 
   const openVideo = (index) => {
     const video = visibleVideos[index];
+
+    // 🔒 Jonus lock check FIRST
     const isJonusLocked =
       video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
 
@@ -302,13 +377,21 @@ export default function VideoGridClient({ videos = [] }) {
       return;
     }
 
-    setSelectedVideo(video);
+    const purchased = isPurchased(video._id);
+    const fullUrl = purchased ? fullVideoUrls[video._id] : null;
+
+    setSelectedVideo({
+      ...video,
+      url: fullUrl || video.url, // swap preview → full
+    });
+
     setSelectedVideoIndex(index);
     router.push(`?video=${video._id}`, { shallow: true });
 
+    // Optional preloading
     if (video.type === "video") {
-      preloadVideoLink(video.url);
-      aggressivePreload(video.url, 16);
+      preloadVideoLink(fullUrl || video.url);
+      aggressivePreload(fullUrl || video.url, 16);
     }
   };
 
@@ -356,6 +439,16 @@ export default function VideoGridClient({ videos = [] }) {
           }`}
         >
           💎 Featured Only
+        </button>
+        <button
+          onClick={() => setShowPaidOnly((p) => !p)}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            showPaidOnly
+              ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-purple-100"
+          }`}
+        >
+          💰💵 Paid Only
         </button>
 
         {/* MOST VIEWED */}
@@ -438,7 +531,7 @@ export default function VideoGridClient({ videos = [] }) {
           </button>
 
           {showTagsDropdown && (
-            <div className="absolute left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl z-10 p-2">
+            <div className="absolute left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-2">
               {allTags.length === 0 ? (
                 <p className="text-gray-500 text-sm px-2">No tags</p>
               ) : (
@@ -601,12 +694,62 @@ export default function VideoGridClient({ videos = [] }) {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => openVideo(index)}
-                    className="mt-3 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
-                  >
-                    Preview
-                  </button>
+                  {/* ACTION BUTTONS: always show Preview, optionally show Pay */}
+                  {/* ACTION BUTTONS: Preview + (optional) Pay */}
+                  <div className="mt-3 flex flex-col gap-2 w-full">
+                    {isPurchased(video._id) ? (
+                      // ✅ WATCH FULL VIDEO
+                      <button
+                        onClick={() => openVideo(index)}
+                        className="w-full bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 text-sm font-medium"
+                      >
+                        ▶ Watch Full Video
+                      </button>
+                    ) : (
+                      <>
+                        {/* PREVIEW */}
+                        <button
+                          onClick={() => openVideo(index)}
+                          className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
+                        >
+                          Preview
+                        </button>
+
+                        {/* PAY */}
+                        {video.pay && video.price > 0 && (
+                          <button
+                            onClick={async () => {
+                              const userId = getOrCreateUserId();
+                              localStorage.setItem("userId", userId);
+
+                              const payload = {
+                                userId,
+                                videoId: video._id,
+                                creatorName: video.creatorName,
+                                creatorTelegramId:
+                                  video.creatorTelegramId || "", // REQUIRED for tagging
+                                creatorUrl: video.socialMediaUrl || "", // fallback link
+                                site: "A",
+                              };
+
+                              const url = getCheckOutUrl();
+                              const res = await fetch(`${url}/api/checkout`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload),
+                              });
+
+                              const data = await res.json();
+                              if (data.url) window.location.href = data.url;
+                            }}
+                            className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
+                          >
+                            Pay ${getDisplayPrice(video)}
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             );
