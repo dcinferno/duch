@@ -14,9 +14,7 @@ export default function Sidebar({ creators }) {
   );
 
   const handleClick = (e, creator) => {
-    if (e && typeof e.preventDefault === "function") {
-      e.preventDefault();
-    }
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
 
     const url = creator?.urlHandle || creator?.url || "#";
 
@@ -29,18 +27,10 @@ export default function Sidebar({ creators }) {
           transport_type: "beacon",
         });
       }
-    } catch (err) {
-      console.warn("gtag send failed", err);
-    }
+    } catch {}
 
     setTimeout(() => {
-      if (url && url !== "#") {
-        try {
-          window.location.href = url;
-        } catch (err) {
-          console.warn("navigation failed", err);
-        }
-      }
+      if (url && url !== "#") window.location.href = url;
     }, 150);
   };
 
@@ -51,12 +41,13 @@ export default function Sidebar({ creators }) {
         <Image src={logo} alt="App Logo" width={96} height={96} />
       </Link>
 
-      {/* Scrollable CONTENT area (creators) */}
+      {/* Scrollable creators */}
       <div className="flex-1 overflow-y-auto pr-1">
         {/* Featured Creators */}
         <div className="mb-2">
           <h2 className="text-lg font-semibold mb-1">Featured Creators</h2>
-          {premiumCreators.length > 0 ? (
+
+          {premiumCreators.length ? (
             <ul className="space-y-2">
               {premiumCreators.map((creator) => (
                 <li
@@ -70,42 +61,43 @@ export default function Sidebar({ creators }) {
                   >
                     {creator.name}
                   </a>
+
                   <span>
                     {creator.icon === "fire" ? (
-                      <span className="text-orange-500 text-xl animate-flicker inline-block">
+                      <span className="text-orange-500 text-xl animate-flicker">
                         🔥
                       </span>
                     ) : creator.icon === "devil" ? (
-                      <span className="text-red-600 text-lg animate-pulse inline-block">
+                      <span className="text-red-600 text-lg animate-pulse">
                         😈
                       </span>
                     ) : creator.icon === "main-duo" ? (
                       <div className="flex gap-1">
-                        <span className="animate-spin-slow inline-block mr-1">
-                          ❄️
-                        </span>
-                        <span className="text-pink-400 text-lg animate-bounce inline-block">
+                        <span className="animate-spin-slow">❄️</span>
+                        <span className="text-pink-400 text-lg animate-bounce">
                           🐰
                         </span>
                       </div>
                     ) : creator.icon === "bowing-man" ? (
-                      <span className="inline-block text-2xl animate-bow">
-                        🙇🏿‍♂️
-                      </span>
+                      <span className="text-2xl animate-bow">🙇🏿‍♂️</span>
                     ) : creator.icon === "cherry" ? (
-                      <span className="text-red-500 text-lg animate-cherry inline-block">
+                      <span className="text-red-500 text-lg animate-cherry">
                         🍒
                       </span>
                     ) : creator.icon === "princess" ? (
-                      <span className="text-pink-300 text-2xl animate-princess inline-block">
+                      <span className="text-pink-300 text-2xl animate-princess">
                         🧝🏻‍♀️
                       </span>
                     ) : creator.icon === "crown" ? (
-                      <span className="text-yellow-300 text-2xl animate-shimmer inline-block">
+                      <span className="text-yellow-300 text-2xl animate-shimmer">
                         👑
                       </span>
+                    ) : creator.icon === "kiss" ? (
+                      <span className="text-pink-400 text-2xl animate-kiss">
+                        💋
+                      </span>
                     ) : (
-                      <span className="text-yellow-400 text-lg animate-pulse inline-block">
+                      <span className="text-yellow-400 text-lg animate-pulse">
                         ⭐
                       </span>
                     )}
@@ -121,7 +113,7 @@ export default function Sidebar({ creators }) {
         {/* Top Creators */}
         <div className="border-t border-gray-700 pt-3 mt-2">
           <h2 className="text-lg font-semibold mb-1">Top Creators</h2>
-          {topCreators.length > 0 ? (
+          {topCreators.length ? (
             <ul className="space-y-2">
               {topCreators.map((creator) => (
                 <li key={creator._id}>
@@ -141,10 +133,10 @@ export default function Sidebar({ creators }) {
         </div>
       </div>
 
-      {/* FIXED Bottom Buttons (within sticky sidebar) */}
+      {/* Bottom buttons */}
       <div className="shrink-0 mt-3 mb-4 space-y-3">
         <Link href="/upload">
-          <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-shadow shadow-md hover:shadow-lg">
+          <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 shadow-md">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-5 w-5"
@@ -164,7 +156,7 @@ export default function Sidebar({ creators }) {
         </Link>
 
         <Link href="/sign-up">
-          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-shadow shadow-md hover:shadow-lg">
+          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center gap-2 shadow-md">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -184,7 +176,12 @@ export default function Sidebar({ creators }) {
         </Link>
       </div>
 
+      {/* Animations */}
       <style jsx>{`
+        .animate-gradient-x {
+          background-size: 200% auto;
+          animation: gradient-x 3s linear infinite;
+        }
         @keyframes gradient-x {
           0% {
             background-position: 0% 50%;
@@ -196,11 +193,10 @@ export default function Sidebar({ creators }) {
             background-position: 0% 50%;
           }
         }
-        .animate-gradient-x {
-          background-size: 200% auto;
-          animation: gradient-x 3s linear infinite;
-        }
 
+        .animate-spin-slow {
+          animation: spin-slow 15s linear infinite;
+        }
         @keyframes spin-slow {
           from {
             transform: rotate(0deg);
@@ -209,11 +205,11 @@ export default function Sidebar({ creators }) {
             transform: rotate(360deg);
           }
         }
-        .animate-spin-slow {
-          animation: spin-slow 15s linear infinite;
-          display: inline-block;
-        }
 
+        .animate-bow {
+          animation: bow 2.5s ease-in-out infinite;
+          transform-origin: bottom center;
+        }
         @keyframes bow {
           0%,
           100% {
@@ -223,91 +219,71 @@ export default function Sidebar({ creators }) {
             transform: rotate(25deg) scale(0.95);
           }
         }
-        .animate-bow {
-          animation: bow 2.5s ease-in-out infinite;
-          transform-origin: bottom center;
-        }
 
+        .animate-flicker {
+          animation: flicker 1s infinite ease-in-out;
+        }
         @keyframes flicker {
           0%,
           100% {
             opacity: 1;
-            transform: scale(1);
           }
           50% {
             opacity: 0.75;
             transform: scale(1.1);
           }
         }
-        .animate-flicker {
-          animation: flicker 1s infinite ease-in-out;
-        }
 
+        .animate-cherry {
+          animation: cherry-pulse 1.8s ease-in-out infinite;
+        }
         @keyframes cherry-pulse {
           0%,
           100% {
             transform: scale(1);
-            filter: drop-shadow(0 0 6px rgba(255, 0, 80, 0.7))
-              drop-shadow(0 0 12px rgba(255, 0, 100, 0.6))
-              drop-shadow(0 0 18px rgba(255, 0, 120, 0.5));
           }
           50% {
             transform: scale(1.3);
-            filter: drop-shadow(0 0 12px rgba(255, 0, 100, 0.9))
-              drop-shadow(0 0 24px rgba(255, 20, 150, 0.8))
-              drop-shadow(0 0 36px rgba(255, 60, 180, 0.7));
           }
-        }
-        .animate-cherry {
-          animation: cherry-pulse 1.8s ease-in-out infinite;
         }
 
-        @keyframes shimmer {
-          0% {
-            filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.5))
-              drop-shadow(0 0 4px rgba(255, 235, 100, 0.4));
+        .animate-princess {
+          animation: princess-glow 2.2s ease-in-out infinite;
+        }
+        @keyframes princess-glow {
+          0%,
+          100% {
             transform: scale(1);
-            opacity: 0.9;
           }
           50% {
-            filter: drop-shadow(0 0 5px rgba(255, 235, 120, 0.6))
-              drop-shadow(0 0 8px rgba(255, 245, 160, 0.5));
             transform: scale(1.08);
-            opacity: 1;
-          }
-          100% {
-            filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.5))
-              drop-shadow(0 0 4px rgba(255, 235, 100, 0.4));
-            transform: scale(1);
-            opacity: 0.9;
           }
         }
+
         .animate-shimmer {
           animation: shimmer 2s ease-in-out infinite;
         }
-
-        @keyframes princess-glow {
-          0% {
+        @keyframes shimmer {
+          0%,
+          100% {
             transform: scale(1);
-            filter: drop-shadow(0 0 2px rgba(255, 170, 255, 0.4))
-              drop-shadow(0 0 4px rgba(255, 190, 255, 0.3));
-            opacity: 0.9;
           }
           50% {
             transform: scale(1.08);
-            filter: drop-shadow(0 0 4px rgba(255, 170, 255, 0.5))
-              drop-shadow(0 0 7px rgba(255, 200, 255, 0.4));
-            opacity: 1;
-          }
-          100% {
-            transform: scale(1);
-            filter: drop-shadow(0 0 2px rgba(255, 170, 255, 0.4))
-              drop-shadow(0 0 4px rgba(255, 190, 255, 0.3));
-            opacity: 0.9;
           }
         }
-        .animate-princess {
-          animation: princess-glow 2.2s ease-in-out infinite;
+
+        .animate-kiss {
+          animation: kiss-pulse 1.9s ease-in-out infinite;
+        }
+        @keyframes kiss-pulse {
+          0%,
+          100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.25);
+          }
         }
       `}</style>
     </aside>
