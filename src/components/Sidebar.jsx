@@ -81,23 +81,23 @@ export default function Sidebar({ creators }) {
                     ) : creator.icon === "bowing-man" ? (
                       <span className="text-2xl animate-bow">🙇🏿‍♂️</span>
                     ) : creator.icon === "cherry" ? (
-                      <span className="text-red-500 text-lg animate-cherry">
+                      <span className="text-red-500 text-lg animate-cherry inline-block">
                         🍒
                       </span>
                     ) : creator.icon === "princess" ? (
-                      <span className="text-pink-300 text-2xl animate-princess">
+                      <span className="text-pink-300 text-2xl animate-princess inline-block">
                         🧝🏻‍♀️
                       </span>
                     ) : creator.icon === "crown" ? (
-                      <span className="text-yellow-300 text-2xl animate-shimmer">
+                      <span className="text-yellow-300 text-2xl animate-shimmer inline-block">
                         👑
                       </span>
                     ) : creator.icon === "kiss" ? (
-                      <span className="text-pink-400 text-2xl animate-kiss">
+                      <span className="text-pink-400 text-2xl animate-kiss inline-block">
                         💋
                       </span>
                     ) : (
-                      <span className="text-yellow-400 text-lg animate-pulse">
+                      <span className="text-yellow-400 text-lg animate-pulse inline-block">
                         ⭐
                       </span>
                     )}
