@@ -2,6 +2,7 @@ import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
 import Creators from "../../../models/creators.js";
 import { sendTelegramMessage } from "../../../lib/telegram.js";
+const CDN = process.env.CDN_URL || "";
 
 function withCDN(path) {
   if (!path || !CDN) return path;
@@ -16,7 +17,6 @@ export async function GET(request) {
   try {
     await connectToDB();
 
-    const CDN = process.env.CDN_URL || "";
     const { searchParams } = new URL(request.url);
 
     const videoId = searchParams.get("id");
@@ -38,7 +38,7 @@ export async function GET(request) {
       );
 
       // Build enriched single-video response
-      creatorPhoto = withCDN(creator.photo);
+      const creatorPhoto = creator?.photo ? withCDN(creator.photo) : null;
       const v = video.toObject();
 
       return Response.json({
@@ -107,12 +107,7 @@ export async function GET(request) {
         (c) => c.name.toLowerCase() === v.creatorName.toLowerCase()
       );
 
-      let creatorPhoto = null;
-      if (creator?.photo) {
-        let p = creator.photo;
-        if (!p.startsWith("/")) p = "/" + p;
-        creatorPhoto = CDN + p;
-      }
+      const creatorPhoto = creator?.photo ? withCDN(creator.photo) : null;
 
       // Build canonical, enriched object
       return {
