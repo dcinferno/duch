@@ -169,7 +169,8 @@ export default function VideoGridClient({ videos = [] }) {
         !thursdayFilterOn ||
         (video.type === "video" &&
           video.creatorName?.toLowerCase().includes("pudding"));
-      const matchesPaidOnly = !showPaidOnly || video.pay === true;
+      const matchesPaidOnly =
+        !showPaidOnly || (video.pay === true && !!video.fullKey);
 
       let matchesJonus = true;
       if (showJonusOnly) {
@@ -268,7 +269,7 @@ export default function VideoGridClient({ videos = [] }) {
 
     return price;
   };
-
+  const canPay = (video) => video.pay && video.price > 0 && !!video.fullKey;
   // Fetch views
   useEffect(() => {
     if (!videos || videos.length === 0) return;
@@ -716,7 +717,8 @@ export default function VideoGridClient({ videos = [] }) {
                         </button>
 
                         {/* PAY */}
-                        {video.pay && video.price > 0 && (
+
+                        {canPay(video) && (
                           <button
                             onClick={async () => {
                               const userId = getOrCreateUserId();

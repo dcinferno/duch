@@ -87,7 +87,7 @@ export async function GET(request) {
     }
 
     // Fetch videos
-    const videos = await Videos.find(filter, { fullKey: 0, password: 0 }).sort({
+    const videos = await Videos.find(filter, { password: 0 }).sort({
       createdAt: -1,
     });
 
