@@ -13,11 +13,10 @@ function slugify(name) {
 function generateFullVideoFileName(title, creatorName, originalFile) {
   const creatorSlug = slugify(creatorName);
   const titleSlug = slugify(title);
+  const ext = originalFile.name.split(".").pop();
+  const timestamp = Date.now();
 
-  const ext = originalFile.name.split(".").pop(); // mp4, mov, etc.
-  const timestamp = Date.now(); // avoids collisions
-
-  return `${creatorSlug}/full/${titleSlug}-${timestamp}.${ext}`;
+  return `${creatorSlug}/${titleSlug}-${timestamp}.${ext}`;
 }
 
 export default function UploadPage() {
