@@ -1,4 +1,4 @@
-import { getSignedVideoUrl } from "@/lib/getSignedVideoUrl";
+import { generatePushrSecureUrl } from "@/lib/pushrSecureToken";
 import Videos from "@/models/videos";
 import { connectToDB } from "@/lib/mongodb";
 
@@ -23,35 +23,21 @@ export async function POST(req) {
     if (!userId || !videoId) {
       return new Response(
         JSON.stringify({ error: "Missing userId or videoId" }),
-        {
-          status: 400,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-            Vary: "Origin",
-          },
-        }
+        { status: 400 }
       );
     }
 
     await connectToDB();
 
-    // Load video metadata to get the real fullKey
     const video = await Videos.findById(videoId).lean();
 
     if (!video || !video.fullKey) {
       return new Response(
         JSON.stringify({ error: "No full video available" }),
-        {
-          status: 400,
-          headers: {
-            "Access-Control-Allow-Origin": allowedOrigin,
-            Vary: "Origin",
-          },
-        }
+        { status: 400 }
       );
     }
 
-    // Verify purchase via process-server
     const verify = await fetch(
       `${process.env.NEXT_PUBLIC_SERVER_URL}/api/check-purchase`,
       {
@@ -66,17 +52,13 @@ export async function POST(req) {
     if (!result.success) {
       return new Response(JSON.stringify({ error: "Not purchased" }), {
         status: 403,
-        headers: {
-          "Access-Control-Allow-Origin": allowedOrigin,
-          Vary: "Origin",
-        },
       });
     }
 
-    // Generate signed URL
-    const signedUrl = await getSignedVideoUrl(video.fullKey, 3600);
+    // ✅ Generate Pushr Secure Token URL
+    const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60);
 
-    return new Response(JSON.stringify({ url: signedUrl }), {
+    return new Response(JSON.stringify({ url: secureUrl }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
@@ -85,12 +67,9 @@ export async function POST(req) {
       },
     });
   } catch (err) {
+    console.error("download-video error:", err);
     return new Response(JSON.stringify({ error: "Server error" }), {
       status: 500,
-      headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
-        Vary: "Origin",
-      },
     });
   }
 }
