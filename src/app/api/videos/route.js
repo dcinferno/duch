@@ -3,6 +3,15 @@ import Videos from "../../../models/videos.js";
 import Creators from "../../../models/creators.js";
 import { sendTelegramMessage } from "../../../lib/telegram.js";
 
+function withCDN(path) {
+  if (!path || !CDN) return path;
+
+  // already absolute (signed URLs, etc)
+  if (path.startsWith("http")) return path;
+
+  return `${CDN}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 export async function GET(request) {
   try {
     await connectToDB();
@@ -29,23 +38,23 @@ export async function GET(request) {
       );
 
       // Build enriched single-video response
-      let creatorPhoto = null;
-      if (creator?.photo) {
-        let p = creator.photo;
-        if (!p.startsWith("/")) p = "/" + p;
-        creatorPhoto = CDN + p;
-      }
+      creatorPhoto = withCDN(creator.photo);
+      const v = video.toObject();
 
       return Response.json({
-        ...video.toObject(),
+        ...v,
+
+        // ✅ APPLY CDN HERE
+        url: withCDN(v.url),
+        thumbnail: withCDN(v.thumbnail),
 
         // Canonical creator fields
-        creatorName: creator?.name || video.creatorName,
+        creatorName: creator?.name || v.creatorName,
         creatorUrlHandle: creator?.urlHandle || null,
         creatorPhoto,
         premium: creator?.premium || false,
         icon: creator?.icon || null,
-        socialMediaUrl: creator?.socialMediaUrl || video.socialMediaUrl,
+        socialMediaUrl: creator?.socialMediaUrl || v.socialMediaUrl,
 
         // Payments features
         pay: creator?.pay || false,
@@ -122,8 +131,8 @@ export async function GET(request) {
         creatorTelegramId: creator?.telegramId || null,
 
         // Apply CDN to video URLs
-        url: v.url?.startsWith("/") ? CDN + v.url : v.url,
-        thumbnail: v.thumbnail?.startsWith("/") ? CDN + v.thumbnail : v.thumbnail,
+        url: withCDN(v.url),
+        thumbnail: withCDN(v.thumbnail),
       };
     });
 
