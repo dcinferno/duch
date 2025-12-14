@@ -1,5 +1,6 @@
 import { generatePushrSecureUrl } from "@/lib/pushrSecureToken";
 import Videos from "@/models/videos";
+import Purchases from "@/models/purchases";
 import { connectToDB } from "@/lib/mongodb";
 
 const allowedOrigin = process.env.NEXT_PUBLIC_BASE_URL;
@@ -27,18 +28,6 @@ export async function POST(req) {
       );
     }
 
-    // 🔑 Get REAL client IP (required by Pushr)
-    const ip =
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0];
-
-    if (!ip) {
-      return new Response(
-        JSON.stringify({ error: "Unable to determine client IP" }),
-        { status: 400 }
-      );
-    }
-
     await connectToDB();
 
     const video = await Videos.findById(videoId).lean();
@@ -50,25 +39,20 @@ export async function POST(req) {
       );
     }
 
-    const verify = await fetch(
-      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/check-purchase`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, videoId }),
-      }
-    );
+    const purchase = await Purchases.findOne({
+      userId,
+      videoId,
+      status: "paid", // or whatever your success value is
+    }).lean();
 
-    const result = await verify.json();
-
-    if (!result.success) {
+    if (!purchase) {
       return new Response(JSON.stringify({ error: "Not purchased" }), {
         status: 403,
       });
     }
 
     // ✅ Generate Pushr Secure Token URL (WITH IP)
-    const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60, ip);
+    const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60);
 
     return new Response(JSON.stringify({ url: secureUrl }), {
       status: 200,
