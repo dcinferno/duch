@@ -24,7 +24,7 @@ export function generatePushrSecureUrl(path, expiresInSeconds = 60 * 60) {
 
   const hash = crypto
     .createHmac("sha256", secret)
-    .update(normalizedPath + expires)
+    .update(`${normalizedPath}?expires=${expires}`)
     .digest("hex");
 
   return `${base}${normalizedPath}?token=${hash}&expires=${expires}`;
