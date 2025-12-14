@@ -5,51 +5,63 @@ import { useEffect, useState } from "react";
 export default function SuccessView({ videoId, urlHandle, router }) {
   const [video, setVideo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloadUrl, setDownloadUrl] = useState(null);
+  const [downloadError, setDownloadError] = useState(null);
 
-  //
-  // ✅ 1️⃣ Mark video as purchased (merge-safe)
-  //
+  // ✅ 1️⃣ Mark purchased
   useEffect(() => {
     if (!videoId) return;
 
     const purchased = JSON.parse(localStorage.getItem("purchasedVideos")) || {};
-
     purchased[videoId] = true;
-
     localStorage.setItem("purchasedVideos", JSON.stringify(purchased));
   }, [videoId]);
 
-  //
-  // ✅ 2️⃣ Fetch & store FULL video URL (merge-safe)
-  //
+  // ✅ 2️⃣ Fetch signed download URL
   useEffect(() => {
     if (!videoId) return;
 
     async function fetchDownloadUrl() {
-      const userId = localStorage.getItem("userId");
+      try {
+        const userId = localStorage.getItem("userId");
 
-      const res = await fetch("/api/download-video", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, videoId }),
-      });
+        if (!userId) {
+          throw new Error("Missing userId");
+        }
 
-      const data = await res.json();
-      if (!data.url) return;
+        const res = await fetch("/api/download-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, videoId }),
+        });
 
-      const fullUrls = JSON.parse(localStorage.getItem("fullVideoUrls")) || {};
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Download API failed");
+        }
 
-      fullUrls[videoId] = data.url;
+        const data = await res.json();
 
-      localStorage.setItem("fullVideoUrls", JSON.stringify(fullUrls));
+        if (!data.url) {
+          throw new Error("No download URL returned");
+        }
+
+        setDownloadUrl(data.url);
+
+        const fullUrls =
+          JSON.parse(localStorage.getItem("fullVideoUrls")) || {};
+        fullUrls[videoId] = data.url;
+        localStorage.setItem("fullVideoUrls", JSON.stringify(fullUrls));
+      } catch (err) {
+        console.error("Download URL error:", err);
+        setDownloadError(err.message);
+      }
     }
 
     fetchDownloadUrl();
   }, [videoId]);
 
-  //
   // ✅ 3️⃣ Load video metadata
-  //
   useEffect(() => {
     if (!videoId) return;
 
@@ -74,9 +86,6 @@ export default function SuccessView({ videoId, urlHandle, router }) {
         </div>
 
         <h1 className="text-2xl font-bold mb-2">Payment Successful!</h1>
-        <p className="text-gray-600 mb-6">
-          Your purchase is complete. The full video has been unlocked.
-        </p>
 
         {loading ? (
           <p className="text-gray-500">Loading video…</p>
@@ -97,18 +106,9 @@ export default function SuccessView({ videoId, urlHandle, router }) {
         <div className="flex flex-col gap-3 mt-6">
           {/* ✅ DOWNLOAD */}
           <button
+            disabled={!downloadUrl}
             onClick={async () => {
-              const fullUrls =
-                JSON.parse(localStorage.getItem("fullVideoUrls")) || {};
-
-              const fullUrl = fullUrls[videoId];
-
-              if (!fullUrl) {
-                alert("Download not ready yet. Try again.");
-                return;
-              }
-
-              const res = await fetch(fullUrl);
+              const res = await fetch(downloadUrl);
               const blob = await res.blob();
               const url = URL.createObjectURL(blob);
 
@@ -116,18 +116,24 @@ export default function SuccessView({ videoId, urlHandle, router }) {
               a.href = url;
               a.download =
                 (video?.title || videoId).replace(/\s+/g, "_") + ".mp4";
-
               document.body.appendChild(a);
               a.click();
               a.remove();
               URL.revokeObjectURL(url);
             }}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
+            className={`w-full py-3 rounded-lg text-white ${
+              downloadUrl
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-gray-400 cursor-not-allowed"
+            }`}
           >
-            Download Now
+            {downloadUrl ? "Download Now" : "Preparing Download…"}
           </button>
 
-          {/* ✅ BACK */}
+          {downloadError && (
+            <p className="text-red-500 text-sm">{downloadError}</p>
+          )}
+
           <button
             onClick={() => router.push(urlHandle ? `/${urlHandle}` : "/")}
             className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
