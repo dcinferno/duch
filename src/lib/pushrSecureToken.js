@@ -11,7 +11,7 @@ export function generatePushrSecureUrl(path, expiresInSeconds = 60 * 60) {
   if (!path) throw new Error("Missing path");
 
   const base = process.env.PUSHR_SECURE_CDN_BASE;
-  const secret = process.env.PUSHR_SECURE_TOKEN_SECRET;
+  const secret = process.env.PUSHR_SECRET_TOKEN;
 
   if (!base || !secret) {
     throw new Error("Missing Pushr secure token env vars");
