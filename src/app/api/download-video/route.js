@@ -27,6 +27,18 @@ export async function POST(req) {
       );
     }
 
+    // 🔑 Get REAL client IP (required by Pushr)
+    const ip =
+      req.headers.get("cf-connecting-ip") ||
+      req.headers.get("x-forwarded-for")?.split(",")[0];
+
+    if (!ip) {
+      return new Response(
+        JSON.stringify({ error: "Unable to determine client IP" }),
+        { status: 400 }
+      );
+    }
+
     await connectToDB();
 
     const video = await Videos.findById(videoId).lean();
@@ -55,8 +67,8 @@ export async function POST(req) {
       });
     }
 
-    // ✅ Generate Pushr Secure Token URL
-    const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60);
+    // ✅ Generate Pushr Secure Token URL (WITH IP)
+    const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60, ip);
 
     return new Response(JSON.stringify({ url: secureUrl }), {
       status: 200,
@@ -68,8 +80,9 @@ export async function POST(req) {
     });
   } catch (err) {
     console.error("download-video error:", err);
-    return new Response(JSON.stringify({ error: "Server error" }), {
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ error: err.message || "Server error" }),
+      { status: 500 }
+    );
   }
 }
