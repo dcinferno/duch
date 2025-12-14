@@ -36,8 +36,12 @@ export default function SuccessView({ videoId, urlHandle, router }) {
         });
 
         if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || "Download API failed");
+          if (res.status === 403) {
+            throw new Error("This video has not been purchased.");
+          }
+
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || "Unable to prepare download.");
         }
 
         const data = await res.json();
@@ -131,9 +135,8 @@ export default function SuccessView({ videoId, urlHandle, router }) {
           </button>
 
           {downloadError && (
-            <p className="text-red-500 text-sm">{downloadError}</p>
+            <p className="text-red-600 font-medium text-sm">{downloadError}</p>
           )}
-
           <button
             onClick={() => router.push(urlHandle ? `/${urlHandle}` : "/")}
             className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
