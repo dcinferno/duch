@@ -52,7 +52,6 @@ function createS3Client() {
 
 /**
  * Upload a file to Pushr S3
- *
  * @param {Buffer|Uint8Array|Blob|string} fileData - File contents
  * @param {string} key - Object key (e.g. "testFull/full/video.mp4")
  * @param {string} contentType - MIME type
