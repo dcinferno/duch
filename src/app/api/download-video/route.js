@@ -1,6 +1,5 @@
 import { generatePushrSecureUrl } from "@/lib/pushrSecureToken";
 import Videos from "@/models/videos";
-import Purchases from "@/models/purchases";
 import { connectToDB } from "@/lib/mongodb";
 
 const allowedOrigin = process.env.NEXT_PUBLIC_BASE_URL;
@@ -39,13 +38,18 @@ export async function POST(req) {
       );
     }
 
-    const purchase = await Purchases.findOne({
-      userId,
-      videoId,
-      status: "paid", // or whatever your success value is
-    }).lean();
+    const verify = await fetch(
+      `${process.env.NEXT_PUBLIC_SERVER_URL}/api/check-purchase`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, videoId }),
+      }
+    );
 
-    if (!purchase) {
+    const result = await verify.json();
+
+    if (!result.success) {
       return new Response(JSON.stringify({ error: "Not purchased" }), {
         status: 403,
       });
