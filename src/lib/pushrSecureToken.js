@@ -1,12 +1,5 @@
-// lib/pushrSecureToken.js
 import crypto from "crypto";
 
-/**
- * Generate a Pushr Secure Token URL
- *
- * @param {string} path - object path, e.g. "testFull/full/video.mp4"
- * @param {number} expiresInSeconds - default 1 hour
- */
 export function generatePushrSecureUrl(path, expiresInSeconds = 60 * 60) {
   if (!path) throw new Error("Missing path");
 
@@ -17,15 +10,15 @@ export function generatePushrSecureUrl(path, expiresInSeconds = 60 * 60) {
     throw new Error("Missing Pushr secure token env vars");
   }
 
-  // MUST start with /
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
   const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
 
-  const hash = crypto
+  const stringToSign = `${normalizedPath}?expires=${expires}`;
+
+  const token = crypto
     .createHmac("sha256", secret)
-    .update(`${normalizedPath}?expires=${expires}`)
+    .update(stringToSign)
     .digest("hex");
 
-  return `${base}${normalizedPath}?token=${hash}&expires=${expires}`;
+  return `${base}${normalizedPath}?token=${token}&expires=${expires}`;
 }
