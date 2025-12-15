@@ -85,11 +85,6 @@ export default function VideoGridClient({ videos = [] }) {
       ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
       : process.env.NEXT_PUBLIC_SERVER_URL;
   };
-  useEffect(() => {
-    try {
-      setFullVideoUrls(saved);
-    } catch {}
-  }, []);
 
   // Load purchased videos from localStorage
   useEffect(() => {
@@ -111,10 +106,6 @@ export default function VideoGridClient({ videos = [] }) {
       setJonusUnlocked(saved);
     } catch {}
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("fullVideoUrls", JSON.stringify(fullVideoUrls));
-  }, [fullVideoUrls]);
 
   // Save unlocks to localStorage
   useEffect(() => {
@@ -419,7 +410,7 @@ export default function VideoGridClient({ videos = [] }) {
   };
 
   const closeModal = () => {
-    router.push("?", undefined, { shallow: true });
+    router.push("?", { scroll: false });
     setSelectedVideo(null);
     setSelectedVideoIndex(null);
   };
