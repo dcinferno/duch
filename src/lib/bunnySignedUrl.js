@@ -1,13 +1,10 @@
 import crypto from "crypto";
 
-export function generateBunnySignedUrl(
-  path,
-  expiresInSeconds = 3600 // ✅ 1 hour (safe for video)
-) {
+export function generateBunnySignedUrl(path, expiresInSeconds = 600) {
   const base = process.env.BUNNY_PULL_ZONE_URL; // https://mysite-full-beta.b-cdn.net
-  const secret = process.env.BUNNY_SIGNING_KEY;
+  const key = process.env.BUNNY_SIGNING_KEY; // Pull Zone → Security → Token Auth Key
 
-  if (!base || !secret) {
+  if (!base || !key) {
     throw new Error("Missing Bunny env vars");
   }
 
@@ -15,12 +12,16 @@ export function generateBunnySignedUrl(
     throw new Error("Path must start with /");
   }
 
-  const expiry = Math.floor(Date.now() / 1000) + expiresInSeconds;
+  const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
 
-  // ✅ CORRECT ORDER
-  const stringToSign = `${secret}${path}${expiry}`;
+  // Bunny REQUIRED format
+  const hash = crypto
+    .createHash("md5")
+    .update(`${path}${expires}${key}`)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
-  const token = crypto.createHash("md5").update(stringToSign).digest("hex");
-
-  return `${base}${path}?token=${token}&expires=${expiry}`;
+  return `${base}${path}?expires=${expires}&token=${hash}`;
 }
