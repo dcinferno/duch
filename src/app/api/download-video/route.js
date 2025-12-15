@@ -1,28 +1,14 @@
-import { generatePushrSecureUrl } from "@/lib/pushrSecureToken";
+import { generateBunnySignedUrl } from "@/lib/bunnySignedUrl";
 import Videos from "@/models/videos";
 import { connectToDB } from "@/lib/mongodb";
-
-const allowedOrigin = process.env.NEXT_PUBLIC_BASE_URL;
-
-export function OPTIONS() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": allowedOrigin,
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      Vary: "Origin",
-    },
-  });
-}
 
 export async function POST(req) {
   try {
     const { userId, videoId } = await req.json();
 
     if (!userId || !videoId) {
-      return new Response(
-        JSON.stringify({ error: "Missing userId or videoId" }),
+      return Response.json(
+        { error: "Missing userId or videoId" },
         { status: 400 }
       );
     }
@@ -32,12 +18,13 @@ export async function POST(req) {
     const video = await Videos.findById(videoId).lean();
 
     if (!video || !video.fullKey) {
-      return new Response(
-        JSON.stringify({ error: "No full video available" }),
+      return Response.json(
+        { error: "No full video available" },
         { status: 400 }
       );
     }
 
+    // 🔐 verify purchase (unchanged)
     const verify = await fetch(
       `${process.env.NEXT_PUBLIC_SERVER_URL}/api/check-purchase`,
       {
@@ -50,35 +37,18 @@ export async function POST(req) {
     const result = await verify.json();
 
     if (!result.success) {
-      return new Response(JSON.stringify({ error: "Not purchased" }), {
-        status: 403,
-      });
-    }
-    const ip =
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0] ||
-      req.socket?.remoteAddress;
-
-    if (!ip) {
-      throw new Error("Unable to determine client IP for Pushr");
+      return Response.json({ error: "Not purchased" }, { status: 403 });
     }
 
-    // ✅ Generate Pushr Secure Token URL (WITH IP)
-    const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60, ip);
+    // ✅ REAL DATA → Bunny signed URL
+    const signedUrl = generateBunnySignedUrl(
+      video.fullKey, // "/test/sample-5s.mp4"
+      600
+    );
 
-    return new Response(JSON.stringify({ url: secureUrl }), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": allowedOrigin,
-        Vary: "Origin",
-      },
-    });
+    return Response.json({ url: signedUrl });
   } catch (err) {
     console.error("download-video error:", err);
-    return new Response(
-      JSON.stringify({ error: err.message || "Server error" }),
-      { status: 500 }
-    );
+    return Response.json({ error: "Server error" }, { status: 500 });
   }
 }
