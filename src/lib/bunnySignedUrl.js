@@ -1,6 +1,6 @@
 import crypto from "crypto";
 
-export function generateBunnySignedUrl(path, expiresInSeconds = 600) {
+export function generateBunnySignedUrl(path, expiresInSeconds = 60 * 60) {
   const base = process.env.BUNNY_PULL_ZONE_URL; // https://mysite-full-beta.b-cdn.net
   const key = process.env.BUNNY_SIGNING_KEY; // Pull Zone → Security → Token Auth Key
 
