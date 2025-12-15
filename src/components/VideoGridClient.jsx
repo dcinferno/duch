@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
@@ -6,50 +7,49 @@ import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 export default function VideoGridClient({ videos = [] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // ===============================
+  // STATE / REFS
+  // ===============================
   const openedFromUrlRef = useRef(false);
-  const [purchasedVideos, setPurchasedVideos] = useState({});
-  const [showPaidOnly, setShowPaidOnly] = useState(false);
-  const [loadingVideoId, setLoadingVideoId] = useState(null);
-  const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
-  const [selectedVideo, setSelectedVideo] = useState(null);
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [showPremiumOnly, setShowPremiumOnly] = useState(false);
-  const [sortByViews, setSortByViews] = useState(false);
-  const [sortByPrice, setSortByPrice] = useState(false);
-  const [showJonusOnly, setShowJonusOnly] = useState(false);
-  const [VideoViews, setVideoViews] = useState({});
-  const [showTagsDropdown, setShowTagsDropdown] = useState(false);
-  const [FFThursday, setFFThursday] = useState(false);
-  const [thursdayFilterOn, setThursdayFilterOn] = useState(false);
-  const [FFWednesday, setFFWednesday] = useState(false);
-  const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
-
-  // 🔒 Jonus unlock state
-  const [jonusUnlocked, setJonusUnlocked] = useState({});
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordInput, setPasswordInput] = useState("");
-  const [unlockTargetId, setUnlockTargetId] = useState(null);
-
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
   const loadMoreRef = useRef(null);
 
   const [visibleCount, setVisibleCount] = useState(12);
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [loadingVideoId, setLoadingVideoId] = useState(null);
 
-  // --- Helpers for aggressive video preload ------------------------------
+  const [purchasedVideos, setPurchasedVideos] = useState({});
+  const [jonusUnlocked, setJonusUnlocked] = useState({});
 
-  const preloadVideoLink = (url) => {
-    if (typeof document === "undefined" || !url) return;
-    if (document.querySelector(`link[as="video"][href="${url}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "preload";
-    link.as = "video";
-    link.href = url;
-    document.head.appendChild(link);
-  };
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [showPremiumOnly, setShowPremiumOnly] = useState(false);
+  const [showPaidOnly, setShowPaidOnly] = useState(false);
+  const [sortByViews, setSortByViews] = useState(false);
+  const [sortByPrice, setSortByPrice] = useState(false);
+  const [showJonusOnly, setShowJonusOnly] = useState(false);
+  const [showTagsDropdown, setShowTagsDropdown] = useState(false);
+
+  const [VideoViews, setVideoViews] = useState({});
+
+  const [FFWednesday, setFFWednesday] = useState(false);
+  const [FFThursday, setFFThursday] = useState(false);
+  const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
+  const [thursdayFilterOn, setThursdayFilterOn] = useState(false);
+
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [unlockTargetId, setUnlockTargetId] = useState(null);
+
+  // ===============================
+  // HELPERS
+  // ===============================
+  const isPurchased = (videoId) => !!purchasedVideos[videoId];
 
   const aggressivePreload = async (url, maxMB = 8) => {
-    if (typeof window === "undefined" || !url) return;
+    if (!url || typeof window === "undefined") return;
 
     window.__preloadingVideos = window.__preloadingVideos || {};
     if (window.__preloadingVideos[url]) return;
@@ -57,208 +57,78 @@ export default function VideoGridClient({ videos = [] }) {
 
     try {
       const controller = new AbortController();
-      const response = await fetch(url, { signal: controller.signal });
-      const reader = response.body?.getReader();
+      const res = await fetch(url, { signal: controller.signal });
+      const reader = res.body?.getReader();
       if (!reader) return;
 
-      const maxBytes = maxMB * 1024 * 1024;
-      let bytesFetched = 0;
+      let bytes = 0;
+      const limit = maxMB * 1024 * 1024;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done || !value) break;
-        bytesFetched += value.length;
-        if (bytesFetched > maxBytes) {
+        bytes += value.length;
+        if (bytes > limit) {
           controller.abort();
           break;
         }
       }
     } catch {
-      // ignore
     } finally {
       delete window.__preloadingVideos[url];
     }
   };
-  const getCheckOutUrl = () => {
-    const isDev = process.env.NODE_ENV === "development";
-    return isDev
-      ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
-      : process.env.NEXT_PUBLIC_SERVER_URL;
-  };
 
-  const openVideo = async (index) => {
-    const video = visibleVideos[index];
-
-    // 🛑 Prevent loops / duplicate opens
-    if (selectedVideo?._id === video._id) return;
-
-    // 🔒 Jonus lock FIRST
-    const isJonusLocked =
-      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
-
-    if (isJonusLocked) {
-      setUnlockTargetId(video._id);
-      setShowPasswordModal(true);
-      return;
-    }
-
-    let urlToPlay = video.url; // preview by default
-
-    // ✅ Purchased → fetch fresh Bunny URL
-    if (isPurchased(video._id)) {
-      try {
-        setLoadingVideoId(video._id);
-
-        const userId = getOrCreateUserId();
-
-        const res = await fetch("/api/download-video", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, videoId: video._id }),
-        });
-
-        const data = await res.json();
-        if (!data.url) throw new Error("No URL returned");
-
-        urlToPlay = data.url;
-      } catch (err) {
-        console.error(err);
-        alert("Failed to load full video");
-        return;
-      } finally {
-        setLoadingVideoId(null);
-      }
-    }
-
-    setSelectedVideo({
-      ...video,
-      url: urlToPlay,
-    });
-
-    setSelectedVideoIndex(index);
-    router.push(`?video=${video._id}`, { shallow: true });
-  };
-
-  // Load purchased videos from localStorage
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("purchasedVideos") || "{}");
-      setPurchasedVideos(saved);
-    } catch {}
-  }, []);
-
-  // Save purchases to localStorage
-  useEffect(() => {
-    localStorage.setItem("purchasedVideos", JSON.stringify(purchasedVideos));
-  }, [purchasedVideos]);
-
-  // Load unlocks from localStorage
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("jonusUnlocked") || "{}");
-      setJonusUnlocked(saved);
-    } catch {}
-  }, []);
-
-  // Save unlocks to localStorage
-  useEffect(() => {
-    localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
-  }, [jonusUnlocked]);
-
-  // Set weekday flags
-  useEffect(() => {
-    const today = new Date().getDay();
-    setFFWednesday(today === 3);
-    setFFThursday(today === 4);
-  }, []);
-
-  useEffect(() => {
-    const id = searchParams.get("video");
-
-    if (!id) {
-      openedFromUrlRef.current = false;
-      return;
-    }
-
-    if (openedFromUrlRef.current) return;
-
-    const idx = visibleVideos.findIndex((v) => v._id === id);
-    if (idx === -1) return;
-
-    openedFromUrlRef.current = true;
-    openVideo(idx);
-  }, [searchParams, visibleVideos]);
-
-  // Format date helper
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
-    const date = dateInput.$date
-      ? new Date(dateInput.$date)
-      : new Date(dateInput);
-    const now = new Date();
-    const diff = now - date;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const d = new Date(dateInput.$date || dateInput);
+    const diff = Date.now() - d;
+    const days = Math.floor(diff / 86400000);
     if (days === 0) return "Today";
     if (days === 1) return "Yesterday";
     if (days <= 7) return `${days} days ago`;
-    return date.toLocaleDateString("en-US", {
+    return d.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
   };
 
-  // 25 Days of Jonus time logic
-  const currentDay = new Date().getUTCDate();
-  const isDecember = new Date().getUTCMonth() + 1 === 12;
-
+  // ===============================
+  // DERIVED DATA (ORDER MATTERS)
+  // ===============================
   const filteredVideos = videos
     .filter((video) => {
-      const matchesTags =
-        selectedTags.length === 0 ||
-        selectedTags.every((tag) => video.tags?.includes(tag));
+      if (
+        selectedTags.length &&
+        !selectedTags.every((t) => video.tags?.includes(t))
+      )
+        return false;
 
-      const matchesPremium = !showPremiumOnly || video.premium;
+      if (showPremiumOnly && !video.premium) return false;
+      if (showPaidOnly && !(video.pay && video.fullKey)) return false;
 
-      const matchesWednesday =
-        !wednesdayFilterOn ||
-        (video.type === "video" && video.tags?.includes("wagon"));
+      if (
+        wednesdayFilterOn &&
+        !(video.type === "video" && video.tags?.includes("wagon"))
+      )
+        return false;
 
-      const matchesThursday =
-        !thursdayFilterOn ||
-        (video.type === "video" &&
-          video.creatorName?.toLowerCase().includes("pudding"));
-      const matchesPaidOnly =
-        !showPaidOnly || (video.pay === true && !!video.fullKey);
+      if (
+        thursdayFilterOn &&
+        !video.creatorName?.toLowerCase().includes("pudding")
+      )
+        return false;
 
-      let matchesJonus = true;
-      if (showJonusOnly) {
-        if (!video.tags?.includes("25daysofjonus")) matchesJonus = false;
-        else if (!video.createdAt) matchesJonus = false;
-        else {
-          const d = new Date(video.createdAt);
-          const month = d.getUTCMonth() + 1;
-          const day = d.getUTCDate();
-          if (month !== 12 || day < 1 || day > 25) matchesJonus = false;
-          else if (isDecember && day > currentDay) matchesJonus = false;
-        }
-      }
+      if (showJonusOnly && !video.tags?.includes("25daysofjonus")) return false;
 
-      return (
-        matchesTags &&
-        matchesPremium &&
-        matchesWednesday &&
-        matchesThursday &&
-        matchesJonus &&
-        matchesPaidOnly
-      );
+      return true;
     })
     .sort(
       (a, b) =>
         new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
     );
 
-  // Sorting
   const videosToRender = (() => {
     if (sortByPrice) {
       return [...filteredVideos].sort((a, b) => {
@@ -276,11 +146,96 @@ export default function VideoGridClient({ videos = [] }) {
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
-  const isPurchased = (videoId) => {
-    return !!purchasedVideos[videoId];
+  // ===============================
+  // OPEN VIDEO
+  // ===============================
+  const openVideo = async (index) => {
+    const video = visibleVideos[index];
+    if (!video) return;
+
+    if (selectedVideo?._id === video._id) return;
+
+    const isJonusLocked =
+      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
+
+    if (isJonusLocked) {
+      setUnlockTargetId(video._id);
+      setShowPasswordModal(true);
+      return;
+    }
+
+    let urlToPlay = video.url;
+
+    if (isPurchased(video._id)) {
+      try {
+        setLoadingVideoId(video._id);
+        const userId = getOrCreateUserId();
+
+        const res = await fetch("/api/download-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, videoId: video._id }),
+        });
+
+        const data = await res.json();
+        if (!data?.url) throw new Error("No URL returned");
+
+        urlToPlay = data.url;
+      } catch (e) {
+        alert("Failed to load full video");
+        return;
+      } finally {
+        setLoadingVideoId(null);
+      }
+    }
+
+    setSelectedVideo({ ...video, url: urlToPlay });
+    setSelectedVideoIndex(index);
+    router.push(`?video=${video._id}`, { shallow: true });
   };
 
-  // Infinite scroll
+  // ===============================
+  // EFFECTS
+  // ===============================
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem("purchasedVideos") || "{}");
+    setPurchasedVideos(saved);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("purchasedVideos", JSON.stringify(purchasedVideos));
+  }, [purchasedVideos]);
+
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem("jonusUnlocked") || "{}");
+    setJonusUnlocked(saved);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
+  }, [jonusUnlocked]);
+
+  useEffect(() => {
+    const day = new Date().getDay();
+    setFFWednesday(day === 3);
+    setFFThursday(day === 4);
+  }, []);
+
+  useEffect(() => {
+    const id = searchParams.get("video");
+    if (!id) {
+      openedFromUrlRef.current = false;
+      return;
+    }
+    if (openedFromUrlRef.current) return;
+
+    const idx = visibleVideos.findIndex((v) => v._id === id);
+    if (idx === -1) return;
+
+    openedFromUrlRef.current = true;
+    openVideo(idx);
+  }, [searchParams, visibleVideos]);
+
   useEffect(() => {
     const ob = new IntersectionObserver(
       (entries) => {
@@ -291,143 +246,6 @@ export default function VideoGridClient({ videos = [] }) {
     if (loadMoreRef.current) ob.observe(loadMoreRef.current);
     return () => ob.disconnect();
   }, []);
-
-  // Reset pagination on filter change
-  useEffect(() => {
-    setVisibleCount(12);
-  }, [
-    selectedTags,
-    showPremiumOnly,
-    sortByViews,
-    sortByPrice,
-    wednesdayFilterOn,
-    thursdayFilterOn,
-    showJonusOnly,
-  ]);
-
-  const getDisplayPrice = (video) => {
-    let price = video.price;
-
-    // 🍷 Thirsty Thursday — 25% off pudding creators
-    if (
-      FFThursday &&
-      video.type === "video" &&
-      video.creatorName?.toLowerCase().includes("pudding")
-    ) {
-      price = +(price * 0.75).toFixed(2);
-    }
-
-    // 🚚 Wagon Wednesday — fixed promo price
-    if (
-      FFWednesday &&
-      video.type === "video" &&
-      video.tags?.includes("wagon")
-    ) {
-      price = 13.34;
-    }
-
-    return price;
-  };
-  const canPay = (video) => video.pay && video.price > 0 && !!video.fullKey;
-  // Fetch views
-  useEffect(() => {
-    if (!videos || videos.length === 0) return;
-
-    const fetchViews = async () => {
-      try {
-        const ids = videos.map((v) => v._id).join(",");
-
-        const res = await fetch(`/api/video-views?videoIds=${ids}`);
-        const data = await res.json();
-
-        setVideoViews((prev) => ({
-          ...prev, // KEEP EXISTING VIEW COUNTS
-          ...data, // MERGE IN NEW ONES
-        }));
-      } catch (e) {
-        console.error("Failed to load views:", e);
-      }
-    };
-
-    fetchViews();
-  }, []); // <-- IMPORTANT: RUN ONLY ONCE AT MOUNT
-
-  // Log video views (only once per session per video)
-  const logVideoViews = async (videoId) => {
-    if (!videoId || loggedVideosRef.current.has(videoId)) return;
-    loggedVideosRef.current.add(videoId);
-
-    setVideoViews((prev) => ({
-      ...prev,
-      [videoId]: (prev[videoId] || 0) + 1,
-    }));
-
-    try {
-      await fetch("/api/video-views", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId, viewedAt: new Date().toISOString() }),
-      });
-    } catch {}
-  };
-
-  // Preload next/prev videos when modal open
-  useEffect(() => {
-    if (selectedVideoIndex === null) return;
-    const next = visibleVideos[selectedVideoIndex + 1];
-    const prev = visibleVideos[selectedVideoIndex - 1];
-
-    if (next && next.type === "video") aggressivePreload(next.url, 6);
-    if (prev && prev.type === "video") aggressivePreload(prev.url, 6);
-  }, [selectedVideoIndex, visibleVideos]);
-
-  // Unlock attempt
-  const attemptUnlock = async () => {
-    const res = await fetch("/api/validate-lock", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        videoId: unlockTargetId,
-        password: passwordInput,
-      }),
-    });
-    const data = await res.json();
-
-    if (data.unlockedUrl) {
-      setJonusUnlocked((prev) => ({ ...prev, [unlockTargetId]: true }));
-      setShowPasswordModal(false);
-      setPasswordInput("");
-    } else {
-      alert("Incorrect password");
-    }
-  };
-
-  const closeModal = () => {
-    openedFromUrlRef.current = false;
-    router.push("?", { scroll: false });
-    setSelectedVideo(null);
-    setSelectedVideoIndex(null);
-  };
-
-  const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
-
-  const toggleTag = (tag) =>
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-
-  const togglePremium = () => setShowPremiumOnly((p) => !p);
-
-  const clearFilters = () => {
-    setSelectedTags([]);
-    setShowPremiumOnly(false);
-    setSortByPrice(false);
-    setSortByViews(false);
-    setWednesdayFilterOn(false);
-    setThursdayFilterOn(false);
-    setShowJonusOnly(false);
-  };
-
   return (
     <div className="w-full">
       {/* FILTER BAR ======================================================= */}
