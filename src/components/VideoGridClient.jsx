@@ -246,6 +246,105 @@ export default function VideoGridClient({ videos = [] }) {
     if (loadMoreRef.current) ob.observe(loadMoreRef.current);
     return () => ob.disconnect();
   }, []);
+  // ===============================
+  // MISSING HELPERS (FIXES CRASHES)
+  // ===============================
+
+  const togglePremium = () => setShowPremiumOnly((p) => !p);
+
+  const toggleTag = (tag) =>
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+
+  const clearFilters = () => {
+    setSelectedTags([]);
+    setShowPremiumOnly(false);
+    setSortByViews(false);
+    setSortByPrice(false);
+    setWednesdayFilterOn(false);
+    setThursdayFilterOn(false);
+    setShowJonusOnly(false);
+  };
+
+  const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
+
+  const canPay = (video) => video.pay && video.price > 0 && !!video.fullKey;
+
+  const getDisplayPrice = (video) => {
+    let price = video.price;
+
+    if (
+      FFThursday &&
+      video.type === "video" &&
+      video.creatorName?.toLowerCase().includes("pudding")
+    ) {
+      price = +(price * 0.75).toFixed(2);
+    }
+
+    if (
+      FFWednesday &&
+      video.type === "video" &&
+      video.tags?.includes("wagon")
+    ) {
+      price = 13.34;
+    }
+
+    return price;
+  };
+
+  const getCheckOutUrl = () => {
+    const isDev = process.env.NODE_ENV === "development";
+    return isDev
+      ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
+      : process.env.NEXT_PUBLIC_SERVER_URL;
+  };
+
+  const closeModal = () => {
+    openedFromUrlRef.current = false;
+    router.push("?", { scroll: false });
+    setSelectedVideo(null);
+    setSelectedVideoIndex(null);
+  };
+
+  const logVideoViews = async (videoId) => {
+    if (!videoId || loggedVideosRef.current.has(videoId)) return;
+    loggedVideosRef.current.add(videoId);
+
+    setVideoViews((prev) => ({
+      ...prev,
+      [videoId]: (prev[videoId] || 0) + 1,
+    }));
+
+    try {
+      await fetch("/api/video-views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId }),
+      });
+    } catch {}
+  };
+
+  const attemptUnlock = async () => {
+    const res = await fetch("/api/validate-lock", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        videoId: unlockTargetId,
+        password: passwordInput,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.unlockedUrl) {
+      setJonusUnlocked((prev) => ({ ...prev, [unlockTargetId]: true }));
+      setShowPasswordModal(false);
+      setPasswordInput("");
+    } else {
+      alert("Incorrect password");
+    }
+  };
+
   return (
     <div className="w-full">
       {/* FILTER BAR ======================================================= */}
