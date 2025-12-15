@@ -54,9 +54,13 @@ export async function POST(req) {
         status: 403,
       });
     }
+    const ip =
+      req.headers.get("cf-connecting-ip") ||
+      req.headers.get("x-forwarded-for")?.split(",")[0];
 
+    generatePushrSecureUrlFromUrl(assetUrl, { ip });
     // ✅ Generate Pushr Secure Token URL (WITH IP)
-    const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60);
+    const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60, ip);
 
     return new Response(JSON.stringify({ url: secureUrl }), {
       status: 200,

@@ -7,11 +7,7 @@ import crypto from "crypto";
  * @param {number} expiresInSeconds - default 1 hour
  * @param {string} ip - visitor IP (default: 0.0.0.0 = not IP-bound)
  */
-export function generatePushrSecureUrl(
-  path,
-  expiresInSeconds = 60 * 60,
-  ip = "0.0.0.0"
-) {
+export function generatePushrSecureUrl(path, expiresInSeconds = 60 * 60, ip) {
   if (!path) throw new Error("Missing path");
 
   const base = process.env.PUSHR_SECURE_CDN_BASE;
@@ -20,21 +16,28 @@ export function generatePushrSecureUrl(
   if (!base || !secret) {
     throw new Error("Missing Pushr env vars");
   }
+  const url = new URL(path);
+  const host = `${url.protocol}//${url.host}`;
+  const pathname = url.pathname; // /uploads/.../video.mp4
+  const lastSlash = pathname.lastIndexOf("/");
+  const path = pathname.slice(0, lastSlash + 1); // trailing slash REQUIRED
+  const file = pathname.slice(lastSlash + 1);
+  const expiresInSeconds = 3600;
+  if (!path || !file) {
+    throw new Error("Invalid asset URL path");
+  }
+  const exp = Math.floor(Date.now() / 1000) + expiresInSeconds;
+  const stringToSign = `${secret}${exp}${path}${file}${ip}`;
 
-  // Pushr expects a leading slash
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  // md5(..., true) → raw binary digest
+  const md5Raw = crypto.createHash("md5").update(stringToSign).digest();
 
-  // Unix timestamp (seconds)
-  const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
+  // base64-url encode
+  const token = md5Raw
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
-  /**
-   * Pushr signing format:
-   *   md5( secret + expires + path + ip )
-   *   base64 → URL-safe
-   */
-  const stringToSign = `${secret}${expires}${normalizedPath}${ip}`;
-
-  const token = crypto.createHash("md5").update(stringToSign).digest("hex");
-
-  return `${base}/${token}/${expires}${normalizedPath}`;
+  return `${host}/${token}/${exp}${path}${file}`;
 }
