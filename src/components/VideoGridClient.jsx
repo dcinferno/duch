@@ -311,7 +311,7 @@ export default function VideoGridClient({ videos = [] }) {
 
   const closeModal = () => {
     openedFromUrlRef.current = false;
-    router.push("?", { scroll: false });
+    router.replace("?", { scroll: false });
     setSelectedVideo(null);
     setSelectedVideoIndex(null);
   };
