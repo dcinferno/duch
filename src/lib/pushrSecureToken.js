@@ -26,7 +26,6 @@ export function generatePushrSecureUrl(
   const lastSlash = pathname.lastIndexOf("/");
   const path = pathname.slice(0, lastSlash + 1); // trailing slash REQUIRED
   const file = pathname.slice(lastSlash + 1);
-  const expiresInSeconds = 3600;
   if (!path || !file) {
     throw new Error("Invalid asset URL path");
   }
