@@ -771,9 +771,11 @@ export default function VideoGridClient({ videos = [] }) {
 
               {selectedVideo.type === "video" ? (
                 <video
+                  key={selectedVideo.url} // 🚨 REQUIRED
                   src={selectedVideo.url}
                   controls
                   autoPlay
+                  playsInline
                   className="w-full max-h-[300px] rounded mb-4 object-contain"
                   onPlay={() => logVideoViews(selectedVideo._id)}
                 />
