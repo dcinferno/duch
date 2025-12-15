@@ -31,7 +31,7 @@ export default function VideoGridClient({ videos = [] }) {
   const [sortByPrice, setSortByPrice] = useState(false);
   const [showJonusOnly, setShowJonusOnly] = useState(false);
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
-
+  const closedManuallyRef = useRef(false);
   const [VideoViews, setVideoViews] = useState({});
 
   const [FFWednesday, setFFWednesday] = useState(false);
@@ -226,10 +226,10 @@ export default function VideoGridClient({ videos = [] }) {
 
     if (!id) {
       openedFromUrlRef.current = false;
+      closedManuallyRef.current = false;
       return;
     }
 
-    // 🛑 Already open → DO NOTHING
     if (selectedVideo?._id === id) return;
 
     const idx = visibleVideos.findIndex((v) => v._id === id);
@@ -237,7 +237,6 @@ export default function VideoGridClient({ videos = [] }) {
 
     openedFromUrlRef.current = true;
 
-    // ⚠️ DO NOT call openVideo here
     openVideoFromUrl(visibleVideos[idx], idx);
   }, [searchParams, visibleVideos, selectedVideo]);
 
@@ -310,8 +309,10 @@ export default function VideoGridClient({ videos = [] }) {
   };
 
   const closeModal = () => {
+    closedManuallyRef.current = true;
     openedFromUrlRef.current = false;
-    router.replace("?", { scroll: false });
+
+    router.push("?", { scroll: false });
     setSelectedVideo(null);
     setSelectedVideoIndex(null);
   };
