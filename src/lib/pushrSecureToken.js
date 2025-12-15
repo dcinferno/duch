@@ -34,13 +34,7 @@ export function generatePushrSecureUrl(
    */
   const stringToSign = `${secret}${expires}${normalizedPath}${ip}`;
 
-  const token = crypto
-    .createHash("md5")
-    .update(stringToSign)
-    .digest("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  const token = crypto.createHash("md5").update(stringToSign).digest("hex");
 
   return `${base}/${token}/${expires}${normalizedPath}`;
 }
