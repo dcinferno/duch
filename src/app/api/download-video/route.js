@@ -58,7 +58,6 @@ export async function POST(req) {
       req.headers.get("cf-connecting-ip") ||
       req.headers.get("x-forwarded-for")?.split(",")[0];
 
-    generatePushrSecureUrl(assetUrl, { ip });
     // ✅ Generate Pushr Secure Token URL (WITH IP)
     const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60, ip);
 
