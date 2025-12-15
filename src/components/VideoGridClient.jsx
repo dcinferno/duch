@@ -223,18 +223,23 @@ export default function VideoGridClient({ videos = [] }) {
 
   useEffect(() => {
     const id = searchParams.get("video");
+
     if (!id) {
       openedFromUrlRef.current = false;
       return;
     }
-    if (openedFromUrlRef.current) return;
+
+    // 🛑 Already open → DO NOTHING
+    if (selectedVideo?._id === id) return;
 
     const idx = visibleVideos.findIndex((v) => v._id === id);
     if (idx === -1) return;
 
     openedFromUrlRef.current = true;
-    openVideo(idx);
-  }, [searchParams, visibleVideos]);
+
+    // ⚠️ DO NOT call openVideo here
+    openVideoFromUrl(visibleVideos[idx], idx);
+  }, [searchParams, visibleVideos, selectedVideo]);
 
   useEffect(() => {
     const ob = new IntersectionObserver(
@@ -291,6 +296,10 @@ export default function VideoGridClient({ videos = [] }) {
     }
 
     return price;
+  };
+  const openVideoFromUrl = (video, index) => {
+    setSelectedVideo(video);
+    setSelectedVideoIndex(index);
   };
 
   const getCheckOutUrl = () => {
