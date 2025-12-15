@@ -224,11 +224,14 @@ export default function VideoGridClient({ videos = [] }) {
   useEffect(() => {
     const id = searchParams.get("video");
 
+    // No video in URL → reset flags and STOP
     if (!id) {
       openedFromUrlRef.current = false;
-      closedManuallyRef.current = false;
       return;
     }
+
+    // ❌ User manually closed — do NOT reopen anything
+    if (closedManuallyRef.current) return;
 
     if (selectedVideo?._id === id) return;
 
@@ -237,7 +240,9 @@ export default function VideoGridClient({ videos = [] }) {
 
     openedFromUrlRef.current = true;
 
-    openVideoFromUrl(visibleVideos[idx], idx);
+    // ⚠️ IMPORTANT: preview only, NEVER fetch full here
+    setSelectedVideo(visibleVideos[idx]);
+    setSelectedVideoIndex(idx);
   }, [searchParams, visibleVideos, selectedVideo]);
 
   useEffect(() => {
