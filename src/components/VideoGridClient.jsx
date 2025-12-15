@@ -8,9 +8,8 @@ export default function VideoGridClient({ videos = [] }) {
   const searchParams = useSearchParams();
 
   const [purchasedVideos, setPurchasedVideos] = useState({});
-  const [fullVideoUrls, setFullVideoUrls] = useState({});
   const [showPaidOnly, setShowPaidOnly] = useState(false);
-
+  const [loadingVideoId, setLoadingVideoId] = useState(null);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedTags, setSelectedTags] = useState([]);
@@ -88,7 +87,6 @@ export default function VideoGridClient({ videos = [] }) {
   };
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem("fullVideoUrls") || "{}");
       setFullVideoUrls(saved);
     } catch {}
   }, []);
@@ -365,7 +363,7 @@ export default function VideoGridClient({ videos = [] }) {
     }
   };
 
-  const openVideo = (index) => {
+  const openVideo = async (index) => {
     const video = visibleVideos[index];
 
     // 🔒 Jonus lock check FIRST
@@ -378,22 +376,46 @@ export default function VideoGridClient({ videos = [] }) {
       return;
     }
 
-    const purchased = isPurchased(video._id);
-    const fullUrl = purchased ? fullVideoUrls[video._id] : null;
+    let urlToPlay = video.url; // preview by default
+
+    if (isPurchased(video._id)) {
+      try {
+        setLoadingVideoId(video._id); // 🔄 START SPINNER
+
+        const userId = getOrCreateUserId();
+
+        const res = await fetch("/api/download-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            videoId: video._id,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!data.url) {
+          throw new Error("No URL returned");
+        }
+
+        urlToPlay = data.url;
+      } catch (err) {
+        console.error("Failed to fetch full video URL", err);
+        alert("Failed to load full video");
+        return;
+      } finally {
+        setLoadingVideoId(null); // ✅ STOP SPINNER
+      }
+    }
 
     setSelectedVideo({
       ...video,
-      url: fullUrl || video.url, // swap preview → full
+      url: urlToPlay,
     });
 
     setSelectedVideoIndex(index);
     router.push(`?video=${video._id}`, { shallow: true });
-
-    // Optional preloading
-    if (video.type === "video") {
-      preloadVideoLink(fullUrl || video.url);
-      aggressivePreload(fullUrl || video.url, 16);
-    }
   };
 
   const closeModal = () => {
@@ -702,9 +724,40 @@ export default function VideoGridClient({ videos = [] }) {
                       // ✅ WATCH FULL VIDEO
                       <button
                         onClick={() => openVideo(index)}
-                        className="w-full bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 text-sm font-medium"
+                        disabled={loadingVideoId === video._id}
+                        className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition ${
+                          loadingVideoId === video._id
+                            ? "bg-green-400 cursor-not-allowed"
+                            : "bg-green-600 hover:bg-green-700 text-white"
+                        }`}
                       >
-                        ▶ Watch Full Video
+                        {loadingVideoId === video._id ? (
+                          <>
+                            <svg
+                              className="animate-spin h-4 w-4 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v8H4z"
+                              />
+                            </svg>
+                            Loading…
+                          </>
+                        ) : (
+                          "▶ Watch Full Video"
+                        )}
                       </button>
                     ) : (
                       <>
