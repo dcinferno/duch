@@ -6,7 +6,7 @@ import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 export default function VideoGridClient({ videos = [] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-
+  const openedFromUrlRef = useRef(false);
   const [purchasedVideos, setPurchasedVideos] = useState({});
   const [showPaidOnly, setShowPaidOnly] = useState(false);
   const [loadingVideoId, setLoadingVideoId] = useState(null);
@@ -118,6 +118,74 @@ export default function VideoGridClient({ videos = [] }) {
     setFFWednesday(today === 3);
     setFFThursday(today === 4);
   }, []);
+  const openVideo = async (index) => {
+    const video = visibleVideos[index];
+
+    // 🛑 Prevent loops / duplicate opens
+    if (selectedVideo?._id === video._id) return;
+
+    // 🔒 Jonus lock FIRST
+    const isJonusLocked =
+      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
+
+    if (isJonusLocked) {
+      setUnlockTargetId(video._id);
+      setShowPasswordModal(true);
+      return;
+    }
+
+    let urlToPlay = video.url; // preview by default
+
+    // ✅ Purchased → fetch fresh Bunny URL
+    if (isPurchased(video._id)) {
+      try {
+        setLoadingVideoId(video._id);
+
+        const userId = getOrCreateUserId();
+
+        const res = await fetch("/api/download-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, videoId: video._id }),
+        });
+
+        const data = await res.json();
+        if (!data.url) throw new Error("No URL returned");
+
+        urlToPlay = data.url;
+      } catch (err) {
+        console.error(err);
+        alert("Failed to load full video");
+        return;
+      } finally {
+        setLoadingVideoId(null);
+      }
+    }
+
+    setSelectedVideo({
+      ...video,
+      url: urlToPlay,
+    });
+
+    setSelectedVideoIndex(index);
+    router.push(`?video=${video._id}`, { shallow: true });
+  };
+  useEffect(() => {
+    const id = searchParams.get("video");
+
+    if (!id) {
+      openedFromUrlRef.current = false;
+      return;
+    }
+
+    if (openedFromUrlRef.current) return;
+
+    const idx = visibleVideos.findIndex((v) => v._id === id);
+    if (idx === -1) return;
+
+    openedFromUrlRef.current = true;
+    openVideo(idx);
+  }, [searchParams, visibleVideos]);
 
   // Format date helper
   const formatDate = (dateInput) => {
@@ -301,28 +369,6 @@ export default function VideoGridClient({ videos = [] }) {
     } catch {}
   };
 
-  // Auto-open modal if ?video=<id> in URL
-  useEffect(() => {
-    const id = searchParams.get("video");
-    if (!id) return;
-
-    const idx = visibleVideos.findIndex((v) => v._id === id);
-    if (idx === -1) return;
-
-    const video = visibleVideos[idx];
-    const isJonusLocked =
-      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
-
-    if (isJonusLocked) {
-      setUnlockTargetId(video._id);
-      setShowPasswordModal(true);
-      return;
-    }
-
-    setSelectedVideo(video);
-    setSelectedVideoIndex(idx);
-  }, [searchParams, visibleVideos, jonusUnlocked]);
-
   // Preload next/prev videos when modal open
   useEffect(() => {
     if (selectedVideoIndex === null) return;
@@ -354,62 +400,8 @@ export default function VideoGridClient({ videos = [] }) {
     }
   };
 
-  const openVideo = async (index) => {
-    const video = visibleVideos[index];
-
-    // 🔒 Jonus lock check FIRST
-    const isJonusLocked =
-      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
-
-    if (isJonusLocked) {
-      setUnlockTargetId(video._id);
-      setShowPasswordModal(true);
-      return;
-    }
-
-    let urlToPlay = video.url; // preview by default
-
-    if (isPurchased(video._id)) {
-      try {
-        setLoadingVideoId(video._id); // 🔄 START SPINNER
-
-        const userId = getOrCreateUserId();
-
-        const res = await fetch("/api/download-video", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId,
-            videoId: video._id,
-          }),
-        });
-
-        const data = await res.json();
-
-        if (!data.url) {
-          throw new Error("No URL returned");
-        }
-
-        urlToPlay = data.url;
-      } catch (err) {
-        console.error("Failed to fetch full video URL", err);
-        alert("Failed to load full video");
-        return;
-      } finally {
-        setLoadingVideoId(null); // ✅ STOP SPINNER
-      }
-    }
-
-    setSelectedVideo({
-      ...video,
-      url: urlToPlay,
-    });
-
-    setSelectedVideoIndex(index);
-    router.push(`?video=${video._id}`, { shallow: true });
-  };
-
   const closeModal = () => {
+    openedFromUrlRef.current = false;
     router.push("?", { scroll: false });
     setSelectedVideo(null);
     setSelectedVideoIndex(null);
@@ -605,7 +597,9 @@ export default function VideoGridClient({ videos = [] }) {
                 ref={(el) => (videoRefs.current[video._id] = el)}
                 className="bg-white shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
                 onMouseEnter={() => {
-                  if (video.type === "video") aggressivePreload(video.url, 8);
+                  if (video.type === "video" && !isPurchased(video._id)) {
+                    aggressivePreload(video.url, 8);
+                  }
                 }}
               >
                 {/* THUMBNAIL */}
