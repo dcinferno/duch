@@ -86,38 +86,6 @@ export default function VideoGridClient({ videos = [] }) {
       : process.env.NEXT_PUBLIC_SERVER_URL;
   };
 
-  // Load purchased videos from localStorage
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("purchasedVideos") || "{}");
-      setPurchasedVideos(saved);
-    } catch {}
-  }, []);
-
-  // Save purchases to localStorage
-  useEffect(() => {
-    localStorage.setItem("purchasedVideos", JSON.stringify(purchasedVideos));
-  }, [purchasedVideos]);
-
-  // Load unlocks from localStorage
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("jonusUnlocked") || "{}");
-      setJonusUnlocked(saved);
-    } catch {}
-  }, []);
-
-  // Save unlocks to localStorage
-  useEffect(() => {
-    localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
-  }, [jonusUnlocked]);
-
-  // Set weekday flags
-  useEffect(() => {
-    const today = new Date().getDay();
-    setFFWednesday(today === 3);
-    setFFThursday(today === 4);
-  }, []);
   const openVideo = async (index) => {
     const video = visibleVideos[index];
 
@@ -170,6 +138,40 @@ export default function VideoGridClient({ videos = [] }) {
     setSelectedVideoIndex(index);
     router.push(`?video=${video._id}`, { shallow: true });
   };
+
+  // Load purchased videos from localStorage
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("purchasedVideos") || "{}");
+      setPurchasedVideos(saved);
+    } catch {}
+  }, []);
+
+  // Save purchases to localStorage
+  useEffect(() => {
+    localStorage.setItem("purchasedVideos", JSON.stringify(purchasedVideos));
+  }, [purchasedVideos]);
+
+  // Load unlocks from localStorage
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("jonusUnlocked") || "{}");
+      setJonusUnlocked(saved);
+    } catch {}
+  }, []);
+
+  // Save unlocks to localStorage
+  useEffect(() => {
+    localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
+  }, [jonusUnlocked]);
+
+  // Set weekday flags
+  useEffect(() => {
+    const today = new Date().getDay();
+    setFFWednesday(today === 3);
+    setFFThursday(today === 4);
+  }, []);
+
   useEffect(() => {
     const id = searchParams.get("video");
 
