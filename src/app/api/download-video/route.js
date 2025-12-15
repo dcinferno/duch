@@ -56,7 +56,12 @@ export async function POST(req) {
     }
     const ip =
       req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0];
+      req.headers.get("x-forwarded-for")?.split(",")[0] ||
+      req.socket?.remoteAddress;
+
+    if (!ip) {
+      throw new Error("Unable to determine client IP for Pushr");
+    }
 
     // ✅ Generate Pushr Secure Token URL (WITH IP)
     const secureUrl = generatePushrSecureUrl(video.fullKey, 60 * 60, ip);
