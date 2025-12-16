@@ -1,40 +1,63 @@
 "use client";
 export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
-import VideoGridClient from "../../components/VideoGridClient";
 import { useParams } from "next/navigation";
+import VideoGridClient from "../../components/VideoGridClient";
+import { FiLink } from "react-icons/fi";
+
+beacons: { icon: FiLink, label: "Links" },
+
+
+// ✅ Brand icons
+import {
+  SiAmazon,
+  SiTelegram,
+  SiSnapchat,
+  SiInstagram,
+  SiLinktree,
+  SiReddit,
+} from "react-icons/si";
 
 export default function CreatorPage() {
   const { urlHandle } = useParams();
+
   const [creator, setCreator] = useState(null);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+
+
   const SOCIAL_META = {
-    beacons: { icon: "🌐", label: "Beacons" },
-    instagram: { icon: "📸", label: "Instagram" },
+    amazon: { icon: SiAmazon, label: "Amazon" },
+    telegram: { icon: SiTelegram, label: "Telegram" },
+    snapchat: { icon: SiSnapchat, label: "Snapchat" },
+    instagram: { icon: SiInstagram, label: "Instagram" },
+    linktree: { icon: SiLinktree, label: "Linktree" },
+    reddit: { icon: SiReddit, label: "Reddit" },
+    beacons: { icon: FiLink, label: "Links" },
   };
+
   useEffect(() => {
     async function fetchCreatorAndVideos() {
       setLoading(true);
+
       try {
-        // Fetch creator by urlHandle
+        // Fetch creator
         const creatorRes = await fetch(`/api/creators/${urlHandle}`);
         if (!creatorRes.ok) throw new Error("Creator not found");
         const creatorData = await creatorRes.json();
         setCreator(creatorData);
 
-        // Fetch videos by creator name (temporarily)
+        // Fetch videos
         const videosRes = await fetch(
           `/api/videos?creator=${encodeURIComponent(urlHandle)}`
         );
         if (!videosRes.ok) throw new Error("Videos not found");
         const videoData = await videosRes.json();
-
-        // Attach creator info to videos
         setVideos(videoData);
       } catch (err) {
-        console.error(err);
+        console.error("❌ Creator page error:", err);
         setCreator(null);
         setVideos([]);
       } finally {
@@ -42,15 +65,22 @@ export default function CreatorPage() {
       }
     }
 
-    fetchCreatorAndVideos();
+    if (urlHandle) fetchCreatorAndVideos();
   }, [urlHandle]);
 
-  if (loading) return <p className="text-center py-10">Loading...</p>;
-  if (!creator) return <p className="text-center py-10">Creator not found.</p>;
+  if (loading) {
+    return <p className="text-center py-10">Loading...</p>;
+  }
+
+  if (!creator) {
+    return <p className="text-center py-10">Creator not found.</p>;
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* ========================= */}
       {/* Creator Header */}
+      {/* ========================= */}
       <div className="flex items-center mb-6">
         {creator.photo && (
           <img
@@ -62,16 +92,18 @@ export default function CreatorPage() {
         )}
 
         <div className="flex flex-col">
-          <h1 className="text-2xl font-bold">{creator.name}'s Videos</h1>
+          <h1 className="text-2xl font-bold">{creator.name}&apos;s Videos</h1>
 
-          {/* 👇 Social links */}
+          {/* ========================= */}
+          {/* Social Links */}
+          {/* ========================= */}
           {Array.isArray(creator.socials) && creator.socials.length > 0 && (
             <div className="mt-1 flex flex-wrap items-center gap-3">
               {creator.socials.map((social, i) => {
-                const meta = SOCIAL_META[social.type] || {
-                  icon: "🔗",
-                  label: social.type,
-                };
+                const meta = SOCIAL_META[social.type];
+                if (!meta || !social.url) return null;
+
+                const Icon = meta.icon;
 
                 return (
                   <a
@@ -79,9 +111,9 @@ export default function CreatorPage() {
                     href={social.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-black transition"
+                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-black hover:scale-105 transition"
                   >
-                    <span className="text-lg">{meta.icon}</span>
+                    <Icon size={18} />
                     <span className="underline">{meta.label}</span>
                   </a>
                 );
@@ -91,14 +123,18 @@ export default function CreatorPage() {
         </div>
       </div>
 
+      {/* ========================= */}
       {/* Video Grid */}
+      {/* ========================= */}
       {videos.length > 0 ? (
         <VideoGridClient videos={videos} />
       ) : (
         <p className="text-gray-500">No videos found for this creator.</p>
       )}
 
-      {/* Full-screen photo modal */}
+      {/* ========================= */}
+      {/* Fullscreen Photo Modal */}
+      {/* ========================= */}
       {showPhotoModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4"
