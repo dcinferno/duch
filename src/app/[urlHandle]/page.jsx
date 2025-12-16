@@ -6,9 +6,6 @@ import { useParams } from "next/navigation";
 import VideoGridClient from "../../components/VideoGridClient";
 import { FiLink } from "react-icons/fi";
 
-beacons: { icon: FiLink, label: "Links" },
-
-
 // ✅ Brand icons
 import {
   SiAmazon,
@@ -26,7 +23,6 @@ export default function CreatorPage() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-
 
   const SOCIAL_META = {
     amazon: { icon: SiAmazon, label: "Amazon" },
