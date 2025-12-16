@@ -10,7 +10,10 @@ export default function CreatorPage() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-
+  const SOCIAL_META = {
+    beacons: { icon: "🌐", label: "Beacons" },
+    instagram: { icon: "📸", label: "Instagram" },
+  };
   useEffect(() => {
     async function fetchCreatorAndVideos() {
       setLoading(true);
@@ -57,7 +60,35 @@ export default function CreatorPage() {
             onClick={() => setShowPhotoModal(true)}
           />
         )}
-        <h1 className="text-2xl font-bold">{creator.name}'s Videos</h1>
+
+        <div className="flex flex-col">
+          <h1 className="text-2xl font-bold">{creator.name}'s Videos</h1>
+
+          {/* 👇 Social links */}
+          {Array.isArray(creator.socials) && creator.socials.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              {creator.socials.map((social, i) => {
+                const meta = SOCIAL_META[social.type] || {
+                  icon: "🔗",
+                  label: social.type,
+                };
+
+                return (
+                  <a
+                    key={`${social.type}-${i}`}
+                    href={social.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-black transition"
+                  >
+                    <span className="text-lg">{meta.icon}</span>
+                    <span className="underline">{meta.label}</span>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Video Grid */}
