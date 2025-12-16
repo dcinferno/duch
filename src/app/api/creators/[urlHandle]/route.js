@@ -18,15 +18,32 @@ export async function GET(req, { params }) {
 
     const c = creator.toObject();
 
-    // Normalize missing slash
+    // -------------------------------
+    // 🖼 Photo normalization (unchanged)
+    // -------------------------------
     if (c.photo && !c.photo.startsWith("/")) {
       c.photo = "/" + c.photo;
     }
 
-    // Always prepend CDN if photo is a relative path
     if (CDN && c.photo?.startsWith("/")) {
       c.photo = CDN + c.photo;
     }
+
+    // -------------------------------
+    // 🔗 Socials normalization (NEW)
+    // -------------------------------
+    if (!Array.isArray(c.socials)) {
+      c.socials = [];
+    }
+
+    c.socials = c.socials
+      .filter(
+        (s) => s && typeof s.type === "string" && typeof s.url === "string"
+      )
+      .map((s) => ({
+        type: s.type,
+        url: s.url,
+      }));
 
     return new Response(JSON.stringify(c), { status: 200 });
   } catch (err) {

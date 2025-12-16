@@ -10,6 +10,19 @@ const CreatorSchema = new mongoose.Schema({
   secret: { type: Boolean, default: false, sparse: true }, // hidden from public listing
   rank: { type: Number },
   telegramId: { type: Number },
+  socials: [
+    {
+      _id: false,
+      type: {
+        type: String,
+        required: true,
+      },
+      url: {
+        type: String,
+        required: true,
+      },
+    },
+  ],
 });
 
 export default mongoose.models.Creators ||
