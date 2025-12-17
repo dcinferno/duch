@@ -1,6 +1,8 @@
 // lib/telegram.js
 
-// --- Helper: Safe fetch with retry ---
+// --------------------------------------------------
+// Helper: Safe fetch with retry
+// --------------------------------------------------
 async function safeFetch(url, options, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -18,33 +20,49 @@ async function safeFetch(url, options, retries = 3) {
   }
 }
 
+// --------------------------------------------------
+// Send Telegram message with thumbnail + button
+// --------------------------------------------------
 export async function sendTelegramMessage(video) {
   const token = process.env.BOT_TOKEN;
   const channelId = process.env.CHANNEL_ID;
-  const redirectUrl = process.env.NEXT_REDIRECT_URL;
-  const trackingUrl = `https://${redirectUrl}/api/redirect?videoId=${video._id}`;
+  const redirectHost = process.env.NEXT_REDIRECT_URL;
+  const publicBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  const CDN = process.env.PUSHR_CDN_URL;
 
-  if (!token || !channelId) {
-    console.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHANNEL_ID");
+  if (!token || !channelId || !redirectHost) {
+    console.error("❌ Missing Telegram env vars");
     return;
   }
-  const CDN = process.env.PUSHR_CDN_URL;
-  console.log(video);
-  const thumbnailUrl = video.thumbnail.startsWith("http")
+
+  const trackingUrl = `https://${redirectHost}/api/redirect?videoId=${video._id}`;
+
+  const thumbnailUrl = video.thumbnail?.startsWith("http")
     ? video.thumbnail
     : `${CDN}${video.thumbnail}`;
-  // Format the message
+
   const escapeHTML = (str = "") =>
     str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  let creatorPageLine = "";
+  if (video.creatorUrlHandle && publicBaseUrl) {
+    const creatorUrl = `${publicBaseUrl.replace(/\/$/, "")}/${
+      video.creatorUrlHandle
+    }`;
+    creatorPageLine = `\n🔗 <a href="${creatorUrl}">Visit Creator Page</a>`;
+  }
 
   const message = `
 <b>${escapeHTML(video.title)}</b>
 
-${escapeHTML(video.description)}
+${escapeHTML(video.description || "")}
 
-👤 <a href="${video.socialMediaUrl}">${escapeHTML(video.creatorName)}</a>
+👤 <a href="${video.socialMediaUrl}">
+${escapeHTML(video.creatorName)}
+</a>${creatorPageLine}
+
 💎 ${video.price === 0 ? "Free" : `$${video.price}`}
-`;
+  `.trim();
 
   const payload = new FormData();
   payload.append("chat_id", channelId);
@@ -65,17 +83,17 @@ ${escapeHTML(video.description)}
     })
   );
 
-  // ⬇️ Fetch and attach image
-  const imageRes = await fetch(thumbnailUrl);
-  if (!imageRes.ok) throw new Error("Failed to fetch thumbnail");
-
+  const imageRes = await safeFetch(thumbnailUrl);
   const buffer = await imageRes.arrayBuffer();
   payload.append("photo", new Blob([buffer]), "thumb.jpg");
 
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-    method: "POST",
-    body: payload,
-  });
+  const res = await safeFetch(
+    `https://api.telegram.org/bot${token}/sendPhoto`,
+    {
+      method: "POST",
+      body: payload,
+    }
+  );
 
   const data = await res.json();
   if (!data.ok) {
