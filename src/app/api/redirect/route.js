@@ -26,8 +26,11 @@ export async function GET(request) {
             totalViews: 1,
             "sources.telegram": 1,
           },
+          $set: {
+            lastViewedAt: new Date(),
+          },
         },
-        { upsert: true, new: true }
+        { upsert: true }
       );
     } catch (err) {
       console.error("Error logging view:", err);
