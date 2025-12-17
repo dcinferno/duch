@@ -15,6 +15,7 @@ export default function VideoGridClient({ videos = [] }) {
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
   const loadMoreRef = useRef(null);
+  const scrollYRef = useRef(0);
 
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
@@ -150,6 +151,7 @@ export default function VideoGridClient({ videos = [] }) {
   // OPEN VIDEO
   // ===============================
   const openVideo = async (index) => {
+    scrollYRef.current = window.scrollY;
     const video = visibleVideos[index];
     if (!video) return;
 
@@ -320,6 +322,12 @@ export default function VideoGridClient({ videos = [] }) {
     router.push("?", { scroll: false });
     setSelectedVideo(null);
     setSelectedVideoIndex(null);
+    requestAnimationFrame(() => {
+      window.scrollTo({
+        top: scrollYRef.current,
+        behavior: "instant", // or "auto"
+      });
+    });
   };
 
   const logVideoViews = async (videoId) => {
