@@ -231,6 +231,14 @@ export default function VideoGridClient({ videos = [] }) {
       openedFromUrlRef.current = false;
       return;
     }
+    useEffect(() => {
+      if (!selectedVideo) return;
+
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }, [selectedVideo]);
 
     // ❌ User manually closed — do NOT reopen anything
     if (closedManuallyRef.current) return;
@@ -771,8 +779,14 @@ export default function VideoGridClient({ videos = [] }) {
 
       {/* MODAL ============================================================ */}
       {selectedVideo && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md relative overflow-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
+          onPointerDown={closeModal}
+        >
+          <div
+            className="bg-white rounded-lg shadow-lg w-full max-w-md relative overflow-auto"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             <button
               onClick={closeModal}
               className="absolute top-2 right-3 text-blue-600 text-2xl hover:text-blue-800"
