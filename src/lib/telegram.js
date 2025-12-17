@@ -21,7 +21,7 @@ async function safeFetch(url, options, retries = 3) {
 export async function sendTelegramMessage(video) {
   const token = process.env.BOT_TOKEN;
   const channelId = process.env.CHANNEL_ID;
-  const redirectUrl = "bestplay-previews.com";
+  const redirectUrl = process.env.NEXT_REDIRECT_URL;
   const trackingUrl = `https://${redirectUrl}/api/redirect?videoId=${video._id}`;
 
   if (!token || !channelId) {
