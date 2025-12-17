@@ -86,7 +86,7 @@ export default function RootLayoutClient({ children }) {
             : ""
         }
       >
-        <SidebarLayout>{children}</SidebarLayout>
+        {children}
       </div>
     </>
   );
