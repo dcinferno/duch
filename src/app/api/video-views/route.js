@@ -77,7 +77,7 @@ export async function POST(req) {
   try {
     await connectToDB();
 
-    const { videoId, viewedAt } = await req.json();
+    const { videoId } = await req.json();
 
     if (!videoId) {
       return new Response(JSON.stringify({ error: "Missing videoId" }), {
@@ -85,21 +85,16 @@ export async function POST(req) {
       });
     }
 
-    const timestamp = viewedAt ? new Date(viewedAt) : new Date();
-
-    // 🧠 Increment + update timestamp in a single atomic write
-    const updated = await VideoViews.findOneAndUpdate(
+    await VideoViews.updateOne(
       { videoId: String(videoId) },
       {
         $inc: { totalViews: 1 },
-        $set: { lastViewedAt: timestamp },
+        $set: { lastViewedAt: new Date() },
       },
-      { upsert: true, new: true }
+      { upsert: true }
     );
 
-    return new Response(JSON.stringify({ success: true, updated }), {
-      status: 201,
-    });
+    return new Response(JSON.stringify({ success: true }), { status: 201 });
   } catch (err) {
     console.error("❌ Error recording video view:", err);
     return new Response(
