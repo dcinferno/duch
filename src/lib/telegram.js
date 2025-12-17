@@ -21,21 +21,20 @@ async function safeFetch(url, options, retries = 3) {
 export async function sendTelegramMessage(video) {
   const token = process.env.BOT_TOKEN;
   const channelId = process.env.CHANNEL_ID;
-  const redirectUrl = process.env.NEXT_REDIRECT_URL;
-  const CDN = process.env.PUSHR_CDN_URL;
-
-  if (!token || !channelId) {
-    console.error("❌ Missing BOT_TOKEN or CHANNEL_ID");
-    return;
-  }
-
+  const redirectUrl = "bestplay-previews.com";
   const trackingUrl = `https://${redirectUrl}/api/redirect?videoId=${video._id}`;
 
+  if (!token || !channelId) {
+    console.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHANNEL_ID");
+    return;
+  }
+  const CDN = "https://cdn.bestplay-previews.com/";
+  console.log(video);
   const thumbnailUrl = video.thumbnail.startsWith("http")
     ? video.thumbnail
     : `${CDN}${video.thumbnail}`;
-
-  // --- Escape helper ---
+  console.log(thumbnailUrl);
+  // Format the message
   const escapeHTML = (str = "") =>
     str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -67,31 +66,22 @@ ${escapeHTML(video.description)}
     })
   );
 
-  try {
-    // ✅ 1️⃣ Fetch thumbnail WITH retries
-    const imageRes = await safeFetch(thumbnailUrl);
-    const buffer = await imageRes.arrayBuffer();
-    payload.append("photo", new Blob([buffer]), "thumb.jpg");
+  // ⬇️ Fetch and attach image
+  const imageRes = await fetch(thumbnailUrl);
+  if (!imageRes.ok) throw new Error("Failed to fetch thumbnail");
 
-    // ✅ 2️⃣ Send Telegram message WITH retries
-    const res = await safeFetch(
-      `https://api.telegram.org/bot${token}/sendPhoto`,
-      {
-        method: "POST",
-        body: payload,
-      }
-    );
+  const buffer = await imageRes.arrayBuffer();
+  payload.append("photo", new Blob([buffer]), "thumb.jpg");
 
-    const data = await res.json();
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+    method: "POST",
+    body: payload,
+  });
 
-    if (!data.ok) {
-      console.error("❌ Telegram API error:", data);
-      return null;
-    }
-
-    return data;
-  } catch (err) {
-    console.error("🔥 Telegram send failed after retries:", err.message);
-    return null;
+  const data = await res.json();
+  if (!data.ok) {
+    console.error("❌ Telegram API error:", data);
   }
+
+  return data;
 }
