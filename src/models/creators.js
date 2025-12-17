@@ -23,6 +23,7 @@ const CreatorSchema = new mongoose.Schema({
       },
     },
   ],
+  pay: { type: Boolean, default: false },
 });
 
 export default mongoose.models.Creators ||

@@ -1,51 +1,56 @@
 "use client";
+
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
 
 export default function VideoGridClient({ videos = [] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // ===============================
+  // STATE / REFS
+  // ===============================
+  const openedFromUrlRef = useRef(false);
+  const videoRefs = useRef({});
+  const loggedVideosRef = useRef(new Set());
+  const loadMoreRef = useRef(null);
+  const scrollYRef = useRef(0);
+
+  const [visibleCount, setVisibleCount] = useState(12);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [loadingVideoId, setLoadingVideoId] = useState(null);
+
+  const [purchasedVideos, setPurchasedVideos] = useState({});
+  const [jonusUnlocked, setJonusUnlocked] = useState({});
+
   const [selectedTags, setSelectedTags] = useState([]);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
+  const [showPaidOnly, setShowPaidOnly] = useState(false);
   const [sortByViews, setSortByViews] = useState(false);
   const [sortByPrice, setSortByPrice] = useState(false);
   const [showJonusOnly, setShowJonusOnly] = useState(false);
-  const [VideoViews, setVideoViews] = useState({});
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
-  const [FFThursday, setFFThursday] = useState(false);
-  const [thursdayFilterOn, setThursdayFilterOn] = useState(false);
-  const [FFWednesday, setFFWednesday] = useState(false);
-  const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
+  const closedManuallyRef = useRef(false);
+  const [VideoViews, setVideoViews] = useState({});
 
-  // 🔒 Jonus unlock state
-  const [jonusUnlocked, setJonusUnlocked] = useState({});
+  const [FFWednesday, setFFWednesday] = useState(false);
+  const [FFThursday, setFFThursday] = useState(false);
+  const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
+  const [thursdayFilterOn, setThursdayFilterOn] = useState(false);
+
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [unlockTargetId, setUnlockTargetId] = useState(null);
 
-  const videoRefs = useRef({});
-  const loggedVideosRef = useRef(new Set());
-  const loadMoreRef = useRef(null);
-
-  const [visibleCount, setVisibleCount] = useState(12);
-
-  // --- Helpers for aggressive video preload ------------------------------
-
-  const preloadVideoLink = (url) => {
-    if (typeof document === "undefined" || !url) return;
-    if (document.querySelector(`link[as="video"][href="${url}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "preload";
-    link.as = "video";
-    link.href = url;
-    document.head.appendChild(link);
-  };
+  // ===============================
+  // HELPERS
+  // ===============================
+  const isPurchased = (videoId) => !!purchasedVideos[videoId];
 
   const aggressivePreload = async (url, maxMB = 8) => {
-    if (typeof window === "undefined" || !url) return;
+    if (!url || typeof window === "undefined") return;
 
     window.__preloadingVideos = window.__preloadingVideos || {};
     if (window.__preloadingVideos[url]) return;
@@ -53,116 +58,78 @@ export default function VideoGridClient({ videos = [] }) {
 
     try {
       const controller = new AbortController();
-      const response = await fetch(url, { signal: controller.signal });
-      const reader = response.body?.getReader();
+      const res = await fetch(url, { signal: controller.signal });
+      const reader = res.body?.getReader();
       if (!reader) return;
 
-      const maxBytes = maxMB * 1024 * 1024;
-      let bytesFetched = 0;
+      let bytes = 0;
+      const limit = maxMB * 1024 * 1024;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done || !value) break;
-        bytesFetched += value.length;
-        if (bytesFetched > maxBytes) {
+        bytes += value.length;
+        if (bytes > limit) {
           controller.abort();
           break;
         }
       }
     } catch {
-      // ignore
     } finally {
       delete window.__preloadingVideos[url];
     }
   };
 
-  // Load unlocks from localStorage
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("jonusUnlocked") || "{}");
-      setJonusUnlocked(saved);
-    } catch {}
-  }, []);
-
-  // Save unlocks to localStorage
-  useEffect(() => {
-    localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
-  }, [jonusUnlocked]);
-
-  // Set weekday flags
-  useEffect(() => {
-    const today = new Date().getDay();
-    setFFWednesday(today === 3);
-    setFFThursday(today === 4);
-  }, []);
-
-  // Format date helper
   const formatDate = (dateInput) => {
     if (!dateInput) return "";
-    const date = dateInput.$date
-      ? new Date(dateInput.$date)
-      : new Date(dateInput);
-    const now = new Date();
-    const diff = now - date;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const d = new Date(dateInput.$date || dateInput);
+    const diff = Date.now() - d;
+    const days = Math.floor(diff / 86400000);
     if (days === 0) return "Today";
     if (days === 1) return "Yesterday";
     if (days <= 7) return `${days} days ago`;
-    return date.toLocaleDateString("en-US", {
+    return d.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
   };
 
-  // 25 Days of Jonus time logic
-  const currentDay = new Date().getUTCDate();
-  const isDecember = new Date().getUTCMonth() + 1 === 12;
-
+  // ===============================
+  // DERIVED DATA (ORDER MATTERS)
+  // ===============================
   const filteredVideos = videos
     .filter((video) => {
-      const matchesTags =
-        selectedTags.length === 0 ||
-        selectedTags.every((tag) => video.tags?.includes(tag));
+      if (
+        selectedTags.length &&
+        !selectedTags.every((t) => video.tags?.includes(t))
+      )
+        return false;
 
-      const matchesPremium = !showPremiumOnly || video.premium;
+      if (showPremiumOnly && !video.premium) return false;
+      if (showPaidOnly && !(video.pay && video.fullKey)) return false;
 
-      const matchesWednesday =
-        !wednesdayFilterOn ||
-        (video.type === "video" && video.tags?.includes("wagon"));
+      if (
+        wednesdayFilterOn &&
+        !(video.type === "video" && video.tags?.includes("wagon"))
+      )
+        return false;
 
-      const matchesThursday =
-        !thursdayFilterOn ||
-        (video.type === "video" &&
-          video.creatorName?.toLowerCase().includes("pudding"));
+      if (
+        thursdayFilterOn &&
+        !video.creatorName?.toLowerCase().includes("pudding")
+      )
+        return false;
 
-      let matchesJonus = true;
-      if (showJonusOnly) {
-        if (!video.tags?.includes("25daysofjonus")) matchesJonus = false;
-        else if (!video.createdAt) matchesJonus = false;
-        else {
-          const d = new Date(video.createdAt);
-          const month = d.getUTCMonth() + 1;
-          const day = d.getUTCDate();
-          if (month !== 12 || day < 1 || day > 25) matchesJonus = false;
-          else if (isDecember && day > currentDay) matchesJonus = false;
-        }
-      }
+      if (showJonusOnly && !video.tags?.includes("25daysofjonus")) return false;
 
-      return (
-        matchesTags &&
-        matchesPremium &&
-        matchesWednesday &&
-        matchesThursday &&
-        matchesJonus
-      );
+      return true;
     })
     .sort(
       (a, b) =>
         new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
     );
 
-  // Sorting
   const videosToRender = (() => {
     if (sortByPrice) {
       return [...filteredVideos].sort((a, b) => {
@@ -180,7 +147,114 @@ export default function VideoGridClient({ videos = [] }) {
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
-  // Infinite scroll
+  // ===============================
+  // OPEN VIDEO
+  // ===============================
+  const openVideo = async (index) => {
+    scrollYRef.current = window.scrollY;
+    const video = visibleVideos[index];
+    if (!video) return;
+
+    if (selectedVideo?._id === video._id) return;
+
+    const isJonusLocked =
+      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
+
+    if (isJonusLocked) {
+      setUnlockTargetId(video._id);
+      setShowPasswordModal(true);
+      return;
+    }
+
+    let urlToPlay = video.url;
+
+    if (isPurchased(video._id)) {
+      try {
+        setLoadingVideoId(video._id);
+        const userId = getOrCreateUserId();
+
+        const res = await fetch("/api/download-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, videoId: video._id }),
+        });
+
+        const data = await res.json();
+        if (!data?.url) throw new Error("No URL returned");
+
+        urlToPlay = data.url;
+      } catch (e) {
+        alert("Failed to load full video");
+        return;
+      } finally {
+        setLoadingVideoId(null);
+      }
+    }
+
+    setSelectedVideo({ ...video, url: urlToPlay });
+    setSelectedVideoIndex(index);
+    router.push(`?video=${video._id}`, { shallow: true });
+  };
+
+  // ===============================
+  // EFFECTS
+  // ===============================
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem("purchasedVideos") || "{}");
+    setPurchasedVideos(saved);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("purchasedVideos", JSON.stringify(purchasedVideos));
+  }, [purchasedVideos]);
+
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem("jonusUnlocked") || "{}");
+    setJonusUnlocked(saved);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
+  }, [jonusUnlocked]);
+
+  useEffect(() => {
+    const day = new Date().getDay();
+    setFFWednesday(day === 3);
+    setFFThursday(day === 4);
+  }, []);
+
+  useEffect(() => {
+    const id = searchParams.get("video");
+
+    // No video in URL → reset flags and STOP
+    if (!id) {
+      openedFromUrlRef.current = false;
+      return;
+    }
+    useEffect(() => {
+      if (!selectedVideo) return;
+
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = "";
+      };
+    }, [selectedVideo]);
+
+    // ❌ User manually closed — do NOT reopen anything
+    if (closedManuallyRef.current) return;
+
+    if (selectedVideo?._id === id) return;
+
+    const idx = visibleVideos.findIndex((v) => v._id === id);
+    if (idx === -1) return;
+
+    openedFromUrlRef.current = true;
+
+    // ⚠️ IMPORTANT: preview only, NEVER fetch full here
+    setSelectedVideo(visibleVideos[idx]);
+    setSelectedVideoIndex(idx);
+  }, [searchParams, visibleVideos, selectedVideo]);
+
   useEffect(() => {
     const ob = new IntersectionObserver(
       (entries) => {
@@ -191,35 +265,79 @@ export default function VideoGridClient({ videos = [] }) {
     if (loadMoreRef.current) ob.observe(loadMoreRef.current);
     return () => ob.disconnect();
   }, []);
+  // ===============================
+  // MISSING HELPERS (FIXES CRASHES)
+  // ===============================
 
-  // Reset pagination on filter change
-  useEffect(() => {
-    setVisibleCount(12);
-  }, [
-    selectedTags,
-    showPremiumOnly,
-    sortByViews,
-    sortByPrice,
-    wednesdayFilterOn,
-    thursdayFilterOn,
-    showJonusOnly,
-  ]);
+  const togglePremium = () => setShowPremiumOnly((p) => !p);
 
-  // Fetch views
-  useEffect(() => {
-    if (videos.length === 0) return;
-    const fetchAll = async () => {
-      try {
-        const ids = videos.map((v) => v._id).join(",");
-        const res = await fetch(`/api/video-views?videoIds=${ids}`);
-        const data = await res.json();
-        setVideoViews(data);
-      } catch {}
-    };
-    fetchAll();
-  }, [videos]);
+  const toggleTag = (tag) =>
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
 
-  // Log video views (only once per session per video)
+  const clearFilters = () => {
+    setSelectedTags([]);
+    setShowPremiumOnly(false);
+    setSortByViews(false);
+    setSortByPrice(false);
+    setWednesdayFilterOn(false);
+    setThursdayFilterOn(false);
+    setShowJonusOnly(false);
+  };
+
+  const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
+
+  const canPay = (video) => video.pay && video.price > 0 && !!video.fullKey;
+
+  const getDisplayPrice = (video) => {
+    let price = video.price;
+
+    if (
+      FFThursday &&
+      video.type === "video" &&
+      video.creatorName?.toLowerCase().includes("pudding")
+    ) {
+      price = +(price * 0.75).toFixed(2);
+    }
+
+    if (
+      FFWednesday &&
+      video.type === "video" &&
+      video.tags?.includes("wagon")
+    ) {
+      price = 13.34;
+    }
+
+    return price;
+  };
+  const openVideoFromUrl = (video, index) => {
+    setSelectedVideo(video);
+    setSelectedVideoIndex(index);
+  };
+
+  const getCheckOutUrl = () => {
+    const isDev = process.env.NODE_ENV === "development";
+    return isDev
+      ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
+      : process.env.NEXT_PUBLIC_SERVER_URL;
+  };
+
+  const closeModal = () => {
+    closedManuallyRef.current = true;
+    openedFromUrlRef.current = false;
+
+    router.push("?", { scroll: false });
+    setSelectedVideo(null);
+    setSelectedVideoIndex(null);
+    requestAnimationFrame(() => {
+      window.scrollTo({
+        top: scrollYRef.current,
+        behavior: "instant", // or "auto"
+      });
+    });
+  };
+
   const logVideoViews = async (videoId) => {
     if (!videoId || loggedVideosRef.current.has(videoId)) return;
     loggedVideosRef.current.add(videoId);
@@ -238,39 +356,6 @@ export default function VideoGridClient({ videos = [] }) {
     } catch {}
   };
 
-  // Auto-open modal if ?video=<id> in URL
-  useEffect(() => {
-    const id = searchParams.get("video");
-    if (!id) return;
-
-    const idx = visibleVideos.findIndex((v) => v._id === id);
-    if (idx === -1) return;
-
-    const video = visibleVideos[idx];
-    const isJonusLocked =
-      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
-
-    if (isJonusLocked) {
-      setUnlockTargetId(video._id);
-      setShowPasswordModal(true);
-      return;
-    }
-
-    setSelectedVideo(video);
-    setSelectedVideoIndex(idx);
-  }, [searchParams, visibleVideos, jonusUnlocked]);
-
-  // Preload next/prev videos when modal open
-  useEffect(() => {
-    if (selectedVideoIndex === null) return;
-    const next = visibleVideos[selectedVideoIndex + 1];
-    const prev = visibleVideos[selectedVideoIndex - 1];
-
-    if (next && next.type === "video") aggressivePreload(next.url, 6);
-    if (prev && prev.type === "video") aggressivePreload(prev.url, 6);
-  }, [selectedVideoIndex, visibleVideos]);
-
-  // Unlock attempt
   const attemptUnlock = async () => {
     const res = await fetch("/api/validate-lock", {
       method: "POST",
@@ -280,8 +365,8 @@ export default function VideoGridClient({ videos = [] }) {
         password: passwordInput,
       }),
     });
-    const data = await res.json();
 
+    const data = await res.json();
     if (data.unlockedUrl) {
       setJonusUnlocked((prev) => ({ ...prev, [unlockTargetId]: true }));
       setShowPasswordModal(false);
@@ -289,52 +374,6 @@ export default function VideoGridClient({ videos = [] }) {
     } else {
       alert("Incorrect password");
     }
-  };
-
-  const openVideo = (index) => {
-    const video = visibleVideos[index];
-    const isJonusLocked =
-      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
-
-    if (isJonusLocked) {
-      setUnlockTargetId(video._id);
-      setShowPasswordModal(true);
-      return;
-    }
-
-    setSelectedVideo(video);
-    setSelectedVideoIndex(index);
-    router.push(`?video=${video._id}`, { shallow: true });
-
-    if (video.type === "video") {
-      preloadVideoLink(video.url);
-      aggressivePreload(video.url, 16);
-    }
-  };
-
-  const closeModal = () => {
-    router.push("?", undefined, { shallow: true });
-    setSelectedVideo(null);
-    setSelectedVideoIndex(null);
-  };
-
-  const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
-
-  const toggleTag = (tag) =>
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-
-  const togglePremium = () => setShowPremiumOnly((p) => !p);
-
-  const clearFilters = () => {
-    setSelectedTags([]);
-    setShowPremiumOnly(false);
-    setSortByPrice(false);
-    setSortByViews(false);
-    setWednesdayFilterOn(false);
-    setThursdayFilterOn(false);
-    setShowJonusOnly(false);
   };
 
   return (
@@ -356,6 +395,16 @@ export default function VideoGridClient({ videos = [] }) {
           }`}
         >
           💎 Featured Only
+        </button>
+        <button
+          onClick={() => setShowPaidOnly((p) => !p)}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            showPaidOnly
+              ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-purple-100"
+          }`}
+        >
+          💰💵 Paid Only
         </button>
 
         {/* MOST VIEWED */}
@@ -438,7 +487,7 @@ export default function VideoGridClient({ videos = [] }) {
           </button>
 
           {showTagsDropdown && (
-            <div className="absolute left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl z-10 p-2">
+            <div className="absolute left-0 mt-2 w-56 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-2">
               {allTags.length === 0 ? (
                 <p className="text-gray-500 text-sm px-2">No tags</p>
               ) : (
@@ -498,7 +547,9 @@ export default function VideoGridClient({ videos = [] }) {
                 ref={(el) => (videoRefs.current[video._id] = el)}
                 className="bg-white shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
                 onMouseEnter={() => {
-                  if (video.type === "video") aggressivePreload(video.url, 8);
+                  if (video.type === "video" && !isPurchased(video._id)) {
+                    aggressivePreload(video.url, 8);
+                  }
                 }}
               >
                 {/* THUMBNAIL */}
@@ -601,12 +652,94 @@ export default function VideoGridClient({ videos = [] }) {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => openVideo(index)}
-                    className="mt-3 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
-                  >
-                    Preview
-                  </button>
+                  {/* ACTION BUTTONS: always show Preview, optionally show Pay */}
+                  {/* ACTION BUTTONS: Preview + (optional) Pay */}
+                  <div className="mt-3 flex flex-col gap-2 w-full">
+                    {isPurchased(video._id) ? (
+                      // ✅ WATCH FULL VIDEO
+                      <button
+                        onClick={() => openVideo(index)}
+                        disabled={loadingVideoId === video._id}
+                        className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition ${
+                          loadingVideoId === video._id
+                            ? "bg-green-400 cursor-not-allowed"
+                            : "bg-green-600 hover:bg-green-700 text-white"
+                        }`}
+                      >
+                        {loadingVideoId === video._id ? (
+                          <>
+                            <svg
+                              className="animate-spin h-4 w-4 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v8H4z"
+                              />
+                            </svg>
+                            Loading…
+                          </>
+                        ) : (
+                          "▶ Watch Full Video"
+                        )}
+                      </button>
+                    ) : (
+                      <>
+                        {/* PREVIEW */}
+                        <button
+                          onClick={() => openVideo(index)}
+                          className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
+                        >
+                          Preview
+                        </button>
+
+                        {/* PAY */}
+
+                        {canPay(video) && (
+                          <button
+                            onClick={async () => {
+                              const userId = getOrCreateUserId();
+                              localStorage.setItem("userId", userId);
+
+                              const payload = {
+                                userId,
+                                videoId: video._id,
+                                creatorName: video.creatorName,
+                                creatorTelegramId:
+                                  video.creatorTelegramId || "", // REQUIRED for tagging
+                                creatorUrl: video.socialMediaUrl || "", // fallback link
+                                site: "A",
+                              };
+
+                              const url = getCheckOutUrl();
+                              const res = await fetch(`${url}/api/checkout`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload),
+                              });
+
+                              const data = await res.json();
+                              if (data.url) window.location.href = data.url;
+                            }}
+                            className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
+                          >
+                            Pay ${getDisplayPrice(video)}
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -646,8 +779,14 @@ export default function VideoGridClient({ videos = [] }) {
 
       {/* MODAL ============================================================ */}
       {selectedVideo && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md relative overflow-auto">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
+          onPointerDown={closeModal}
+        >
+          <div
+            className="bg-white rounded-lg shadow-lg w-full max-w-md relative overflow-auto"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             <button
               onClick={closeModal}
               className="absolute top-2 right-3 text-blue-600 text-2xl hover:text-blue-800"
@@ -660,9 +799,11 @@ export default function VideoGridClient({ videos = [] }) {
 
               {selectedVideo.type === "video" ? (
                 <video
+                  key={selectedVideo.url} // 🚨 REQUIRED
                   src={selectedVideo.url}
                   controls
                   autoPlay
+                  playsInline
                   className="w-full max-h-[300px] rounded mb-4 object-contain"
                   onPlay={() => logVideoViews(selectedVideo._id)}
                 />
