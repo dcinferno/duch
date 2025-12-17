@@ -8,6 +8,9 @@ export default function SidebarLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [creators, setCreators] = useState([]);
 
+  // --------------------------------------------------
+  // Fetch creators once (client-side)
+  // --------------------------------------------------
   useEffect(() => {
     async function fetchCreators() {
       try {
@@ -15,19 +18,35 @@ export default function SidebarLayout({ children }) {
         const data = await res.json();
         setCreators(data);
       } catch (err) {
-        console.error("Failed to load creators", err);
+        console.error("❌ Failed to load creators", err);
       }
     }
     fetchCreators();
   }, []);
 
+  // --------------------------------------------------
+  // Lock body scroll when sidebar is open (mobile UX)
+  // --------------------------------------------------
+  useEffect(() => {
+    if (!sidebarOpen) return;
+
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [sidebarOpen]);
+
   return (
-    <div className="flex h-full w-full">
-      {/* Mobile Hamburger */}
+    <div className="flex h-full w-full relative">
+      {/* ==================================================
+          MOBILE HAMBURGER BUTTON
+         ================================================== */}
       <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="md:hidden fixed top-4 left-4 z-20 bg-white text-black p-2 rounded shadow"
+        onClick={() => setSidebarOpen((o) => !o)}
         aria-label="Toggle sidebar"
+        className="md:hidden fixed top-4 left-4 z-50 bg-white text-black p-2 rounded-md shadow-lg"
       >
         {sidebarOpen ? (
           <XMarkIcon className="h-6 w-6" />
@@ -36,25 +55,38 @@ export default function SidebarLayout({ children }) {
         )}
       </button>
 
-      {/* Sidebar */}
+      {/* ==================================================
+          MOBILE OVERLAY (closes sidebar on tap)
+         ================================================== */}
       <div
-        className={`fixed top-0 left-0 z-30 h-full bg-gray-900 transition-transform transform
-        md:static md:flex md:w-64
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} 
+        className={`fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity duration-200 ${
+          sidebarOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
+        onPointerDown={() => setSidebarOpen(false)}
+      />
+
+      {/* ==================================================
+          SIDEBAR
+         ================================================== */}
+      <aside
+        className={`
+          fixed top-0 left-0 z-50
+          h-dvh w-64
+          bg-gray-900 text-white
+          transform transition-transform duration-300 ease-out
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          md:static md:translate-x-0 md:flex
         `}
+        onPointerDown={(e) => e.stopPropagation()}
       >
-        <Sidebar creators={creators} />
-      </div>
+        <Sidebar creators={creators} onClose={() => setSidebarOpen(false)} />
+      </aside>
 
-      {/* Overlay on mobile */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black opacity-50 z-20 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Main content */}
+      {/* ==================================================
+          MAIN CONTENT
+         ================================================== */}
       <main className="flex-1 min-h-screen p-0">{children}</main>
     </div>
   );
