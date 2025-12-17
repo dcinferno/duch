@@ -28,12 +28,11 @@ export async function sendTelegramMessage(video) {
     console.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHANNEL_ID");
     return;
   }
-  const CDN = "https://cdn.bestplay-previews.com/";
+  const CDN = process.env.PUSHR_CDN_URL;
   console.log(video);
   const thumbnailUrl = video.thumbnail.startsWith("http")
     ? video.thumbnail
     : `${CDN}${video.thumbnail}`;
-  console.log(thumbnailUrl);
   // Format the message
   const escapeHTML = (str = "") =>
     str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
