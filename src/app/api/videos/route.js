@@ -142,8 +142,16 @@ export async function POST(request) {
   try {
     await connectToDB();
 
-    const { title, description, thumbnail, price, creatorName, url, tags } =
-      await request.json();
+    const {
+      title,
+      description,
+      thumbnail,
+      price,
+      creatorName,
+      url,
+      tags,
+      fullKey,
+    } = await request.json();
 
     let normalizedUrl = url;
     try {
@@ -161,16 +169,17 @@ export async function POST(request) {
       return Response.json({ error: "Creator not found" }, { status: 400 });
     }
 
-    const socialMediaUrl = creator.socialMediaUrl;
+    const socialMediaUrl = creator.url;
 
     const video = await Videos.create({
       title,
       description,
       thumbnail,
-      price,
+      price: Number(price),
       creatorName: creator.name,
       socialMediaUrl,
       url: normalizedUrl,
+      fullKey: fullKey || null,
       tags,
     });
 
