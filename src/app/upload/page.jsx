@@ -16,7 +16,7 @@ function slugify(name) {
 function generateFullVideoFileName(title, creatorName, file) {
   const creatorSlug = slugify(creatorName);
   const titleSlug = slugify(title);
-  const ext = file.name.split(".").pop();
+  const ext = file?.name?.split(".").pop() || "mp4";
   return `${creatorSlug}/${titleSlug}-${Date.now()}.${ext}`;
 }
 
@@ -31,7 +31,7 @@ export default function UploadPage() {
   const [creatorName, setCreatorName] = useState("");
   const [socialMediaUrl, setSocialMediaUrl] = useState("");
   const [videoFile, setVideoFile] = useState(null); // preview
-  const [fullVideoFile, setFullVideoFile] = useState(null); // 🆕 full
+  const [fullVideoFile, setFullVideoFile] = useState(null); // full
   const [videoProgress, setVideoProgress] = useState(0);
   const [thumbnailProgress, setThumbnailProgress] = useState(0);
   const [fullProgress, setFullProgress] = useState(0);
@@ -40,6 +40,7 @@ export default function UploadPage() {
   const [secretKey, setSecretKey] = useState("");
   const [videoUrl, setVideoUrl] = useState(null);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
+  const [fullKey, setFullKey] = useState(null); // ✅ REQUIRED
   const [successMessage, setSuccessMessage] = useState("");
   const [tags, setTags] = useState("");
   const [customThumbnailFile, setCustomThumbnailFile] = useState(null);
@@ -63,21 +64,29 @@ export default function UploadPage() {
   --------------------------------- */
   const generateThumbnail = (file) =>
     new Promise((resolve, reject) => {
+      if (!file) return reject(new Error("No video file"));
+
       const video = document.createElement("video");
       video.src = URL.createObjectURL(file);
       video.currentTime = 3;
 
       video.onseeked = () => {
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 360;
         canvas
           .getContext("2d")
           .drawImage(video, 0, 0, canvas.width, canvas.height);
 
         canvas.toBlob(
           (blob) =>
-            resolve(new File([blob], "thumbnail.jpg", { type: "image/jpeg" })),
+            blob
+              ? resolve(
+                  new File([blob], "thumbnail.jpg", {
+                    type: "image/jpeg",
+                  })
+                )
+              : reject(new Error("Thumbnail generation failed")),
           "image/jpeg"
         );
       };
@@ -89,6 +98,8 @@ export default function UploadPage() {
      Upload → PUSHR (preview + thumb)
   --------------------------------- */
   const uploadToPushr = async (file, folder, setProgress) => {
+    if (!file) throw new Error("Missing file");
+
     const res = await fetch("/api/uploadUrl", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -100,29 +111,34 @@ export default function UploadPage() {
       }),
     });
 
-    const { uploadUrl, publicUrl } = await res.json();
-    if (!uploadUrl) throw new Error("Failed to init Pushr upload");
+    const data = await res.json();
+    if (!res.ok || !data.uploadUrl) {
+      throw new Error(data?.error || "Pushr init failed");
+    }
 
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.upload.onprogress = (e) =>
         e.lengthComputable &&
+        typeof setProgress === "function" &&
         setProgress(Math.round((e.loaded / e.total) * 100));
       xhr.onload = () =>
         xhr.status < 300 ? resolve() : reject(xhr.responseText);
       xhr.onerror = reject;
-      xhr.open("PUT", uploadUrl);
+      xhr.open("PUT", data.uploadUrl);
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
     });
 
-    return publicUrl;
+    return data.publicUrl;
   };
 
   /* ---------------------------------
      Upload → Bunny (full video)
   --------------------------------- */
   const uploadToBunny = async (file, fullPath) => {
+    if (!file) throw new Error("Missing full video file");
+
     const res = await fetch("/api/bunny-upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -133,8 +149,10 @@ export default function UploadPage() {
       }),
     });
 
-    const { uploadUrl, headers, key } = await res.json();
-    if (!uploadUrl) throw new Error("Failed to init Bunny upload");
+    const data = await res.json();
+    if (!res.ok || !data.uploadUrl) {
+      throw new Error(data?.error || "Bunny init failed");
+    }
 
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -144,12 +162,14 @@ export default function UploadPage() {
       xhr.onload = () =>
         xhr.status < 300 ? resolve() : reject(xhr.responseText);
       xhr.onerror = reject;
-      xhr.open("PUT", uploadUrl);
-      Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      xhr.open("PUT", data.uploadUrl);
+      Object.entries(data.headers || {}).forEach(([k, v]) =>
+        xhr.setRequestHeader(k, v)
+      );
       xhr.send(file);
     });
 
-    return key;
+    return data.key;
   };
 
   /* ---------------------------------
@@ -157,6 +177,8 @@ export default function UploadPage() {
   --------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!videoFile || !creatorName || !secretKey) return;
+
     setSubmitting(true);
 
     try {
@@ -180,14 +202,15 @@ export default function UploadPage() {
       );
       setVideoUrl(previewUrl);
 
-      let fullKey = null;
+      let fullKeyValue = null;
       if (creator?.pay && fullVideoFile) {
         const fullPath = generateFullVideoFileName(
           title,
           creatorName,
           fullVideoFile
         );
-        fullKey = await uploadToBunny(fullVideoFile, fullPath);
+        fullKeyValue = await uploadToBunny(fullVideoFile, fullPath);
+        setFullKey(fullKeyValue);
       }
 
       await fetch("/api/videos", {
@@ -198,10 +221,10 @@ export default function UploadPage() {
           description,
           price,
           creatorName,
-          socialMediaUrl: socialMediaUrl || creator?.url, // ✅ keep creator.url
+          socialMediaUrl: socialMediaUrl || creator?.url || "",
           thumbnail: thumbUrl,
           url: previewUrl,
-          fullKey,
+          fullKey: fullKeyValue,
           tags: tags
             .split(",")
             .map((t) => t.trim())
@@ -211,14 +234,12 @@ export default function UploadPage() {
 
       setSuccessMessage("✅ Upload successful!");
     } catch (err) {
-      console.error(err);
+      console.error("❌ Upload failed:", err);
       alert("Upload failed — see console");
     } finally {
       setSubmitting(false);
     }
   };
-
-  const selectedCreator = creators.find((c) => c.name === creatorName);
 
   /* ---------------------------------
      UI
@@ -255,12 +276,11 @@ export default function UploadPage() {
           type="number"
           placeholder="Price"
           value={price}
-          onChange={(e) => setPrice(e.target.value)}
+          onChange={(e) => setPrice(Number(e.target.value))}
           className="w-full p-3 border rounded"
           min={0}
         />
 
-        {/* Creator Dropdown */}
         <select
           value={creatorName}
           onChange={(e) => setCreatorName(e.target.value)}
@@ -275,87 +295,67 @@ export default function UploadPage() {
           ))}
         </select>
 
-        {/* Tags */}
         <input
           type="text"
-          placeholder="Enter tags separated by commas"
+          placeholder="Tags (comma separated)"
           value={tags}
           onChange={(e) => setTags(e.target.value.toLowerCase())}
           className="w-full p-3 border rounded"
         />
 
-        {/* Preview Video (Pushr) */}
-        <div>
-          <span className="block mb-1 font-medium">Preview Video</span>
-          <input
-            type="file"
-            accept="video/*"
-            ref={videoInputRef}
-            className="hidden"
-            onChange={(e) => setVideoFile(e.target.files[0])}
-          />
-          <button
-            type="button"
-            onClick={() => videoInputRef.current?.click()}
-            className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 transition"
-          >
-            {videoFile ? videoFile.name : "Select Preview Video"}
-          </button>
-        </div>
+        {/* Preview */}
+        <button
+          type="button"
+          onClick={() => videoInputRef.current?.click()}
+          className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 transition"
+        >
+          {videoFile ? videoFile.name : "Select Preview Video"}
+        </button>
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          hidden
+          onChange={(e) => setVideoFile(e.target.files[0] || null)}
+        />
 
-        {/* Full Video (Bunny) */}
-        <div>
-          <span className="block mb-1 font-medium">
-            Full Video (Paid / Bunny)
-          </span>
-          <input
-            type="file"
-            accept="video/*"
-            ref={fullVideoInputRef}
-            className="hidden"
-            onChange={(e) => setFullVideoFile(e.target.files[0])}
-          />
-          <button
-            type="button"
-            onClick={() => fullVideoInputRef.current?.click()}
-            className="w-full bg-purple-600 text-white py-3 rounded hover:bg-purple-700 transition"
-          >
-            {fullVideoFile
-              ? fullVideoFile.name
-              : "Upload Full Video (Optional)"}
-          </button>
-        </div>
+        {/* Full */}
+        <button
+          type="button"
+          onClick={() => fullVideoInputRef.current?.click()}
+          className="w-full bg-purple-600 text-white py-3 rounded hover:bg-purple-700 transition"
+        >
+          {fullVideoFile ? fullVideoFile.name : "Upload Full Video (Optional)"}
+        </button>
+        <input
+          ref={fullVideoInputRef}
+          type="file"
+          accept="video/*"
+          hidden
+          onChange={(e) => setFullVideoFile(e.target.files[0] || null)}
+        />
 
         {/* Thumbnail */}
-        <div>
-          <span className="block mb-1 font-medium">Thumbnail (Optional)</span>
-          <input
-            type="file"
-            accept="image/*"
-            ref={customThumbnailInputRef}
-            className="hidden"
-            onChange={(e) => setCustomThumbnailFile(e.target.files[0])}
-          />
-          <button
-            type="button"
-            onClick={() => customThumbnailInputRef.current?.click()}
-            className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition"
-          >
-            {customThumbnailFile
-              ? customThumbnailFile.name
-              : "Upload Thumbnail (Optional)"}
-          </button>
-
-          {customThumbnailFile && (
-            <p className="text-sm mt-2 text-green-700">
-              Custom thumbnail selected — automatic screenshot disabled.
-            </p>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => customThumbnailInputRef.current?.click()}
+          className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition"
+        >
+          {customThumbnailFile
+            ? customThumbnailFile.name
+            : "Upload Thumbnail (Optional)"}
+        </button>
+        <input
+          ref={customThumbnailInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => setCustomThumbnailFile(e.target.files[0] || null)}
+        />
 
         {/* Progress Bars */}
         {thumbnailProgress > 0 && (
-          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
+          <div className="w-full bg-gray-200 h-2 rounded">
             <div
               className="bg-blue-600 h-2"
               style={{ width: `${thumbnailProgress}%` }}
@@ -364,7 +364,7 @@ export default function UploadPage() {
         )}
 
         {videoProgress > 0 && (
-          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
+          <div className="w-full bg-gray-200 h-2 rounded">
             <div
               className="bg-green-600 h-2"
               style={{ width: `${videoProgress}%` }}
@@ -373,7 +373,7 @@ export default function UploadPage() {
         )}
 
         {fullProgress > 0 && (
-          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
+          <div className="w-full bg-gray-200 h-2 rounded">
             <div
               className="bg-purple-600 h-2"
               style={{ width: `${fullProgress}%` }}
@@ -381,10 +381,9 @@ export default function UploadPage() {
           </div>
         )}
 
-        {/* URLs */}
         {thumbnailUrl && (
-          <p className="text-sm text-gray-700 break-all">
-            <strong>Thumbnail:</strong>
+          <p className="text-sm break-all">
+            <strong>Thumbnail:</strong>{" "}
             <a
               href={thumbnailUrl}
               target="_blank"
@@ -397,8 +396,8 @@ export default function UploadPage() {
         )}
 
         {videoUrl && (
-          <p className="text-sm text-gray-700 break-all">
-            <strong>Preview:</strong>
+          <p className="text-sm break-all">
+            <strong>Preview:</strong>{" "}
             <a
               href={videoUrl}
               target="_blank"
@@ -410,9 +409,9 @@ export default function UploadPage() {
           </p>
         )}
 
-        {fullKey && (
-          <p className="text-sm text-gray-700 break-all">
-            <strong>Full Video Key:</strong>
+        {typeof fullKey === "string" && (
+          <p className="text-sm break-all">
+            <strong>Full Video Key:</strong>{" "}
             <span className="font-mono">{fullKey}</span>
           </p>
         )}
