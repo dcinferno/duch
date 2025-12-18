@@ -228,7 +228,7 @@ export default function UploadPage() {
       <h1 className="text-2xl font-bold mb-6">Upload Video</h1>
 
       {successMessage && (
-        <div className="p-3 mb-4 bg-green-100 border border-green-400 text-green-800 rounded">
+        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-800 rounded">
           {successMessage}
         </div>
       )}
@@ -237,119 +237,199 @@ export default function UploadPage() {
         <input
           type="text"
           placeholder="Title"
-          className="w-full p-3 border rounded"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          className="w-full p-3 border rounded"
           required
         />
 
         <textarea
           placeholder="Description"
-          className="w-full p-3 border rounded"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          className="w-full p-3 border rounded"
           required
         />
 
         <input
           type="number"
           placeholder="Price"
-          className="w-full p-3 border rounded"
           value={price}
-          onChange={(e) => setPrice(Number(e.target.value))}
+          onChange={(e) => setPrice(e.target.value)}
+          className="w-full p-3 border rounded"
           min={0}
         />
 
+        {/* Creator Dropdown */}
         <select
-          className="w-full p-3 border rounded"
           value={creatorName}
           onChange={(e) => setCreatorName(e.target.value)}
+          className="w-full p-3 border rounded"
           required
         >
           <option value="">Select creator</option>
           {creators.map((c) => (
             <option key={c._id} value={c.name}>
-              {c.name} {c.pay ? "💰" : ""}
+              {c.name}
             </option>
           ))}
         </select>
 
+        {/* Tags */}
         <input
           type="text"
-          placeholder="Tags (comma separated)"
-          className="w-full p-3 border rounded"
+          placeholder="Enter tags separated by commas"
           value={tags}
           onChange={(e) => setTags(e.target.value.toLowerCase())}
+          className="w-full p-3 border rounded"
         />
 
-        {/* Preview */}
-        <button
-          type="button"
-          onClick={() => previewInputRef.current.click()}
-          className="w-full bg-green-600 text-white p-3 rounded"
-        >
-          {previewFile ? previewFile.name : "Select Preview Video"}
-        </button>
-        <ProgressBar value={previewProgress} />
-        <input
-          type="file"
-          accept="video/*"
-          ref={previewInputRef}
-          hidden
-          onChange={(e) => setPreviewFile(e.target.files[0])}
-        />
+        {/* Preview Video (Pushr) */}
+        <div>
+          <span className="block mb-1 font-medium">Preview Video</span>
+          <input
+            type="file"
+            accept="video/*"
+            ref={videoInputRef}
+            className="hidden"
+            onChange={(e) => setVideoFile(e.target.files[0])}
+          />
+          <button
+            type="button"
+            onClick={() => videoInputRef.current?.click()}
+            className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 transition"
+          >
+            {videoFile ? videoFile.name : "Select Preview Video"}
+          </button>
+        </div>
 
-        {/* Full */}
-        {selectedCreator?.pay && (
-          <>
-            <button
-              type="button"
-              onClick={() => fullInputRef.current.click()}
-              className="w-full bg-purple-600 text-white p-3 rounded"
-            >
-              {fullFile ? fullFile.name : "Upload Full Video (Optional)"}
-            </button>
-            <ProgressBar value={fullProgress} />
-            <input
-              type="file"
-              accept="video/*"
-              ref={fullInputRef}
-              hidden
-              onChange={(e) => setFullFile(e.target.files[0])}
-            />
-          </>
-        )}
+        {/* Full Video (Bunny) */}
+        <div>
+          <span className="block mb-1 font-medium">
+            Full Video (Paid / Bunny)
+          </span>
+          <input
+            type="file"
+            accept="video/*"
+            ref={fullVideoInputRef}
+            className="hidden"
+            onChange={(e) => setFullVideoFile(e.target.files[0])}
+          />
+          <button
+            type="button"
+            onClick={() => fullVideoInputRef.current?.click()}
+            className="w-full bg-purple-600 text-white py-3 rounded hover:bg-purple-700 transition"
+          >
+            {fullVideoFile
+              ? fullVideoFile.name
+              : "Upload Full Video (Optional)"}
+          </button>
+        </div>
 
         {/* Thumbnail */}
-        <button
-          type="button"
-          onClick={() => thumbInputRef.current.click()}
-          className="w-full bg-blue-600 text-white p-3 rounded"
-        >
-          {customThumb ? customThumb.name : "Upload Custom Thumbnail"}
-        </button>
-        <ProgressBar value={thumbProgress} />
-        <input
-          type="file"
-          accept="image/*"
-          ref={thumbInputRef}
-          hidden
-          onChange={(e) => setCustomThumb(e.target.files[0])}
-        />
+        <div>
+          <span className="block mb-1 font-medium">Thumbnail (Optional)</span>
+          <input
+            type="file"
+            accept="image/*"
+            ref={customThumbnailInputRef}
+            className="hidden"
+            onChange={(e) => setCustomThumbnailFile(e.target.files[0])}
+          />
+          <button
+            type="button"
+            onClick={() => customThumbnailInputRef.current?.click()}
+            className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition"
+          >
+            {customThumbnailFile
+              ? customThumbnailFile.name
+              : "Upload Thumbnail (Optional)"}
+          </button>
+
+          {customThumbnailFile && (
+            <p className="text-sm mt-2 text-green-700">
+              Custom thumbnail selected — automatic screenshot disabled.
+            </p>
+          )}
+        </div>
+
+        {/* Progress Bars */}
+        {thumbnailProgress > 0 && (
+          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
+            <div
+              className="bg-blue-600 h-2"
+              style={{ width: `${thumbnailProgress}%` }}
+            />
+          </div>
+        )}
+
+        {videoProgress > 0 && (
+          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
+            <div
+              className="bg-green-600 h-2"
+              style={{ width: `${videoProgress}%` }}
+            />
+          </div>
+        )}
+
+        {fullProgress > 0 && (
+          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
+            <div
+              className="bg-purple-600 h-2"
+              style={{ width: `${fullProgress}%` }}
+            />
+          </div>
+        )}
+
+        {/* URLs */}
+        {thumbnailUrl && (
+          <p className="text-sm text-gray-700 break-all">
+            <strong>Thumbnail:</strong>
+            <a
+              href={thumbnailUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-700 underline"
+            >
+              {thumbnailUrl}
+            </a>
+          </p>
+        )}
+
+        {videoUrl && (
+          <p className="text-sm text-gray-700 break-all">
+            <strong>Preview:</strong>
+            <a
+              href={videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-700 underline"
+            >
+              {videoUrl}
+            </a>
+          </p>
+        )}
+
+        {fullKey && (
+          <p className="text-sm text-gray-700 break-all">
+            <strong>Full Video Key:</strong>
+            <span className="font-mono">{fullKey}</span>
+          </p>
+        )}
 
         <input
           type="text"
           placeholder="Secret Key"
-          className="w-full p-3 border rounded"
           value={secretKey}
           onChange={(e) => setSecretKey(e.target.value)}
+          className="w-full p-3 border rounded"
           required
         />
 
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-green-700 text-white p-3 rounded"
+          className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 transition"
         >
           {submitting ? "Uploading..." : "Upload"}
         </button>
