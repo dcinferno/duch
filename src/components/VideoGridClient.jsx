@@ -200,6 +200,14 @@ export default function VideoGridClient({ videos = [] }) {
   // EFFECTS
   // ===============================
   useEffect(() => {
+    if (!selectedVideo) return;
+
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [selectedVideo]);
+  useEffect(() => {
     const saved = JSON.parse(localStorage.getItem("purchasedVideos") || "{}");
     setPurchasedVideos(saved);
   }, []);
@@ -231,14 +239,6 @@ export default function VideoGridClient({ videos = [] }) {
       openedFromUrlRef.current = false;
       return;
     }
-    useEffect(() => {
-      if (!selectedVideo) return;
-
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = "";
-      };
-    }, [selectedVideo]);
 
     // ❌ User manually closed — do NOT reopen anything
     if (closedManuallyRef.current) return;
