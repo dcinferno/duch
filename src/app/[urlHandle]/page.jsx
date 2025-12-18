@@ -31,7 +31,8 @@ export default function CreatorPage() {
     instagram: { icon: SiInstagram, label: "Instagram" },
     linktree: { icon: SiLinktree, label: "Linktree" },
     reddit: { icon: SiReddit, label: "Reddit" },
-    beacons: { icon: FiLink, label: "Links" },
+    beacons: { icon: FiLink, label: "Beacons.ai" },
+    allmylinks: { icon: FiLink, label: "AllMyLinks" },
   };
 
   useEffect(() => {
