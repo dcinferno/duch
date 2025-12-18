@@ -4,6 +4,24 @@ import Creators from "../../../models/creators.js";
 import { sendTelegramMessage } from "../../../lib/telegram.js";
 const CDN = process.env.CDN_URL || "";
 
+function normalizePath(input) {
+  if (!input) return input;
+
+  // If full URL, strip to pathname
+  if (input.startsWith("http")) {
+    try {
+      return new URL(input).pathname;
+    } catch {
+      return input;
+    }
+  }
+
+  return input;
+}
+function normalizeFullKey(key) {
+  if (!key) return null;
+  return key.startsWith("/") ? key : `/${key}`;
+}
 function withCDN(path) {
   if (!path || !CDN) return path;
 
@@ -153,13 +171,6 @@ export async function POST(request) {
       fullKey,
     } = await request.json();
 
-    let normalizedUrl = url;
-    try {
-      normalizedUrl = new URL(url).pathname;
-    } catch {
-      // if it's already a pathname, leave it alone
-    }
-
     const normalizedName = creatorName.trim();
     const creator = await Creators.findOne({
       name: new RegExp(`^${normalizedName}$`, "i"),
@@ -174,12 +185,12 @@ export async function POST(request) {
     const video = await Videos.create({
       title,
       description,
-      thumbnail,
+      thumbnail: normalizePath(thumbnail),
       price: Number(price),
       creatorName: creator.name,
       socialMediaUrl,
-      url: normalizedUrl,
-      fullKey: fullKey || null,
+      url: normalizePath(normalizedUrl),
+      fullKey: normalizeFullKey(fullKey),
       tags,
     });
 
