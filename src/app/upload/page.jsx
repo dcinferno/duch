@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 
+/* ---------------------------------
+   Helpers
+--------------------------------- */
 function slugify(name) {
   return name
     .toLowerCase()
@@ -16,10 +19,25 @@ function generateFullVideoFileName(title, creatorName, originalFile) {
   const ext = originalFile.name.split(".").pop();
   const timestamp = Date.now();
 
-  // 🔒 Full videos live under /{creatorSlug}/
   return `${creatorSlug}/${titleSlug}-${timestamp}.${ext}`;
 }
 
+function ProgressBar({ value }) {
+  if (!value || value <= 0) return null;
+
+  return (
+    <div className="w-full bg-gray-200 rounded h-2 mt-2">
+      <div
+        className="bg-green-600 h-2 rounded transition-all"
+        style={{ width: `${value}%` }}
+      />
+    </div>
+  );
+}
+
+/* ---------------------------------
+   Component
+--------------------------------- */
 export default function UploadPage() {
   // --- State ---
   const [title, setTitle] = useState("");
@@ -53,7 +71,9 @@ export default function UploadPage() {
   const thumbInputRef = useRef(null);
   const fullInputRef = useRef(null);
 
-  // Fetch creators
+  /* ---------------------------------
+     Fetch creators
+  --------------------------------- */
   useEffect(() => {
     async function fetchCreators() {
       try {
@@ -67,7 +87,9 @@ export default function UploadPage() {
     fetchCreators();
   }, []);
 
-  // Generate thumbnail from preview video
+  /* ---------------------------------
+     Generate thumbnail
+  --------------------------------- */
   const generateThumbnail = (file) =>
     new Promise((resolve, reject) => {
       const video = document.createElement("video");
@@ -91,7 +113,9 @@ export default function UploadPage() {
       video.onerror = reject;
     });
 
-  // Upload helper (presigned PUT)
+  /* ---------------------------------
+     Upload helper (Pushr)
+  --------------------------------- */
   const uploadToPresigned = async (file, options, setProgress) => {
     const res = await fetch("/api/uploadUrl", {
       method: "POST",
@@ -100,7 +124,7 @@ export default function UploadPage() {
         secret: secretKey,
         fileName: file.name,
         contentType: file.type,
-        ...options, // type + folder OR customKey
+        ...options,
       }),
     });
 
@@ -109,14 +133,17 @@ export default function UploadPage() {
 
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener("progress", (e) => {
+
+      xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
           setProgress(Math.round((e.loaded / e.total) * 100));
         }
-      });
+      };
+
       xhr.onload = () =>
         xhr.status < 300 ? resolve() : reject(xhr.responseText);
       xhr.onerror = reject;
+
       xhr.open("PUT", uploadUrl);
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
@@ -125,6 +152,9 @@ export default function UploadPage() {
     return { publicUrl, key };
   };
 
+  /* ---------------------------------
+     Reset form
+  --------------------------------- */
   const resetForm = () => {
     setTitle("");
     setDescription("");
@@ -152,6 +182,9 @@ export default function UploadPage() {
     if (fullInputRef.current) fullInputRef.current.value = "";
   };
 
+  /* ---------------------------------
+     Submit
+  --------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!previewFile) return alert("Preview video required.");
@@ -166,28 +199,21 @@ export default function UploadPage() {
       const thumbFile = customThumb || (await generateThumbnail(previewFile));
       const thumbUpload = await uploadToPresigned(
         thumbFile,
-        {
-          type: "thumbnail",
-          folder: `${creatorSlug}/thumbnails`,
-        },
+        { type: "thumbnail", folder: `${creatorSlug}/thumbnails` },
         setThumbProgress
       );
       setThumbUrl(thumbUpload.publicUrl);
 
-      // 2️⃣ Preview video
+      // 2️⃣ Preview
       const previewUpload = await uploadToPresigned(
         previewFile,
-        {
-          type: "preview",
-          folder: `${creatorSlug}/videos`,
-        },
+        { type: "preview", folder: `${creatorSlug}/videos` },
         setPreviewProgress
       );
       setPreviewUrl(previewUpload.publicUrl);
 
-      // 3️⃣ Full video (secure, optional)
+      // 3️⃣ Full (optional)
       let fullKeyValue = null;
-
       if (creator?.pay && fullFile) {
         const fullPath = generateFullVideoFileName(
           title,
@@ -197,10 +223,7 @@ export default function UploadPage() {
 
         const fullUpload = await uploadToPresigned(
           fullFile,
-          {
-            type: "full",
-            customKey: fullPath,
-          },
+          { type: "full", customKey: fullPath },
           setFullProgress
         );
 
@@ -222,7 +245,7 @@ export default function UploadPage() {
           description,
           price,
           creatorName,
-          socialMediaUrl: socialMediaUrl || creator?.socialMediaUrl,
+          socialMediaUrl: creator.url, // ✅ leave as requested
           thumbnail: thumbUpload.publicUrl,
           url: previewUpload.publicUrl,
           fullKey: fullKeyValue,
@@ -243,6 +266,9 @@ export default function UploadPage() {
 
   const selectedCreator = creators.find((c) => c.name === creatorName);
 
+  /* ---------------------------------
+     UI
+  --------------------------------- */
   return (
     <div className="max-w-xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">Upload Video</h1>
@@ -305,11 +331,12 @@ export default function UploadPage() {
         {/* Preview */}
         <button
           type="button"
-          onClick={() => previewInputRef.current?.click()}
+          onClick={() => previewInputRef.current.click()}
           className="w-full bg-green-600 text-white p-3 rounded"
         >
           {previewFile ? previewFile.name : "Select Preview Video"}
         </button>
+        <ProgressBar value={previewProgress} />
         <input
           type="file"
           accept="video/*"
@@ -318,16 +345,17 @@ export default function UploadPage() {
           onChange={(e) => setPreviewFile(e.target.files[0])}
         />
 
-        {/* Full (secure) */}
+        {/* Full */}
         {selectedCreator?.pay && (
           <>
             <button
               type="button"
-              onClick={() => fullInputRef.current?.click()}
+              onClick={() => fullInputRef.current.click()}
               className="w-full bg-purple-600 text-white p-3 rounded"
             >
               {fullFile ? fullFile.name : "Upload Full Video (Optional)"}
             </button>
+            <ProgressBar value={fullProgress} />
             <input
               type="file"
               accept="video/*"
@@ -341,11 +369,12 @@ export default function UploadPage() {
         {/* Thumbnail */}
         <button
           type="button"
-          onClick={() => thumbInputRef.current?.click()}
+          onClick={() => thumbInputRef.current.click()}
           className="w-full bg-blue-600 text-white p-3 rounded"
         >
           {customThumb ? customThumb.name : "Upload Custom Thumbnail"}
         </button>
+        <ProgressBar value={thumbProgress} />
         <input
           type="file"
           accept="image/*"
