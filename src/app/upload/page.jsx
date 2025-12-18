@@ -13,26 +13,11 @@ function slugify(name) {
     .replace(/[^\w-]/g, "");
 }
 
-function generateFullVideoFileName(title, creatorName, originalFile) {
+function generateFullVideoFileName(title, creatorName, file) {
   const creatorSlug = slugify(creatorName);
   const titleSlug = slugify(title);
-  const ext = originalFile.name.split(".").pop();
-  const timestamp = Date.now();
-
-  return `${creatorSlug}/${titleSlug}-${timestamp}.${ext}`;
-}
-
-function ProgressBar({ value }) {
-  if (!value || value <= 0) return null;
-
-  return (
-    <div className="w-full bg-gray-200 rounded h-2 mt-2">
-      <div
-        className="bg-green-600 h-2 rounded transition-all"
-        style={{ width: `${value}%` }}
-      />
-    </div>
-  );
+  const ext = file.name.split(".").pop();
+  return `${creatorSlug}/${titleSlug}-${Date.now()}.${ext}`;
 }
 
 /* ---------------------------------
@@ -43,48 +28,34 @@ export default function UploadPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState(0);
-
   const [creatorName, setCreatorName] = useState("");
-  const [creators, setCreators] = useState([]);
-
   const [socialMediaUrl, setSocialMediaUrl] = useState("");
-  const [tags, setTags] = useState("");
-
-  const [previewFile, setPreviewFile] = useState(null);
-  const [fullFile, setFullFile] = useState(null);
-  const [customThumb, setCustomThumb] = useState(null);
-
-  const [previewProgress, setPreviewProgress] = useState(0);
-  const [thumbProgress, setThumbProgress] = useState(0);
+  const [videoFile, setVideoFile] = useState(null); // preview
+  const [fullVideoFile, setFullVideoFile] = useState(null); // 🆕 full
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [thumbnailProgress, setThumbnailProgress] = useState(0);
   const [fullProgress, setFullProgress] = useState(0);
-
-  const [secretKey, setSecretKey] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [thumbUrl, setThumbUrl] = useState(null);
-  const [fullKey, setFullKey] = useState(null);
-
+  const [creators, setCreators] = useState([]);
+  const [secretKey, setSecretKey] = useState("");
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const [tags, setTags] = useState("");
+  const [customThumbnailFile, setCustomThumbnailFile] = useState(null);
 
-  const previewInputRef = useRef(null);
-  const thumbInputRef = useRef(null);
-  const fullInputRef = useRef(null);
+  const videoInputRef = useRef(null);
+  const fullVideoInputRef = useRef(null);
+  const customThumbnailInputRef = useRef(null);
 
   /* ---------------------------------
      Fetch creators
   --------------------------------- */
   useEffect(() => {
-    async function fetchCreators() {
-      try {
-        const res = await fetch("/api/creators");
-        const data = await res.json();
-        setCreators(data);
-      } catch (err) {
-        console.error("Failed to fetch creators", err);
-      }
-    }
-    fetchCreators();
+    fetch("/api/creators")
+      .then((r) => r.json())
+      .then(setCreators)
+      .catch(console.error);
   }, []);
 
   /* ---------------------------------
@@ -100,12 +71,13 @@ export default function UploadPage() {
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas
+          .getContext("2d")
+          .drawImage(video, 0, 0, canvas.width, canvas.height);
 
         canvas.toBlob(
           (blob) =>
-            resolve(new File([blob], "thumb.jpg", { type: "image/jpeg" })),
+            resolve(new File([blob], "thumbnail.jpg", { type: "image/jpeg" })),
           "image/jpeg"
         );
       };
@@ -114,9 +86,9 @@ export default function UploadPage() {
     });
 
   /* ---------------------------------
-     Upload helper (Pushr)
+     Upload → PUSHR (preview + thumb)
   --------------------------------- */
-  const uploadToPresigned = async (file, options, setProgress) => {
+  const uploadToPushr = async (file, folder, setProgress) => {
     const res = await fetch("/api/uploadUrl", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -124,62 +96,60 @@ export default function UploadPage() {
         secret: secretKey,
         fileName: file.name,
         contentType: file.type,
-        ...options,
+        folder,
       }),
     });
 
-    const { uploadUrl, publicUrl, key } = await res.json();
-    if (!uploadUrl) throw new Error("Failed to get upload URL");
+    const { uploadUrl, publicUrl } = await res.json();
+    if (!uploadUrl) throw new Error("Failed to init Pushr upload");
 
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          setProgress(Math.round((e.loaded / e.total) * 100));
-        }
-      };
-
+      xhr.upload.onprogress = (e) =>
+        e.lengthComputable &&
+        setProgress(Math.round((e.loaded / e.total) * 100));
       xhr.onload = () =>
         xhr.status < 300 ? resolve() : reject(xhr.responseText);
       xhr.onerror = reject;
-
       xhr.open("PUT", uploadUrl);
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
     });
 
-    return { publicUrl, key };
+    return publicUrl;
   };
 
   /* ---------------------------------
-     Reset form
+     Upload → Bunny (full video)
   --------------------------------- */
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setPrice(0);
-    setCreatorName("");
-    setSocialMediaUrl("");
-    setTags("");
+  const uploadToBunny = async (file, fullPath) => {
+    const res = await fetch("/api/bunny-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret: secretKey,
+        fileName: fullPath,
+        contentType: file.type,
+      }),
+    });
 
-    setPreviewFile(null);
-    setFullFile(null);
-    setCustomThumb(null);
+    const { uploadUrl, headers, key } = await res.json();
+    if (!uploadUrl) throw new Error("Failed to init Bunny upload");
 
-    setPreviewProgress(0);
-    setThumbProgress(0);
-    setFullProgress(0);
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.upload.onprogress = (e) =>
+        e.lengthComputable &&
+        setFullProgress(Math.round((e.loaded / e.total) * 100));
+      xhr.onload = () =>
+        xhr.status < 300 ? resolve() : reject(xhr.responseText);
+      xhr.onerror = reject;
+      xhr.open("PUT", uploadUrl);
+      Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      xhr.send(file);
+    });
 
-    setPreviewUrl(null);
-    setThumbUrl(null);
-    setFullKey(null);
-
-    setSuccessMessage("");
-
-    if (previewInputRef.current) previewInputRef.current.value = "";
-    if (thumbInputRef.current) thumbInputRef.current.value = "";
-    if (fullInputRef.current) fullInputRef.current.value = "";
+    return key;
   };
 
   /* ---------------------------------
@@ -187,55 +157,38 @@ export default function UploadPage() {
   --------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!previewFile) return alert("Preview video required.");
-
     setSubmitting(true);
 
     try {
       const creator = creators.find((c) => c.name === creatorName);
-      const creatorSlug = slugify(creatorName);
+      const slug = slugify(creatorName);
 
-      // 1️⃣ Thumbnail
-      const thumbFile = customThumb || (await generateThumbnail(previewFile));
-      const thumbUpload = await uploadToPresigned(
+      const thumbFile =
+        customThumbnailFile || (await generateThumbnail(videoFile));
+
+      const thumbUrl = await uploadToPushr(
         thumbFile,
-        { type: "thumbnail", folder: `${creatorSlug}/thumbnails` },
-        setThumbProgress
+        `${slug}/thumbnails`,
+        setThumbnailProgress
       );
-      setThumbUrl(thumbUpload.publicUrl);
+      setThumbnailUrl(thumbUrl);
 
-      // 2️⃣ Preview
-      const previewUpload = await uploadToPresigned(
-        previewFile,
-        { type: "preview", folder: `${creatorSlug}/videos` },
-        setPreviewProgress
+      const previewUrl = await uploadToPushr(
+        videoFile,
+        `${slug}/videos`,
+        setVideoProgress
       );
-      setPreviewUrl(previewUpload.publicUrl);
+      setVideoUrl(previewUrl);
 
-      // 3️⃣ Full (optional)
-      let fullKeyValue = null;
-      if (creator?.pay && fullFile) {
+      let fullKey = null;
+      if (creator?.pay && fullVideoFile) {
         const fullPath = generateFullVideoFileName(
           title,
           creatorName,
-          fullFile
+          fullVideoFile
         );
-
-        const fullUpload = await uploadToPresigned(
-          fullFile,
-          { type: "full", customKey: fullPath },
-          setFullProgress
-        );
-
-        fullKeyValue = fullUpload.key;
-        setFullKey(fullUpload.key);
+        fullKey = await uploadToBunny(fullVideoFile, fullPath);
       }
-
-      // 4️⃣ Save metadata
-      const tagArray = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
 
       await fetch("/api/videos", {
         method: "POST",
@@ -245,17 +198,18 @@ export default function UploadPage() {
           description,
           price,
           creatorName,
-          socialMediaUrl: creator.url, // ✅ leave as requested
-          thumbnail: thumbUpload.publicUrl,
-          url: previewUpload.publicUrl,
-          fullKey: fullKeyValue,
-          tags: tagArray,
+          socialMediaUrl: socialMediaUrl || creator?.url, // ✅ keep creator.url
+          thumbnail: thumbUrl,
+          url: previewUrl,
+          fullKey,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
         }),
       });
 
       setSuccessMessage("✅ Upload successful!");
-      resetForm();
-      setTimeout(() => setSuccessMessage(""), 4000);
     } catch (err) {
       console.error(err);
       alert("Upload failed — see console");
