@@ -91,34 +91,54 @@ export default function UploadPage() {
     });
 
   // Upload helper
-  const uploadToPresigned = async (file, keyOptions, setProgress) => {
-    const res = await fetch("/api/uploadUrl", {
+  const uploadToPresigned = async (file, options, setProgress) => {
+    const res = await fetch("/api/bunny-upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         secret: secretKey,
-        fileName: file.name,
+        fileName: options?.customKey || file.name,
         contentType: file.type,
-        ...keyOptions,
       }),
     });
 
-    const { uploadUrl, publicUrl, key } = await res.json();
-    if (!uploadUrl) throw new Error("Failed to get upload URL");
+    const data = await res.json();
 
-    // Upload directly to S3
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to get Bunny upload URL");
+    }
+
+    const { uploadUrl, publicUrl, key, headers } = data;
+
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+
       xhr.upload.addEventListener("progress", (e) => {
         if (e.lengthComputable) {
           setProgress(Math.round((e.loaded / e.total) * 100));
         }
       });
-      xhr.onload = () =>
-        xhr.status < 300 ? resolve() : reject(xhr.responseText);
-      xhr.onerror = reject;
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(
+            new Error(`Bunny PUT failed (${xhr.status}): ${xhr.responseText}`)
+          );
+        }
+      };
+
+      xhr.onerror = () =>
+        reject(new Error("Network error during Bunny upload"));
+
       xhr.open("PUT", uploadUrl);
-      xhr.setRequestHeader("Content-Type", file.type);
+
+      // ✅ APPLY HEADERS FROM SERVER
+      Object.entries(headers).forEach(([name, value]) => {
+        xhr.setRequestHeader(name, value);
+      });
+
       xhr.send(file);
     });
 
@@ -199,16 +219,16 @@ export default function UploadPage() {
           fullFile
         );
 
-        const fullUpload = await uploadToPresigned(
+        // Put full videos under a clear prefix in Bunny storage
+        const bunnyKey = `full/${fullPath}`;
+
+        const fullUpload = await uploadToBunny(
           fullFile,
-          {
-            customKey: fullPath,
-            isPublic: false,
-          },
+          bunnyKey,
           setFullProgress
         );
 
-        fullKeyValue = fullUpload.key;
+        fullKeyValue = fullUpload.key; // store the Bunny key as fullKey
         setFullKey(fullUpload.key);
       }
 
