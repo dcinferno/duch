@@ -160,8 +160,8 @@ export default function Sidebar({ creators, onClose }) {
           </button>
         </Link>
 
-        <Link href="/sign-up">
-          <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded flex items-center justify-center gap-2 shadow-md">
+        <Link href="/support" onClick={onClose}>
+          <button className="w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded flex items-center justify-center gap-2 shadow-md">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -173,10 +173,10 @@ export default function Sidebar({ creators, onClose }) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M12 11c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zM19 20v-1c0-2.761-4.03-4-7-4s-7 1.239-7 4v1M16 3.13a4 4 0 010 7.75"
+                d="M18.364 5.636l-1.414 1.414A7.962 7.962 0 0112 5a7.962 7.962 0 01-4.95 2.05L5.636 5.636A9.953 9.953 0 0012 3a9.953 9.953 0 006.364 2.636zM12 13v2m0 4h.01"
               />
             </svg>
-            Become a Creator
+            Support
           </button>
         </Link>
       </div>
