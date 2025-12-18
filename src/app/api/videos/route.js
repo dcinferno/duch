@@ -170,7 +170,6 @@ export async function POST(request) {
       tags,
       fullKey,
     } = await request.json();
-
     const normalizedName = creatorName.trim();
     const creator = await Creators.findOne({
       name: new RegExp(`^${normalizedName}$`, "i"),
@@ -189,7 +188,7 @@ export async function POST(request) {
       price: Number(price),
       creatorName: creator.name,
       socialMediaUrl,
-      url: normalizePath(normalizedUrl),
+      url: normalizePath(url),
       fullKey: normalizeFullKey(fullKey),
       tags,
     });
