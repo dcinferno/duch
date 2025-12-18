@@ -4,6 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import logo from "../app/logo.svg";
 
+const PayBadge = () => (
+  <span className="ml-1 text-xs font-semibold text-pink-400">– PAY</span>
+);
+
 export default function Sidebar({ creators, onClose }) {
   const premiumCreators = creators
     .filter((creator) => creator.premium)
@@ -64,7 +68,10 @@ export default function Sidebar({ creators, onClose }) {
                     onClick={(e) => handleClick(e, creator)}
                     className="block font-semibold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-yellow-500 to-yellow-400 animate-gradient-x hover:underline"
                   >
-                    {creator.name}
+                    <span className="flex items-center">
+                      {creator.name}
+                      {creator.pay && <PayBadge />}
+                    </span>
                   </a>
 
                   <span>
@@ -127,7 +134,10 @@ export default function Sidebar({ creators, onClose }) {
                     onClick={(e) => handleClick(e, creator)}
                     className="block text-sm text-gray-300 hover:text-yellow-400 transition-colors"
                   >
-                    {creator.name}
+                    <span className="flex items-center">
+                      {creator.name}
+                      {creator.pay && <PayBadge />}
+                    </span>
                   </a>
                 </li>
               ))}
