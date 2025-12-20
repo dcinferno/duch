@@ -24,10 +24,7 @@ export default function SuccessView({ videoId, urlHandle, router }) {
     async function fetchDownloadUrl() {
       try {
         const userId = localStorage.getItem("userId");
-
-        if (!userId) {
-          throw new Error("Missing userId");
-        }
+        if (!userId) throw new Error("Missing userId");
 
         const res = await fetch("/api/download-video", {
           method: "POST",
@@ -39,16 +36,12 @@ export default function SuccessView({ videoId, urlHandle, router }) {
           if (res.status === 403) {
             throw new Error("This video has not been purchased.");
           }
-
           const data = await res.json().catch(() => null);
           throw new Error(data?.error || "Unable to prepare download.");
         }
 
         const data = await res.json();
-
-        if (!data.url) {
-          throw new Error("No download URL returned");
-        }
+        if (!data.url) throw new Error("No download URL returned");
 
         setDownloadUrl(data.url);
 
@@ -108,24 +101,30 @@ export default function SuccessView({ videoId, urlHandle, router }) {
         )}
 
         <div className="flex flex-col gap-3 mt-6">
-          {/* ✅ DOWNLOAD */}
-          <button
-            disabled={!downloadUrl}
-            onClick={() => {
-              window.open(downloadUrl, "_blank", "noopener,noreferrer");
-            }}
-            className={`w-full py-3 rounded-lg text-white ${
-              downloadUrl
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-gray-400 cursor-not-allowed"
-            }`}
-          >
-            {downloadUrl ? "Download Now" : "Preparing Download…"}
-          </button>
+          {/* ✅ DOWNLOAD (Option A: <a download>) */}
+          {downloadUrl ? (
+            <a
+              href={downloadUrl}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-3 rounded-lg text-white bg-blue-600 hover:bg-blue-700 text-center"
+            >
+              Download Now
+            </a>
+          ) : (
+            <button
+              disabled
+              className="w-full py-3 rounded-lg text-white bg-gray-400 cursor-not-allowed"
+            >
+              Preparing Download…
+            </button>
+          )}
 
           {downloadError && (
             <p className="text-red-600 font-medium text-sm">{downloadError}</p>
           )}
+
           <button
             onClick={() => router.push(urlHandle ? `/${urlHandle}` : "/")}
             className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
