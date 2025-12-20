@@ -8,7 +8,7 @@ export default function SuccessView({ videoId, urlHandle, router }) {
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [downloadError, setDownloadError] = useState(null);
 
-  // ✅ 1️⃣ Mark purchased
+  // ✅ 1️⃣ Mark purchased locally
   useEffect(() => {
     if (!videoId) return;
 
@@ -17,7 +17,7 @@ export default function SuccessView({ videoId, urlHandle, router }) {
     localStorage.setItem("purchasedVideos", JSON.stringify(purchased));
   }, [videoId]);
 
-  // ✅ 2️⃣ Fetch signed download URL
+  // ✅ 2️⃣ Fetch signed / CDN URL (stream-safe)
   useEffect(() => {
     if (!videoId) return;
 
@@ -36,21 +36,26 @@ export default function SuccessView({ videoId, urlHandle, router }) {
           if (res.status === 403) {
             throw new Error("This video has not been purchased.");
           }
+
           const data = await res.json().catch(() => null);
-          throw new Error(data?.error || "Unable to prepare download.");
+          throw new Error(data?.error || "Unable to prepare video.");
         }
 
         const data = await res.json();
-        if (!data.url) throw new Error("No download URL returned");
+
+        if (!data.url) {
+          throw new Error("No video URL returned");
+        }
 
         setDownloadUrl(data.url);
 
+        // cache for playback
         const fullUrls =
           JSON.parse(localStorage.getItem("fullVideoUrls")) || {};
         fullUrls[videoId] = data.url;
         localStorage.setItem("fullVideoUrls", JSON.stringify(fullUrls));
       } catch (err) {
-        console.error("Download URL error:", err);
+        console.error("Video access error:", err);
         setDownloadError(err.message);
       }
     }
@@ -65,6 +70,7 @@ export default function SuccessView({ videoId, urlHandle, router }) {
     async function load() {
       try {
         const res = await fetch(`/api/videos?id=${videoId}`);
+        if (!res.ok) throw new Error("Video not found");
         setVideo(await res.json());
       } catch (err) {
         console.error(err);
@@ -82,7 +88,7 @@ export default function SuccessView({ videoId, urlHandle, router }) {
           ✓
         </div>
 
-        <h1 className="text-2xl font-bold mb-2">Payment Successful!</h1>
+        <h1 className="text-2xl font-bold mb-2">Payment Successful</h1>
 
         {loading ? (
           <p className="text-gray-500">Loading video…</p>
@@ -101,25 +107,25 @@ export default function SuccessView({ videoId, urlHandle, router }) {
         )}
 
         <div className="flex flex-col gap-3 mt-6">
-          {/* ✅ DOWNLOAD (Option A: <a download>) */}
-          {downloadUrl ? (
-            <a
-              href={downloadUrl}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-3 rounded-lg text-white bg-blue-600 hover:bg-blue-700 text-center"
-            >
-              Download Now
-            </a>
-          ) : (
-            <button
-              disabled
-              className="w-full py-3 rounded-lg text-white bg-gray-400 cursor-not-allowed"
-            >
-              Preparing Download…
-            </button>
-          )}
+          {/* ✅ STREAM-FIRST ACCESS */}
+          <button
+            disabled={!downloadUrl}
+            onClick={() => {
+              window.open(downloadUrl, "_blank", "noopener,noreferrer");
+            }}
+            className={`w-full py-3 rounded-lg text-white ${
+              downloadUrl
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-gray-400 cursor-not-allowed"
+            }`}
+          >
+            {downloadUrl ? "Watch / Download Video" : "Preparing Video…"}
+          </button>
+
+          <p className="text-xs text-gray-500">
+            Tip: Once the video opens, right-click and choose{" "}
+            <strong>“Save video as…”</strong>
+          </p>
 
           {downloadError && (
             <p className="text-red-600 font-medium text-sm">{downloadError}</p>
