@@ -71,14 +71,14 @@ export default function SidebarLayout({ children }) {
           SIDEBAR
          ================================================== */}
       <aside
-        className={`
-          fixed top-0 left-0 z-50
-          h-dvh w-64
-          bg-gray-900 text-white
-          transform transition-transform duration-300 ease-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-          md:static md:translate-x-0 md:flex
-        `}
+        className={` fixed top-0 left-0 z-50 h-dvh w-64 bg-gray-900 text-white transform transition-transform duration-300 ease-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }
+    md:static
+    md:translate-x-0
+    md:w-64
+    md:shrink-0
+  `}
         onPointerDown={(e) => e.stopPropagation()}
       >
         <Sidebar creators={creators} onClose={() => setSidebarOpen(false)} />

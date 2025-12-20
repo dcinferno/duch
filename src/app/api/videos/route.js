@@ -2,15 +2,87 @@ import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
 import Creators from "../../../models/creators.js";
 import { sendTelegramMessage } from "../../../lib/telegram.js";
+const CDN = process.env.CDN_URL || "";
+
+function normalizePath(input) {
+  if (!input) return input;
+
+  // If full URL, strip to pathname
+  if (input.startsWith("http")) {
+    try {
+      return new URL(input).pathname;
+    } catch {
+      return input;
+    }
+  }
+
+  return input;
+}
+function normalizeFullKey(key) {
+  if (!key) return null;
+  return key.startsWith("/") ? key : `/${key}`;
+}
+function withCDN(path) {
+  if (!path || !CDN) return path;
+
+  // already absolute (signed URLs, etc)
+  if (path.startsWith("http")) return path;
+
+  return `${CDN}${path.startsWith("/") ? "" : "/"}${path}`;
+}
 
 export async function GET(request) {
   try {
     await connectToDB();
 
-    const CDN = process.env.CDN_URL || "";
     const { searchParams } = new URL(request.url);
+
+    const videoId = searchParams.get("id");
     const creatorUrlHandle = searchParams.get("creator");
 
+    // -----------------------------------
+    // 1️⃣ FETCH SINGLE VIDEO BY ID
+    // -----------------------------------
+    if (videoId) {
+      const video = await Videos.findById(videoId, { password: 0 });
+
+      if (!video) {
+        return Response.json({ error: "Video not found" }, { status: 404 });
+      }
+
+      const creator = await Creators.findOne(
+        { name: new RegExp(`^${video.creatorName}$`, "i") },
+        "name urlHandle premium icon socialMediaUrl type pay telegramId photo"
+      );
+
+      // Build enriched single-video response
+      const creatorPhoto = creator?.photo ? withCDN(creator.photo) : null;
+      const v = video.toObject();
+
+      return Response.json({
+        ...v,
+
+        // ✅ APPLY CDN HERE
+        url: withCDN(v.url),
+        thumbnail: withCDN(v.thumbnail),
+
+        // Canonical creator fields
+        creatorName: creator?.name || v.creatorName,
+        creatorUrlHandle: creator?.urlHandle || null,
+        creatorPhoto,
+        premium: creator?.premium || false,
+        icon: creator?.icon || null,
+        socialMediaUrl: creator?.socialMediaUrl || v.socialMediaUrl,
+
+        // Payments features
+        pay: creator?.pay || false,
+        creatorTelegramId: creator?.telegramId || null,
+      });
+    }
+
+    // -----------------------------------
+    // 2️⃣ FETCH CREATOR FEED OR ALL
+    // -----------------------------------
     let filter = {};
 
     if (creatorUrlHandle) {
@@ -22,7 +94,6 @@ export async function GET(request) {
         return Response.json({ error: "Creator not found" }, { status: 404 });
       }
 
-      // Query videos using canonical creator name
       filter.creatorName = new RegExp(`^${creator.name}$`, "i");
     } else {
       const publicCreators = await Creators.find(
@@ -30,19 +101,23 @@ export async function GET(request) {
         "name"
       );
 
-      const allowedNames = publicCreators.map((c) => c.name);
-      filter.creatorName = { $in: allowedNames };
+      filter.creatorName = { $in: publicCreators.map((c) => c.name) };
     }
 
+    // Fetch videos
     const videos = await Videos.find(filter, { password: 0 }).sort({
       createdAt: -1,
     });
 
+    // Fetch creators for metadata injection
     const creators = await Creators.find(
       {},
-      "name urlHandle premium icon socialMediaUrl type photo"
+      "name urlHandle premium icon socialMediaUrl type pay telegramId photo"
     );
 
+    // -----------------------------------
+    // 3️⃣ ENRICH EACH VIDEO WITH CREATOR DATA
+    // -----------------------------------
     const enrichedVideos = videos.map((video) => {
       const v = video.toObject();
 
@@ -50,29 +125,28 @@ export async function GET(request) {
         (c) => c.name.toLowerCase() === v.creatorName.toLowerCase()
       );
 
-      if (creator) {
-        v.creatorName = creator.name; // canonical
-        v.creatorUrlHandle = creator.urlHandle;
+      const creatorPhoto = creator?.photo ? withCDN(creator.photo) : null;
 
-        // PHOTO
-        if (creator.photo) {
-          let photo = creator.photo;
-          if (!photo.startsWith("/")) photo = "/" + photo;
-          v.creatorPhoto = CDN + photo;
-        } else {
-          v.creatorPhoto = null;
-        }
+      // Build canonical, enriched object
+      return {
+        ...v,
 
-        v.premium = creator.premium || false;
-        v.icon = creator.icon || null;
-        v.socialMediaUrl = creator.socialMediaUrl || v.socialMediaUrl || null;
-      }
+        // Canonical creator metadata
+        creatorName: creator?.name || v.creatorName,
+        creatorUrlHandle: creator?.urlHandle || null,
+        creatorPhoto,
+        premium: creator?.premium || false,
+        icon: creator?.icon || null,
+        socialMediaUrl: creator?.socialMediaUrl || v.socialMediaUrl || null,
 
-      // VIDEO URLS
-      if (v.url?.startsWith("/")) v.url = CDN + v.url;
-      if (v.thumbnail?.startsWith("/")) v.thumbnail = CDN + v.thumbnail;
+        // Payments branch metadata
+        pay: creator?.pay || false,
+        creatorTelegramId: creator?.telegramId || null,
 
-      return v;
+        // Apply CDN to video URLs
+        url: withCDN(v.url),
+        thumbnail: withCDN(v.thumbnail),
+      };
     });
 
     return Response.json(enrichedVideos);
@@ -86,16 +160,16 @@ export async function POST(request) {
   try {
     await connectToDB();
 
-    const { title, description, thumbnail, price, creatorName, url, tags } =
-      await request.json();
-
-    let normalizedUrl = url;
-    try {
-      normalizedUrl = new URL(url).pathname;
-    } catch {
-      // if it's already a pathname, leave it alone
-    }
-
+    const {
+      title,
+      description,
+      thumbnail,
+      price,
+      creatorName,
+      url,
+      tags,
+      fullKey,
+    } = await request.json();
     const normalizedName = creatorName.trim();
     const creator = await Creators.findOne({
       name: new RegExp(`^${normalizedName}$`, "i"),
@@ -105,20 +179,20 @@ export async function POST(request) {
       return Response.json({ error: "Creator not found" }, { status: 400 });
     }
 
-    const socialMediaUrl = creator.url || creator.socialMediaUrl;
+    const socialMediaUrl = creator.url;
 
     const video = await Videos.create({
       title,
       description,
-      thumbnail,
-      price,
+      thumbnail: normalizePath(thumbnail),
+      price: Number(price),
       creatorName: creator.name,
       socialMediaUrl,
-      url: normalizedUrl,
+      url: normalizePath(url),
+      fullKey: normalizeFullKey(fullKey),
       tags,
     });
 
-    // 🚀 Post to Telegram channel
     await sendTelegramMessage(video);
 
     return Response.json(video, { status: 201 });

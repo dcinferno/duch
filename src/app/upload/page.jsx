@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 
+/* ---------------------------------
+   Helpers
+--------------------------------- */
 function slugify(name) {
   return name
     .toLowerCase()
@@ -10,6 +13,16 @@ function slugify(name) {
     .replace(/[^\w-]/g, "");
 }
 
+function generateFullVideoFileName(title, creatorName, file) {
+  const creatorSlug = slugify(creatorName);
+  const titleSlug = slugify(title);
+  const ext = file?.name?.split(".").pop() || "mp4";
+  return `${creatorSlug}/${titleSlug}-${Date.now()}.${ext}`;
+}
+
+/* ---------------------------------
+   Component
+--------------------------------- */
 export default function UploadPage() {
   // --- State ---
   const [title, setTitle] = useState("");
@@ -17,65 +30,75 @@ export default function UploadPage() {
   const [price, setPrice] = useState(0);
   const [creatorName, setCreatorName] = useState("");
   const [socialMediaUrl, setSocialMediaUrl] = useState("");
-  const [videoFile, setVideoFile] = useState(null);
+  const [videoFile, setVideoFile] = useState(null); // preview
+  const [fullVideoFile, setFullVideoFile] = useState(null); // full
   const [videoProgress, setVideoProgress] = useState(0);
   const [thumbnailProgress, setThumbnailProgress] = useState(0);
+  const [fullProgress, setFullProgress] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [creators, setCreators] = useState([]);
   const [secretKey, setSecretKey] = useState("");
   const [videoUrl, setVideoUrl] = useState(null);
   const [thumbnailUrl, setThumbnailUrl] = useState(null);
+  const [fullKey, setFullKey] = useState(null); // ✅ REQUIRED
   const [successMessage, setSuccessMessage] = useState("");
   const [tags, setTags] = useState("");
-  const [customThumbnailFile, setCustomThumbnailFile] = useState(null); // 🆕 NEW
+  const [customThumbnailFile, setCustomThumbnailFile] = useState(null);
 
   const videoInputRef = useRef(null);
-  const customThumbnailInputRef = useRef(null); // 🆕 NEW
+  const fullVideoInputRef = useRef(null);
+  const customThumbnailInputRef = useRef(null);
 
-  // --- Fetch creators ---
+  /* ---------------------------------
+     Fetch creators
+  --------------------------------- */
   useEffect(() => {
-    async function fetchCreators() {
-      try {
-        const res = await fetch("/api/creators");
-        const data = await res.json();
-        setCreators(data);
-      } catch (err) {
-        console.error("Failed to fetch creators:", err);
-      }
-    }
-    fetchCreators();
+    fetch("/api/creators")
+      .then((r) => r.json())
+      .then(setCreators)
+      .catch(console.error);
   }, []);
 
-  // --- Generate thumbnail from video ---
+  /* ---------------------------------
+     Generate thumbnail
+  --------------------------------- */
   const generateThumbnail = (file) =>
     new Promise((resolve, reject) => {
+      if (!file) return reject(new Error("No video file"));
+
       const video = document.createElement("video");
       video.src = URL.createObjectURL(file);
       video.currentTime = 3;
 
-      video.onloadeddata = () => {
-        video.currentTime = 3;
-      };
-
       video.onseeked = () => {
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 360;
+        canvas
+          .getContext("2d")
+          .drawImage(video, 0, 0, canvas.width, canvas.height);
+
         canvas.toBlob(
           (blob) =>
-            resolve(new File([blob], "thumbnail.jpg", { type: "image/jpeg" })),
+            blob
+              ? resolve(
+                  new File([blob], "thumbnail.jpg", {
+                    type: "image/jpeg",
+                  })
+                )
+              : reject(new Error("Thumbnail generation failed")),
           "image/jpeg"
         );
       };
 
-      video.onerror = (err) => reject(err);
+      video.onerror = reject;
     });
 
-  // --- Upload to S3 presigned URL ---
-  const handleUploadFile = async (file, folder, setProgress) => {
-    if (!file) throw new Error("No file provided");
+  /* ---------------------------------
+     Upload → PUSHR (preview + thumb)
+  --------------------------------- */
+  const uploadToPushr = async (file, folder, setProgress) => {
+    if (!file) throw new Error("Missing file");
 
     const res = await fetch("/api/uploadUrl", {
       method: "POST",
@@ -88,107 +111,108 @@ export default function UploadPage() {
       }),
     });
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Failed to get upload URL: ${res.status} - ${text}`);
+    const data = await res.json();
+    if (!res.ok || !data.uploadUrl) {
+      throw new Error(data?.error || "Pushr init failed");
     }
-
-    const { uploadUrl, publicUrl, key } = await res.json();
 
     await new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          setProgress(Math.round((e.loaded / e.total) * 100));
-        }
-      });
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve();
-        } else {
-          reject(
-            new Error(`Upload failed: ${xhr.status} - ${xhr.responseText}`)
-          );
-        }
-      };
-      xhr.onerror = () => reject(new Error("Network error"));
-      xhr.open("PUT", uploadUrl);
+      xhr.upload.onprogress = (e) =>
+        e.lengthComputable &&
+        typeof setProgress === "function" &&
+        setProgress(Math.round((e.loaded / e.total) * 100));
+      xhr.onload = () =>
+        xhr.status < 300 ? resolve() : reject(xhr.responseText);
+      xhr.onerror = reject;
+      xhr.open("PUT", data.uploadUrl);
       xhr.setRequestHeader("Content-Type", file.type);
       xhr.send(file);
     });
 
-    return { publicUrl, key };
+    return data.publicUrl;
   };
 
-  // --- Reset form ---
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setPrice(0);
-    setCreatorName("");
-    setSocialMediaUrl("");
-    setVideoFile(null);
-    setCustomThumbnailFile(null); // 🆕 RESET
-    setVideoProgress(0);
-    setThumbnailProgress(0);
-    setVideoUrl(null);
-    setThumbnailUrl(null);
-    setSecretKey("");
-    setTags("");
-    setSuccessMessage("");
+  /* ---------------------------------
+     Upload → Bunny (full video)
+  --------------------------------- */
+  const uploadToBunny = async (file, fullPath) => {
+    if (!file) throw new Error("Missing full video file");
 
-    if (videoInputRef.current) videoInputRef.current.value = "";
-    if (customThumbnailInputRef.current)
-      customThumbnailInputRef.current.value = ""; // 🆕 RESET
+    const res = await fetch("/api/bunny-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret: secretKey,
+        fileName: fullPath,
+        contentType: file.type,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.uploadUrl) {
+      throw new Error(data?.error || "Bunny init failed");
+    }
+
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.upload.onprogress = (e) =>
+        e.lengthComputable &&
+        setFullProgress(Math.round((e.loaded / e.total) * 100));
+      xhr.onload = () =>
+        xhr.status < 300 ? resolve() : reject(xhr.responseText);
+      xhr.onerror = reject;
+      xhr.open("PUT", data.uploadUrl);
+      Object.entries(data.headers || {}).forEach(([k, v]) =>
+        xhr.setRequestHeader(k, v)
+      );
+      xhr.send(file);
+    });
+
+    return data.key;
   };
 
-  // --- Submit handler ---
+  /* ---------------------------------
+     Submit
+  --------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!videoFile) return alert("Select a video!");
-    if (!creatorName) return alert("Select a creator!");
-    if (!secretKey) return alert("Enter secret key!");
+    if (!videoFile || !creatorName || !secretKey) return;
 
     setSubmitting(true);
+
     try {
-      const folderSlug = slugify(creatorName);
+      const creator = creators.find((c) => c.name === creatorName);
+      const slug = slugify(creatorName);
 
-      // 1️⃣ Custom thumbnail OR generated thumbnail
-      let thumbFile;
-      if (customThumbnailFile) {
-        thumbFile = customThumbnailFile;
-      } else {
-        thumbFile = await generateThumbnail(videoFile);
-      }
+      const thumbFile =
+        customThumbnailFile || (await generateThumbnail(videoFile));
 
-      const uploadedThumbnail = await handleUploadFile(
+      const thumbUrl = await uploadToPushr(
         thumbFile,
-        `${folderSlug}/thumbnails`,
+        `${slug}/thumbnails`,
         setThumbnailProgress
       );
-      setThumbnailUrl(uploadedThumbnail.publicUrl);
+      setThumbnailUrl(thumbUrl);
 
-      // 2️⃣ Upload video
-      const uploadedVideo = await handleUploadFile(
+      const previewUrl = await uploadToPushr(
         videoFile,
-        `${folderSlug}/videos`,
+        `${slug}/videos`,
         setVideoProgress
       );
-      setVideoUrl(uploadedVideo.publicUrl);
+      setVideoUrl(previewUrl);
 
-      // 3️⃣ Derive social media URL
-      const socialUrl =
-        socialMediaUrl ||
-        creators.find((c) => c.name === creatorName)?.socialMediaUrl;
+      let fullKeyValue = null;
+      if (creator?.pay && fullVideoFile) {
+        const fullPath = generateFullVideoFileName(
+          title,
+          creatorName,
+          fullVideoFile
+        );
+        fullKeyValue = await uploadToBunny(fullVideoFile, fullPath);
+        setFullKey(fullKeyValue);
+      }
 
-      // 4️⃣ Parse tags
-      const tagArray = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-
-      // 5️⃣ Save metadata
       await fetch("/api/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -197,25 +221,29 @@ export default function UploadPage() {
           description,
           price,
           creatorName,
-          socialMediaUrl: socialUrl,
-          thumbnail: uploadedThumbnail.publicUrl,
-          url: uploadedVideo.publicUrl,
-          tags: tagArray,
+          socialMediaUrl: socialMediaUrl || creator?.url || "",
+          thumbnail: thumbUrl,
+          url: previewUrl,
+          fullKey: fullKeyValue,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
         }),
       });
 
       setSuccessMessage("✅ Upload successful!");
-      resetForm();
-      setTimeout(() => setSuccessMessage(""), 4000);
     } catch (err) {
       console.error("❌ Upload failed:", err);
-      alert("❌ Upload failed — see console for details");
+      alert("Upload failed — see console");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // --- UI ---
+  /* ---------------------------------
+     UI
+  --------------------------------- */
   return (
     <div className="max-w-xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">Upload Video</h1>
@@ -248,12 +276,11 @@ export default function UploadPage() {
           type="number"
           placeholder="Price"
           value={price}
-          onChange={(e) => setPrice(e.target.value)}
+          onChange={(e) => setPrice(Number(e.target.value))}
           className="w-full p-3 border rounded"
           min={0}
         />
 
-        {/* Creator Dropdown */}
         <select
           value={creatorName}
           onChange={(e) => setCreatorName(e.target.value)}
@@ -268,85 +295,94 @@ export default function UploadPage() {
           ))}
         </select>
 
-        {/* Tags Input */}
         <input
           type="text"
-          placeholder="Enter tags separated by commas"
+          placeholder="Tags (comma separated)"
           value={tags}
           onChange={(e) => setTags(e.target.value.toLowerCase())}
           className="w-full p-3 border rounded"
         />
 
-        {/* Select Video Button */}
-        <div className="mb-4">
-          <span className="block mb-1 font-medium">Select Video</span>
-          <input
-            type="file"
-            accept="video/*"
-            ref={videoInputRef}
-            onChange={(e) => setVideoFile(e.target.files[0])}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => videoInputRef.current?.click()}
-            className="w-full bg-green-600 text-white py-3 rounded text-center hover:bg-green-700 transition"
-          >
-            {videoFile ? videoFile.name : "Select Video"}
-          </button>
-        </div>
+        {/* Preview */}
+        <button
+          type="button"
+          onClick={() => videoInputRef.current?.click()}
+          className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 transition"
+        >
+          {videoFile ? videoFile.name : "Select Preview Video"}
+        </button>
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          hidden
+          onChange={(e) => setVideoFile(e.target.files[0] || null)}
+        />
 
-        {/* Optional Thumbnail Upload */}
-        <div className="mb-4">
-          <span className="block mb-1 font-medium">Thumbnail (Optional)</span>
+        {/* Full */}
+        <button
+          type="button"
+          onClick={() => fullVideoInputRef.current?.click()}
+          className="w-full bg-purple-600 text-white py-3 rounded hover:bg-purple-700 transition"
+        >
+          {fullVideoFile ? fullVideoFile.name : "Upload Full Video (Optional)"}
+        </button>
+        <input
+          ref={fullVideoInputRef}
+          type="file"
+          accept="video/*"
+          hidden
+          onChange={(e) => setFullVideoFile(e.target.files[0] || null)}
+        />
 
-          <input
-            type="file"
-            accept="image/*"
-            ref={customThumbnailInputRef}
-            className="hidden"
-            onChange={(e) => setCustomThumbnailFile(e.target.files[0])}
-          />
+        {/* Thumbnail */}
+        <button
+          type="button"
+          onClick={() => customThumbnailInputRef.current?.click()}
+          className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition"
+        >
+          {customThumbnailFile
+            ? customThumbnailFile.name
+            : "Upload Thumbnail (Optional)"}
+        </button>
+        <input
+          ref={customThumbnailInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => setCustomThumbnailFile(e.target.files[0] || null)}
+        />
 
-          <button
-            type="button"
-            onClick={() => customThumbnailInputRef.current?.click()}
-            className="w-full bg-green-600 text-white py-3 rounded text-center hover:bg-blue-700 transition"
-          >
-            {customThumbnailFile
-              ? customThumbnailFile.name
-              : "Upload Thumbnail (Optional)"}
-          </button>
-
-          {customThumbnailFile && (
-            <p className="text-sm mt-2 text-green-700">
-              Custom thumbnail selected — automatic screenshot disabled.
-            </p>
-          )}
-        </div>
-
-        {/* Progress bars */}
+        {/* Progress Bars */}
         {thumbnailProgress > 0 && (
-          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
+          <div className="w-full bg-gray-200 h-2 rounded">
             <div
-              className="bg-green-600 h-2 rounded"
+              className="bg-blue-600 h-2"
               style={{ width: `${thumbnailProgress}%` }}
             />
           </div>
         )}
 
         {videoProgress > 0 && (
-          <div className="w-full bg-gray-200 h-2 rounded overflow-hidden">
+          <div className="w-full bg-gray-200 h-2 rounded">
             <div
-              className="bg-green-600 h-2 rounded"
+              className="bg-green-600 h-2"
               style={{ width: `${videoProgress}%` }}
             />
           </div>
         )}
 
-        {/* URLs */}
+        {fullProgress > 0 && (
+          <div className="w-full bg-gray-200 h-2 rounded">
+            <div
+              className="bg-purple-600 h-2"
+              style={{ width: `${fullProgress}%` }}
+            />
+          </div>
+        )}
+
         {thumbnailUrl && (
-          <p className="text-sm text-gray-700 break-all">
+          <p className="text-sm break-all">
             <strong>Thumbnail:</strong>{" "}
             <a
               href={thumbnailUrl}
@@ -360,8 +396,8 @@ export default function UploadPage() {
         )}
 
         {videoUrl && (
-          <p className="text-sm text-gray-700 break-all">
-            <strong>Video:</strong>{" "}
+          <p className="text-sm break-all">
+            <strong>Preview:</strong>{" "}
             <a
               href={videoUrl}
               target="_blank"
@@ -370,6 +406,13 @@ export default function UploadPage() {
             >
               {videoUrl}
             </a>
+          </p>
+        )}
+
+        {typeof fullKey === "string" && (
+          <p className="text-sm break-all">
+            <strong>Full Video Key:</strong>{" "}
+            <span className="font-mono">{fullKey}</span>
           </p>
         )}
 

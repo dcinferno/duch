@@ -21,10 +21,27 @@ const s3 = new S3Client({
   },
   forcePathStyle: true,
 });
+export function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
+}
 
 export async function POST(req) {
   try {
-    const { secret, fileName, contentType, folder } = await req.json();
+    const {
+      secret,
+      fileName,
+      contentType,
+      folder,
+      customKey,
+      isPublic = true,
+    } = await req.json();
 
     // Validate secret key
     if (secret !== UPLOAD_SECRET_KEY) {
@@ -41,25 +58,47 @@ export async function POST(req) {
       );
     }
 
+    // Determine extension
     const ext = fileName.includes(".")
       ? fileName.substring(fileName.lastIndexOf("."))
       : "";
-    const uniqueName = `${nanoid(10)}${ext}`;
-    const key = folder ? `${folder}/${uniqueName}` : uniqueName;
+
+    // SUPPORT BOTH:
+    // - customKey → exact full video path
+    // - folder → for thumbnails & previews
+    let key;
+
+    if (customKey) {
+      // EXAMPLE: "angel/full/fullvideo.mp4"
+      key = customKey;
+    } else {
+      const uniqueName = `${nanoid(10)}${ext}`;
+      key = folder ? `${folder}/${uniqueName}` : uniqueName;
+    }
+
+    // ACL: public or private
+    const aclSetting = isPublic ? "public-read" : "private";
 
     const command = new PutObjectCommand({
       Bucket: PUSHR_BUCKET_ID,
       Key: key,
       ContentType: contentType,
-      ACL: "public-read",
+      ACL: aclSetting,
     });
 
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
 
-    const publicUrl = `${PUSHR_CDN_URL.replace(/\/$/, "")}/${key}`;
+    // Only public assets get a CDN URL
+    const publicUrl = isPublic
+      ? `${PUSHR_CDN_URL.replace(/\/$/, "")}/${key}`
+      : null;
 
-    // ⚡ Return minimal info for client upload
-    return NextResponse.json({ uploadUrl, publicUrl, key });
+    return NextResponse.json({
+      uploadUrl,
+      publicUrl,
+      key,
+      isPublic,
+    });
   } catch (err) {
     console.error("❌ Failed to generate upload URL:", err);
     return NextResponse.json(
