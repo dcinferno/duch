@@ -9,14 +9,17 @@ export async function GET(req) {
   }
 
   // 🔒 Server-to-server call
-  const res = await fetch(`${process.env.PROCESS_SERVER_URL}/api/tg-purchase`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Internal-Token": process.env.INTERNAL_API_TOKEN,
-    },
-    body: JSON.stringify({ videoId }),
-  });
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SERVER_URL}/api/tg-purchase`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Token": process.env.INTERNAL_API_TOKEN,
+      },
+      body: JSON.stringify({ videoId }),
+    }
+  );
 
   if (!res.ok) {
     return new Response("Unable to create checkout", { status: 502 });
