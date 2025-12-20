@@ -111,19 +111,8 @@ export default function SuccessView({ videoId, urlHandle, router }) {
           {/* ✅ DOWNLOAD */}
           <button
             disabled={!downloadUrl}
-            onClick={async () => {
-              const res = await fetch(downloadUrl);
-              const blob = await res.blob();
-              const url = URL.createObjectURL(blob);
-
-              const a = document.createElement("a");
-              a.href = url;
-              a.download =
-                (video?.title || videoId).replace(/\s+/g, "_") + ".mp4";
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              URL.revokeObjectURL(url);
+            onClick={() => {
+              window.location.href = downloadUrl;
             }}
             className={`w-full py-3 rounded-lg text-white ${
               downloadUrl
