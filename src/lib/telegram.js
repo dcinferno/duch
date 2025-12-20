@@ -111,27 +111,33 @@ ${creatorPageLine}
   payload.append("caption", message);
   payload.append("parse_mode", "HTML");
 
-  const buttons = [];
+  const inlineKeyboard = [];
 
   if (trackingUrl) {
-    buttons.push({
-      text: "▶️ Watch Video",
-      url: trackingUrl,
-    });
+    inlineKeyboard.push([
+      {
+        text: "▶️ Watch Preview",
+        url: trackingUrl,
+      },
+    ]);
   }
 
   if (purchaseUrl) {
-    buttons.push({
-      text: `💳 Purchase ${video.price === 0 ? "" : `$${video.price}`}`.trim(),
-      url: purchaseUrl,
-    });
+    inlineKeyboard.push([
+      {
+        text: `💳 Purchase ${
+          video.price === 0 ? "" : `$${video.price}`
+        }`.trim(),
+        url: purchaseUrl,
+      },
+    ]);
   }
 
-  if (buttons.length) {
+  if (inlineKeyboard.length) {
     payload.append(
       "reply_markup",
       JSON.stringify({
-        inline_keyboard: [buttons],
+        inline_keyboard: inlineKeyboard,
       })
     );
   }

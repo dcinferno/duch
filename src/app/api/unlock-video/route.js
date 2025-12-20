@@ -39,7 +39,11 @@ export async function POST(req) {
       `${process.env.NEXT_PUBLIC_SERVER_URL}/api/check-purchase`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": allowedOrigin,
+          Vary: "Origin",
+        },
         body: JSON.stringify({ userId, videoId }),
       }
     );
