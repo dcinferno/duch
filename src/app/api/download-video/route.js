@@ -6,9 +6,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req) {
-  const { videoId, accessToken } = await req.json();
+  const { videoId, token } = await req.json();
 
-  if (!videoId || !accessToken) {
+  if (!videoId || !token) {
     return Response.json({ error: "Missing parameters" }, { status: 400 });
   }
 
