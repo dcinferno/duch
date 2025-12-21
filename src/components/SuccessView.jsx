@@ -43,6 +43,10 @@ export default function SuccessView({ urlHandle, router }) {
         if (!data.url || !data.videoId) {
           throw new Error("Invalid access response.");
         }
+        const purchased =
+          JSON.parse(localStorage.getItem("purchasedVideos")) || {};
+        purchased[data.videoId] = true;
+        localStorage.setItem("purchasedVideos", JSON.stringify(purchased));
 
         setDownloadUrl(data.url);
 
