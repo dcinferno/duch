@@ -55,6 +55,11 @@ export async function sendTelegramMessage(video) {
       ? new URL(`/api/redirect?videoId=${video._id}`, publicBaseUrl).toString()
       : null;
 
+  const purchaseUrl =
+    publicBaseUrl && video._id && video.pay && video.price > 0
+      ? new URL(`/api/purchase?videoId=${video._id}`, publicBaseUrl).toString()
+      : null;
+
   const thumbnailUrl = video.thumbnail?.startsWith("http")
     ? video.thumbnail
     : `${CDN}${video.thumbnail}`;
@@ -106,18 +111,33 @@ ${creatorPageLine}
   payload.append("caption", message);
   payload.append("parse_mode", "HTML");
 
+  const inlineKeyboard = [];
+
   if (trackingUrl) {
+    inlineKeyboard.push([
+      {
+        text: "▶️ Watch Preview",
+        url: trackingUrl,
+      },
+    ]);
+  }
+
+  if (purchaseUrl) {
+    inlineKeyboard.push([
+      {
+        text: `💳 Purchase ${
+          video.price === 0 ? "" : `$${video.price}`
+        }`.trim(),
+        url: purchaseUrl,
+      },
+    ]);
+  }
+
+  if (inlineKeyboard.length) {
     payload.append(
       "reply_markup",
       JSON.stringify({
-        inline_keyboard: [
-          [
-            {
-              text: "▶️ Watch Video",
-              url: trackingUrl,
-            },
-          ],
-        ],
+        inline_keyboard: inlineKeyboard,
       })
     );
   }

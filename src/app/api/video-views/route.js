@@ -20,7 +20,9 @@ export async function GET(req) {
 
       const docs = await VideoViews.find({
         videoId: { $in: videoIds },
-      }).lean();
+      })
+        .select({ videoId: 1, totalViews: 1 })
+        .lean();
 
       const viewsMap = {};
 
@@ -31,7 +33,7 @@ export async function GET(req) {
 
       // Ensure IDs missing in DB still return 0
       videoIds.forEach((id) => {
-        if (!viewsMap[id]) viewsMap[id] = 0;
+        if (!(id in viewsMap)) viewsMap[id] = 0;
       });
 
       return new Response(JSON.stringify(viewsMap), { status: 200 });

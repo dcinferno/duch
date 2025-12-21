@@ -199,6 +199,39 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   // EFFECTS
   // ===============================
+
+  useEffect(() => {
+    if (!videos.length) return;
+
+    const controller = new AbortController();
+
+    const fetchViews = async () => {
+      try {
+        const ids = videos.map((v) => v._id).join(",");
+        const res = await fetch(`/api/video-views?videoIds=${ids}`, {
+          signal: controller.signal,
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch views");
+
+        const data = await res.json(); // { [videoId]: count }
+
+        setVideoViews((prev) => ({
+          ...data,
+          ...prev, // preserve locally incremented views
+        }));
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("❌ Failed to load video views", err);
+        }
+      }
+    };
+
+    fetchViews();
+
+    return () => controller.abort();
+  }, [videos]);
+
   useEffect(() => {
     if (!selectedVideo) return;
 
