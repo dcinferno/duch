@@ -8,7 +8,9 @@ export default function SuccessView({ videoId, urlHandle, router }) {
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [downloadError, setDownloadError] = useState(null);
 
-  // ✅ 1️⃣ Mark purchased locally
+  /* ------------------------------------------
+     1️⃣ Mark purchased locally (UX ONLY)
+  ------------------------------------------- */
   useEffect(() => {
     if (!videoId) return;
 
@@ -17,19 +19,19 @@ export default function SuccessView({ videoId, urlHandle, router }) {
     localStorage.setItem("purchasedVideos", JSON.stringify(purchased));
   }, [videoId]);
 
-  // ✅ 2️⃣ Fetch signed / CDN URL (stream-safe)
+  /* ------------------------------------------
+     2️⃣ Fetch signed / CDN URL
+     (NO userId required anymore)
+  ------------------------------------------- */
   useEffect(() => {
     if (!videoId) return;
 
     async function fetchDownloadUrl() {
       try {
-        const userId = localStorage.getItem("userId");
-        if (!userId) throw new Error("Missing userId");
-
         const res = await fetch("/api/download-video", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, videoId }),
+          body: JSON.stringify({ videoId }),
         });
 
         if (!res.ok) {
@@ -42,14 +44,11 @@ export default function SuccessView({ videoId, urlHandle, router }) {
         }
 
         const data = await res.json();
-
-        if (!data.url) {
-          throw new Error("No video URL returned");
-        }
+        if (!data.url) throw new Error("No video URL returned");
 
         setDownloadUrl(data.url);
 
-        // cache for playback
+        // Cache for VideoGrid playback
         const fullUrls =
           JSON.parse(localStorage.getItem("fullVideoUrls")) || {};
         fullUrls[videoId] = data.url;
@@ -63,24 +62,30 @@ export default function SuccessView({ videoId, urlHandle, router }) {
     fetchDownloadUrl();
   }, [videoId]);
 
-  // ✅ 3️⃣ Load video metadata
+  /* ------------------------------------------
+     3️⃣ Load video metadata
+  ------------------------------------------- */
   useEffect(() => {
     if (!videoId) return;
 
-    async function load() {
+    async function loadVideo() {
       try {
         const res = await fetch(`/api/videos?id=${videoId}`);
         if (!res.ok) throw new Error("Video not found");
         setVideo(await res.json());
       } catch (err) {
         console.error(err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
 
-    load();
+    loadVideo();
   }, [videoId]);
 
+  /* ------------------------------------------
+     UI
+  ------------------------------------------- */
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10">
       <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full text-center">
@@ -107,12 +112,11 @@ export default function SuccessView({ videoId, urlHandle, router }) {
         )}
 
         <div className="flex flex-col gap-3 mt-6">
-          {/* ✅ STREAM-FIRST ACCESS */}
           <button
             disabled={!downloadUrl}
-            onClick={() => {
-              window.open(downloadUrl, "_blank", "noopener,noreferrer");
-            }}
+            onClick={() =>
+              window.open(downloadUrl, "_blank", "noopener,noreferrer")
+            }
             className={`w-full py-3 rounded-lg text-white ${
               downloadUrl
                 ? "bg-blue-600 hover:bg-blue-700"
