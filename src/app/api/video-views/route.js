@@ -91,7 +91,7 @@ export async function POST(req) {
       { videoId: String(videoId) },
       {
         $inc: { totalViews: 1 },
-        $set: { lastViewedAt: new Date() },
+        $set: { viewedAt: new Date() },
       },
       { upsert: true }
     );
