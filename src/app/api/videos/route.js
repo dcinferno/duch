@@ -188,7 +188,7 @@ export async function POST(request) {
       price: Number(price),
       creatorName: creator.name,
       socialMediaUrl,
-      url: normalizePath(url),
+      url,
       fullKey: normalizeFullKey(fullKey),
       tags,
     });
