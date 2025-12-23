@@ -193,7 +193,13 @@ export async function POST(request) {
       tags,
     });
 
-    await sendTelegramMessage(video);
+    const enrichedVideo = {
+      ...video.toObject(),
+      creatorUrlHandle: creator?.urlHandle || null,
+      pay: creator?.pay || false,
+    };
+
+    await sendTelegramMessage(enrichedVideo);
 
     return Response.json(video, { status: 201 });
   } catch (err) {

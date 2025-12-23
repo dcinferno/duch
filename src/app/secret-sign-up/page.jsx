@@ -9,10 +9,30 @@ function slugify(name) {
     .replace(/\s+/g, "-")
     .replace(/[^\w-]/g, "");
 }
+function normalizeTelegram(input) {
+  if (!input) return "";
+
+  let value = input.trim();
+
+  // Already a full URL
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+
+  // @username → https://t.me/username
+  if (value.startsWith("@")) {
+    return `https://t.me/${value.slice(1)}`;
+  }
+
+  // bare username → https://t.me/username
+  return `https://t.me/${value}`;
+}
 
 export default function CreatorSignupPage() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [uploadSecret, setUploadSecret] = useState("");
+
   const [urlHandle, setUrlHandle] = useState("");
   const [profileFile, setProfileFile] = useState(null);
   const [profilePreview, setProfilePreview] = useState(null);
@@ -25,18 +45,39 @@ export default function CreatorSignupPage() {
 
   // --- Upload to /api/upload ---
   const handleUploadProfile = async (file, folder) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("folder", folder);
+    if (!uploadSecret) {
+      throw new Error("Upload access key required");
+    }
 
-    const res = await fetch("/api/upload", {
+    const res = await fetch("/api/uploadUrl", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret: uploadSecret,
+        fileName: file.name,
+        contentType: file.type,
+        folder,
+        isPublic: true,
+      }),
     });
 
-    if (!res.ok) throw new Error("Upload failed");
-    const data = await res.json();
-    return data.url;
+    if (!res.ok) {
+      throw new Error("Invalid upload access key");
+    }
+
+    const { uploadUrl, key } = await res.json();
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error("Upload failed");
+    }
+
+    return key; // store key only
   };
 
   // --- Submit handler ---
@@ -46,7 +87,12 @@ export default function CreatorSignupPage() {
     if (!name) return alert("Please enter a name");
     if (!urlHandle) return alert("Please enter a handle");
     if (!profileFile) return alert("Please select a profile picture");
-
+    if (url) {
+      const cleaned = url.replace(/^https?:\/\/t\.me\//, "").trim();
+      if (!/^@?[a-zA-Z0-9_]{3,32}$/.test(cleaned)) {
+        return alert("Invalid Telegram username");
+      }
+    }
     setSubmitting(true);
     try {
       const folderSlug = slugify(name);
@@ -59,14 +105,14 @@ export default function CreatorSignupPage() {
       );
       setProfileUrl(uploadedProfileUrl);
       setUploading(false);
-
+      const normalizedUrl = normalizeTelegram(url);
       // Save creator info to DB
       const res = await fetch("/api/creators", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          url,
+          url: normalizedUrl,
           urlHandle,
           photo: uploadedProfileUrl,
         }),
@@ -126,19 +172,25 @@ export default function CreatorSignupPage() {
 
         {/* URL */}
         <input
-          type="url"
-          placeholder="Telegram - ex: https://t.me/dcinferno94"
+          type="text"
+          placeholder="Telegram username (ex: @saucy4real)"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           className="w-full p-3 border rounded"
         />
-
         {/* Handle */}
         <input
           type="text"
           placeholder="urlHandle"
           value={urlHandle}
-          onChange={(e) => setUrlHandle(e.target.value)}
+          onChange={(e) => {
+            const cleaned = e.target.value
+              .toLowerCase()
+              .replace(/\s+/g, "") // remove spaces
+              .replace(/[^a-z0-9_-]/g, ""); // optional: restrict chars
+
+            setUrlHandle(cleaned);
+          }}
           className="w-full p-3 border rounded"
           required
         />
@@ -191,6 +243,14 @@ export default function CreatorSignupPage() {
             </a>
           </p>
         )}
+        <input
+          type="string"
+          placeholder="Upload Access Key"
+          value={uploadSecret}
+          onChange={(e) => setUploadSecret(e.target.value)}
+          className="w-full p-3 border rounded"
+          required
+        />
 
         <button
           type="submit"
