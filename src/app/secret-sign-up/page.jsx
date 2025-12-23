@@ -9,6 +9,24 @@ function slugify(name) {
     .replace(/\s+/g, "-")
     .replace(/[^\w-]/g, "");
 }
+function normalizeTelegram(input) {
+  if (!input) return "";
+
+  let value = input.trim();
+
+  // Already a full URL
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return value;
+  }
+
+  // @username → https://t.me/username
+  if (value.startsWith("@")) {
+    return `https://t.me/${value.slice(1)}`;
+  }
+
+  // bare username → https://t.me/username
+  return `https://t.me/${value}`;
+}
 
 export default function CreatorSignupPage() {
   const [name, setName] = useState("");
@@ -69,7 +87,12 @@ export default function CreatorSignupPage() {
     if (!name) return alert("Please enter a name");
     if (!urlHandle) return alert("Please enter a handle");
     if (!profileFile) return alert("Please select a profile picture");
-
+    if (url) {
+      const cleaned = url.replace(/^https?:\/\/t\.me\//, "").trim();
+      if (!/^@?[a-zA-Z0-9_]{3,32}$/.test(cleaned)) {
+        return alert("Invalid Telegram username");
+      }
+    }
     setSubmitting(true);
     try {
       const folderSlug = slugify(name);
@@ -82,14 +105,14 @@ export default function CreatorSignupPage() {
       );
       setProfileUrl(uploadedProfileUrl);
       setUploading(false);
-
+      const normalizedUrl = normalizeTelegram(url);
       // Save creator info to DB
       const res = await fetch("/api/creators", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          url,
+          url: normalizedUrl,
           urlHandle,
           photo: uploadedProfileUrl,
         }),
@@ -149,13 +172,12 @@ export default function CreatorSignupPage() {
 
         {/* URL */}
         <input
-          type="url"
-          placeholder="Telegram - ex: https://t.me/dcinferno94"
+          type="text"
+          placeholder="Telegram username (ex: @saucy4real)"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           className="w-full p-3 border rounded"
         />
-
         {/* Handle */}
         <input
           type="text"
