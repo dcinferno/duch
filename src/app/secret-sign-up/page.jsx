@@ -13,6 +13,8 @@ function slugify(name) {
 export default function CreatorSignupPage() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [uploadSecret, setUploadSecret] = useState("");
+
   const [urlHandle, setUrlHandle] = useState("");
   const [profileFile, setProfileFile] = useState(null);
   const [profilePreview, setProfilePreview] = useState(null);
@@ -25,18 +27,39 @@ export default function CreatorSignupPage() {
 
   // --- Upload to /api/upload ---
   const handleUploadProfile = async (file, folder) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("folder", folder);
+    if (!uploadSecret) {
+      throw new Error("Upload access key required");
+    }
 
-    const res = await fetch("/api/upload", {
+    const res = await fetch("/api/uploadUrl", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret: uploadSecret,
+        fileName: file.name,
+        contentType: file.type,
+        folder,
+        isPublic: true,
+      }),
     });
 
-    if (!res.ok) throw new Error("Upload failed");
-    const data = await res.json();
-    return data.url;
+    if (!res.ok) {
+      throw new Error("Invalid upload access key");
+    }
+
+    const { uploadUrl, key } = await res.json();
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error("Upload failed");
+    }
+
+    return key; // store key only
   };
 
   // --- Submit handler ---
@@ -191,6 +214,14 @@ export default function CreatorSignupPage() {
             </a>
           </p>
         )}
+        <input
+          type="string"
+          placeholder="Upload Access Key"
+          value={uploadSecret}
+          onChange={(e) => setUploadSecret(e.target.value)}
+          className="w-full p-3 border rounded"
+          required
+        />
 
         <button
           type="submit"
