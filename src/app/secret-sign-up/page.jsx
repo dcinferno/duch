@@ -183,7 +183,14 @@ export default function CreatorSignupPage() {
           type="text"
           placeholder="urlHandle"
           value={urlHandle}
-          onChange={(e) => setUrlHandle(e.target.value)}
+          onChange={(e) => {
+            const cleaned = e.target.value
+              .toLowerCase()
+              .replace(/\s+/g, "") // remove spaces
+              .replace(/[^a-z0-9_-]/g, ""); // optional: restrict chars
+
+            setUrlHandle(cleaned);
+          }}
           className="w-full p-3 border rounded"
           required
         />
