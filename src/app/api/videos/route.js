@@ -155,6 +155,7 @@ export async function GET() {
 
     return {
       ...video,
+      creatorTelegramId: creator.telegramId ?? null,
       thumbnail: withCDN(video.thumbnail),
       url: withCDN(video.url),
       basePrice: pricing.basePrice,
