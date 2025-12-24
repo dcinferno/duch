@@ -65,8 +65,7 @@ export default function VideoGridClient({ videos = [] }) {
 
     return Number(price);
   }
-
-  const isPurchased = (videoId) => !!purchasedVideos[videoId];
+  const isPurchased = (videoId) => !!purchasedVideos[videoId]?.token;
 
   const aggressivePreload = async (url, maxMB = 8) => {
     if (!url || typeof window === "undefined") return;
@@ -184,12 +183,19 @@ export default function VideoGridClient({ videos = [] }) {
     if (isPurchased(video._id)) {
       try {
         setLoadingVideoId(video._id);
-        const userId = getOrCreateUserId();
+        const purchase = purchasedVideos[video._id];
+
+        if (!purchase?.token) {
+          alert("Missing access token");
+          return;
+        }
 
         const res = await fetch("/api/download-video", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, videoId: video._id }),
+          body: JSON.stringify({
+            token: purchase.token, // 🔑 ONLY THIS
+          }),
         });
 
         const data = await res.json();
