@@ -4,40 +4,30 @@ export const runtime = "nodejs";
 import { connectToDB } from "../../../../lib/mongodb.js";
 import Videos from "../../../../models/videos";
 import Creators from "../../../../models/creators";
+import { fetchActiveDiscounts } from "../../../../lib/fetchActiveDiscounts";
 
 export async function GET(req, { params }) {
   await connectToDB();
 
-  const { id } = await params;
-
-  if (!id) {
-    return new Response("Missing id", { status: 400 });
-  }
-
-  // 1️⃣ Fetch video by ID (NO FILTERING)
-  const video = await Videos.findById(id).lean();
-
+  const video = await Videos.findById(params.id).lean();
   if (!video) {
     return new Response("Not found", { status: 404 });
   }
 
-  // 2️⃣ Attach creator flags (denormalized)
   const creator = await Creators.findOne(
     { name: video.creatorName },
     { premium: 1, pay: 1 }
   ).lean();
 
-  // 3️⃣ Normalize pricing (ALWAYS present)
-  const basePrice = Number(video.price) || 0;
-  const finalPrice =
-    typeof video.finalPrice === "number" ? video.finalPrice : basePrice;
+  // 🔑 FETCH DISCOUNTS HERE
+  const discounts = await fetchActiveDiscounts();
 
-  // 4️⃣ Return authoritative object
+  const pricing = applyDiscountToVideo(video, discounts);
+
   return Response.json({
     ...video,
     premium: Boolean(creator?.premium),
     pay: Boolean(creator?.pay),
-    basePrice,
-    finalPrice,
+    ...pricing,
   });
 }
