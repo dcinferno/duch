@@ -107,7 +107,26 @@ function applyDiscount(video, discounts) {
     discount,
   };
 }
+export async function GET(req, { params }) {
+  await connectToDB();
 
+  const video = await Videos.findById(params.id).lean();
+  if (!video) {
+    return Response.json({ error: "Video not found" }, { status: 404 });
+  }
+
+  const creator = await Creators.findOne({
+    name: new RegExp(`^${video.creatorName}$`, "i"),
+  }).lean();
+
+  return Response.json({
+    ...video,
+    thumbnail: withCDN(video.thumbnail),
+    url: withCDN(video.url),
+    premium: Boolean(creator?.premium),
+    pay: Boolean(creator?.pay),
+  });
+}
 /* ------------------------------------------
    GET /api/videos
 ------------------------------------------- */
