@@ -86,23 +86,16 @@ async function fetchActiveDiscounts() {
 ------------------------------------------- */
 export async function GET(request) {
   await connectToDB();
-
-  const { searchParams } = new URL(request.url);
-  const videoId = searchParams.get("id");
-
-  // -----------------------------------
-  // 1️⃣ Fetch discounts ONCE
-  // -----------------------------------
   const discounts = await fetchActiveDiscounts();
+  const { searchParams } = new URL(request.url);
 
-  // -----------------------------------
-  // 2️⃣ Fetch creators ONCE → map
-  // -----------------------------------
+  const videoId = searchParams.get("id");
+  const creatorHandle = searchParams.get("creator");
+
   const creators = await Creators.find(
     {},
     { name: 1, premium: 1, pay: 1, telegramId: 1 }
   ).lean();
-
   const creatorMap = Object.fromEntries(
     creators.map((c) => [
       c.name?.trim().toLowerCase(),
@@ -115,7 +108,7 @@ export async function GET(request) {
   );
 
   // -----------------------------------
-  // 🔹 SINGLE VIDEO
+  // 1️⃣ SINGLE VIDEO
   // -----------------------------------
   if (videoId) {
     const video = await Videos.findById(videoId, { password: 0 }).lean();
@@ -126,7 +119,6 @@ export async function GET(request) {
 
     const creatorKey = video.creatorName?.trim().toLowerCase();
     const creator = creatorMap[creatorKey] || {};
-
     const pricing = applyDiscount(video, discounts);
 
     return Response.json({
@@ -137,7 +129,7 @@ export async function GET(request) {
 
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
-      creatorTelegramId: creator.telegramId,
+      creatorTelegramId: creator.telegramId ?? null,
 
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
@@ -152,29 +144,44 @@ export async function GET(request) {
   }
 
   // -----------------------------------
-  // 🔹 ALL VIDEOS
+  // 2️⃣ BUILD QUERY (THIS WAS BROKEN)
   // -----------------------------------
-  const videos = await Videos.find({}, { password: 0 }).lean();
+
+  let videoQuery = {};
+
+  if (creatorHandle) {
+    const creator = await Creators.findOne(
+      { urlHandle: creatorHandle },
+      { name: 1 }
+    ).lean();
+
+    if (!creator) {
+      return Response.json({ videos: [] });
+    }
+    videoQuery.creatorName = creator.name;
+  }
+  // -----------------------------------
+  // 3️⃣ FETCH VIDEOS USING QUERY
+  // -----------------------------------
+  // -----------------------------------
+  // 3️⃣ FETCH ALL VIDEOS (HOME / GRID)
+  // -----------------------------------
+  const videos = await Videos.find(videoQuery, { password: 0 }).lean();
 
   const mergedVideos = videos.map((video) => {
     const creatorKey = video.creatorName?.trim().toLowerCase();
     const creator = creatorMap[creatorKey] || {};
-
     const pricing = applyDiscount(video, discounts);
 
     return {
       ...video,
-
-      // CDN
       thumbnail: withCDN(video.thumbnail),
       url: withCDN(video.url),
 
-      // creator flags
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
-      creatorTelegramId: creator.telegramId,
+      creatorTelegramId: creator.telegramId ?? null,
 
-      // pricing
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
@@ -186,10 +193,8 @@ export async function GET(request) {
         : null,
     };
   });
-
-  return Response.json({ videos: mergedVideos });
+  return Response.json(mergedVideos);
 }
-
 /* ------------------------------------------
    POST — CREATE VIDEO
 ------------------------------------------- */
