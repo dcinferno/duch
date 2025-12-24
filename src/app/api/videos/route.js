@@ -3,9 +3,6 @@ import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
 import Creators from "../../../models/creators.js";
 import { sendTelegramMessage } from "../../../lib/telegram.js";
-const { searchParams } = new URL(request.url);
-const videoId = searchParams.get("id");
-const creatorName = searchParams.get("creatorName");
 
 const CDN = process.env.CDN_URL || "";
 
@@ -92,6 +89,7 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const videoId = searchParams.get("id");
+  const creatorName = searchParams.get("creatorName");
 
   // -----------------------------------
   // 1️⃣ Fetch discounts ONCE
