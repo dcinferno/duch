@@ -25,7 +25,7 @@ function VideosFetcher() {
       try {
         const res = await fetch("/api/videos");
         const data = await res.json();
-        setVideos(data);
+        setVideos(data.videos || []);
       } catch (err) {
         console.error(err);
       } finally {

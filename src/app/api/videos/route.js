@@ -1,13 +1,16 @@
+export const runtime = "nodejs";
 import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
 import Creators from "../../../models/creators.js";
 import { sendTelegramMessage } from "../../../lib/telegram.js";
+
 const CDN = process.env.CDN_URL || "";
 
+/* ------------------------------------------
+   PATH NORMALIZATION
+------------------------------------------- */
 function normalizePath(input) {
   if (!input) return input;
-
-  // If full URL, strip to pathname
   if (input.startsWith("http")) {
     try {
       return new URL(input).pathname;
@@ -15,147 +18,181 @@ function normalizePath(input) {
       return input;
     }
   }
-
   return input;
 }
+
 function normalizeFullKey(key) {
   if (!key) return null;
   return key.startsWith("/") ? key : `/${key}`;
 }
+
 function withCDN(path) {
   if (!path || !CDN) return path;
-
-  // already absolute (signed URLs, etc)
   if (path.startsWith("http")) return path;
-
   return `${CDN}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
-export async function GET(request) {
-  try {
-    await connectToDB();
+function applyDiscount(video, discounts) {
+  const basePrice = Number(video.price) || 0;
 
-    const { searchParams } = new URL(request.url);
-
-    const videoId = searchParams.get("id");
-    const creatorUrlHandle = searchParams.get("creator");
-
-    // -----------------------------------
-    // 1️⃣ FETCH SINGLE VIDEO BY ID
-    // -----------------------------------
-    if (videoId) {
-      const video = await Videos.findById(videoId, { password: 0 });
-
-      if (!video) {
-        return Response.json({ error: "Video not found" }, { status: 404 });
-      }
-
-      const creator = await Creators.findOne(
-        { name: new RegExp(`^${video.creatorName}$`, "i") },
-        "name urlHandle premium icon socialMediaUrl type pay telegramId photo"
-      );
-
-      // Build enriched single-video response
-      const creatorPhoto = creator?.photo ? withCDN(creator.photo) : null;
-      const v = video.toObject();
-
-      return Response.json({
-        ...v,
-
-        // ✅ APPLY CDN HERE
-        url: withCDN(v.url),
-        thumbnail: withCDN(v.thumbnail),
-
-        // Canonical creator fields
-        creatorName: creator?.name || v.creatorName,
-        creatorUrlHandle: creator?.urlHandle || null,
-        creatorPhoto,
-        premium: creator?.premium || false,
-        icon: creator?.icon || null,
-        socialMediaUrl: creator?.socialMediaUrl || v.socialMediaUrl,
-
-        // Payments features
-        pay: creator?.pay || false,
-        creatorTelegramId: creator?.telegramId || null,
-      });
-    }
-
-    // -----------------------------------
-    // 2️⃣ FETCH CREATOR FEED OR ALL
-    // -----------------------------------
-    let filter = {};
-
-    if (creatorUrlHandle) {
-      const creator = await Creators.findOne({
-        urlHandle: new RegExp(`^${creatorUrlHandle}$`, "i"),
-      });
-
-      if (!creator) {
-        return Response.json({ error: "Creator not found" }, { status: 404 });
-      }
-
-      filter.creatorName = new RegExp(`^${creator.name}$`, "i");
-    } else {
-      const publicCreators = await Creators.find(
-        { secret: { $ne: true } },
-        "name"
-      );
-
-      filter.creatorName = { $in: publicCreators.map((c) => c.name) };
-    }
-
-    // Fetch videos
-    const videos = await Videos.find(filter, { password: 0 }).sort({
-      createdAt: -1,
-    });
-
-    // Fetch creators for metadata injection
-    const creators = await Creators.find(
-      {},
-      "name urlHandle premium icon socialMediaUrl type pay telegramId photo"
-    );
-
-    // -----------------------------------
-    // 3️⃣ ENRICH EACH VIDEO WITH CREATOR DATA
-    // -----------------------------------
-    const enrichedVideos = videos.map((video) => {
-      const v = video.toObject();
-
-      const creator = creators.find(
-        (c) => c.name.toLowerCase() === v.creatorName.toLowerCase()
-      );
-
-      const creatorPhoto = creator?.photo ? withCDN(creator.photo) : null;
-
-      // Build canonical, enriched object
-      return {
-        ...v,
-
-        // Canonical creator metadata
-        creatorName: creator?.name || v.creatorName,
-        creatorUrlHandle: creator?.urlHandle || null,
-        creatorPhoto,
-        premium: creator?.premium || false,
-        icon: creator?.icon || null,
-        socialMediaUrl: creator?.socialMediaUrl || v.socialMediaUrl || null,
-
-        // Payments branch metadata
-        pay: creator?.pay || false,
-        creatorTelegramId: creator?.telegramId || null,
-
-        // Apply CDN to video URLs
-        url: withCDN(v.url),
-        thumbnail: withCDN(v.thumbnail),
-      };
-    });
-
-    return Response.json(enrichedVideos);
-  } catch (err) {
-    console.error("❌ Error in /api/videos:", err);
-    return Response.json({ error: "Failed to fetch videos" }, { status: 500 });
+  if (basePrice <= 0) {
+    return { basePrice, finalPrice: basePrice, discount: null };
   }
+
+  const creatorKey = video.creatorName?.trim().toLowerCase();
+
+  const discount = discounts.creators?.[creatorKey] || discounts.global || null;
+
+  if (!discount) {
+    return { basePrice, finalPrice: basePrice, discount: null };
+  }
+
+  const finalPrice = discount.percentOff
+    ? basePrice * (1 - discount.percentOff / 100)
+    : basePrice;
+
+  return {
+    basePrice,
+    finalPrice: Number(finalPrice.toFixed(2)),
+    discount: {
+      name: discount.name,
+      percentOff: discount.percentOff,
+    },
+  };
 }
 
+/* ------------------------------------------
+   FETCH ACTIVE DISCOUNTS (PROCESS SERVER)
+------------------------------------------- */
+async function fetchActiveDiscounts() {
+  const url = `${process.env.NEXT_PUBLIC_SERVER_URL}/api/discount/active`;
+
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    console.error("❌ Failed to fetch discounts", await res.text());
+    return { global: null, creators: {} };
+  }
+
+  return res.json();
+}
+
+/* ------------------------------------------
+   GET /api/videos
+------------------------------------------- */
+export async function GET(request) {
+  await connectToDB();
+
+  const { searchParams } = new URL(request.url);
+  const videoId = searchParams.get("id");
+
+  // -----------------------------------
+  // 1️⃣ Fetch discounts ONCE
+  // -----------------------------------
+  const discounts = await fetchActiveDiscounts();
+
+  // -----------------------------------
+  // 2️⃣ Fetch creators ONCE → map
+  // -----------------------------------
+  const creators = await Creators.find(
+    {},
+    { name: 1, premium: 1, pay: 1, telegramId: 1 }
+  ).lean();
+
+  const creatorMap = Object.fromEntries(
+    creators.map((c) => [
+      c.name?.trim().toLowerCase(),
+      {
+        premium: Boolean(c.premium),
+        pay: Boolean(c.pay),
+        telegramId: c.telegramId ?? null,
+      },
+    ])
+  );
+
+  // -----------------------------------
+  // 🔹 SINGLE VIDEO
+  // -----------------------------------
+  if (videoId) {
+    const video = await Videos.findById(videoId, { password: 0 }).lean();
+
+    if (!video) {
+      return Response.json({ error: "Video not found" }, { status: 404 });
+    }
+
+    const creatorKey = video.creatorName?.trim().toLowerCase();
+    const creator = creatorMap[creatorKey] || {};
+
+    const pricing = applyDiscount(video, discounts);
+
+    return Response.json({
+      ...video,
+
+      thumbnail: withCDN(video.thumbnail),
+      url: withCDN(video.url),
+
+      premium: creator.premium ?? false,
+      pay: creator.pay ?? false,
+      creatorTelegramId: creator.telegramId,
+
+      price: Number(video.price) || 0,
+      basePrice: pricing.basePrice,
+      finalPrice: pricing.finalPrice,
+      discount: pricing.discount
+        ? {
+            label: pricing.discount.name,
+            percentOff: pricing.discount.percentOff,
+          }
+        : null,
+    });
+  }
+
+  // -----------------------------------
+  // 🔹 ALL VIDEOS
+  // -----------------------------------
+  const videos = await Videos.find({}, { password: 0 }).lean();
+
+  const mergedVideos = videos.map((video) => {
+    const creatorKey = video.creatorName?.trim().toLowerCase();
+    const creator = creatorMap[creatorKey] || {};
+
+    const pricing = applyDiscount(video, discounts);
+
+    return {
+      ...video,
+
+      // CDN
+      thumbnail: withCDN(video.thumbnail),
+      url: withCDN(video.url),
+
+      // creator flags
+      premium: creator.premium ?? false,
+      pay: creator.pay ?? false,
+      creatorTelegramId: creator.telegramId,
+
+      // pricing
+      price: Number(video.price) || 0,
+      basePrice: pricing.basePrice,
+      finalPrice: pricing.finalPrice,
+      discount: pricing.discount
+        ? {
+            label: pricing.discount.name,
+            percentOff: pricing.discount.percentOff,
+          }
+        : null,
+    };
+  });
+
+  return Response.json({ videos: mergedVideos });
+}
+
+/* ------------------------------------------
+   POST — CREATE VIDEO
+------------------------------------------- */
 export async function POST(request) {
   try {
     await connectToDB();
@@ -170,16 +207,14 @@ export async function POST(request) {
       tags,
       fullKey,
     } = await request.json();
-    const normalizedName = creatorName.trim();
+
     const creator = await Creators.findOne({
-      name: new RegExp(`^${normalizedName}$`, "i"),
+      name: new RegExp(`^${creatorName.trim()}$`, "i"),
     });
 
     if (!creator) {
       return Response.json({ error: "Creator not found" }, { status: 400 });
     }
-
-    const socialMediaUrl = creator.url;
 
     const video = await Videos.create({
       title,
@@ -187,19 +222,18 @@ export async function POST(request) {
       thumbnail: normalizePath(thumbnail),
       price: Number(price),
       creatorName: creator.name,
-      socialMediaUrl,
+      socialMediaUrl: creator.url,
       url: normalizePath(url),
       fullKey: normalizeFullKey(fullKey),
       tags,
+      pay: creator.pay || false,
+      premium: creator.premium || false,
     });
 
-    const enrichedVideo = {
+    await sendTelegramMessage({
       ...video.toObject(),
-      creatorUrlHandle: creator?.urlHandle || null,
-      pay: creator?.pay || false,
-    };
-
-    await sendTelegramMessage(enrichedVideo);
+      creatorUrlHandle: creator.urlHandle,
+    });
 
     return Response.json(video, { status: 201 });
   } catch (err) {

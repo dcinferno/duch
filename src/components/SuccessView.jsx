@@ -45,7 +45,11 @@ export default function SuccessView({ urlHandle, router }) {
         }
         const purchased =
           JSON.parse(localStorage.getItem("purchasedVideos")) || {};
-        purchased[data.videoId] = true;
+
+        purchased[data.videoId] = {
+          token, // 🔑 THIS IS WHAT VideoGrid NEEDS
+        };
+
         localStorage.setItem("purchasedVideos", JSON.stringify(purchased));
 
         setDownloadUrl(data.url);
