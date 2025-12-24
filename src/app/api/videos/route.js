@@ -107,76 +107,101 @@ function applyDiscount(video, discounts) {
     discount,
   };
 }
-export async function GET(req, { params }) {
-  await connectToDB();
 
-  const video = await Videos.findById(params.id).lean();
-  if (!video) {
-    return Response.json({ error: "Video not found" }, { status: 404 });
-  }
-
-  const creator = await Creators.findOne({
-    name: new RegExp(`^${video.creatorName}$`, "i"),
-  }).lean();
-
-  return Response.json({
-    ...video,
-    thumbnail: withCDN(video.thumbnail),
-    url: withCDN(video.url),
-    premium: Boolean(creator?.premium),
-    pay: Boolean(creator?.pay),
-  });
-}
 /* ------------------------------------------
    GET /api/videos
 ------------------------------------------- */
-export async function GET() {
+export async function GET(request) {
   await connectToDB();
 
-  // 1️⃣ Fetch videos
-  const videos = await Videos.find({}, { password: 0 }).lean();
+  const { searchParams } = new URL(request.url);
+  const videoId = searchParams.get("id");
+
+  // -----------------------------------
+  // 1️⃣ Fetch discounts ONCE
+  // -----------------------------------
+  const discounts = await fetchActiveDiscounts();
+
+  // -----------------------------------
+  // 2️⃣ Fetch creators ONCE → map
+  // -----------------------------------
   const creators = await Creators.find(
     {},
-    { name: 1, premium: 1, pay: 1 }
+    { name: 1, premium: 1, pay: 1, telegramId: 1 }
   ).lean();
+
   const creatorMap = Object.fromEntries(
     creators.map((c) => [
       c.name?.trim().toLowerCase(),
       {
         premium: Boolean(c.premium),
         pay: Boolean(c.pay),
+        telegramId: c.telegramId ?? null,
       },
     ])
   );
 
-  const mergedVideos = videos.map((video) => {
-    const key = video.creatorName?.trim().toLowerCase();
-    const creator = creatorMap[key] || {};
+  // -----------------------------------
+  // 🔹 SINGLE VIDEO
+  // -----------------------------------
+  if (videoId) {
+    const video = await Videos.findById(videoId, { password: 0 }).lean();
 
-    return {
+    if (!video) {
+      return Response.json({ error: "Video not found" }, { status: 404 });
+    }
+
+    const creatorKey = video.creatorName?.trim().toLowerCase();
+    const creator = creatorMap[creatorKey] || {};
+
+    const pricing = applyDiscount(video, discounts);
+
+    return Response.json({
       ...video,
 
-      // 🔗 reattach creator-level flags
+      // CDN
+      thumbnail: withCDN(video.thumbnail),
+      url: withCDN(video.url),
+
+      // creator flags
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
-      creatorTelegramId: creator.telegramId ?? null,
-      // normalize pricing fields while we're here
+      creatorTelegramId: creator.telegramId,
+
+      // pricing
       price: Number(video.price) || 0,
-    };
-  });
+      basePrice: pricing.basePrice,
+      finalPrice: pricing.finalPrice,
+      discount: pricing.discount,
+      badge: pricing.discount?.badge ?? null,
+    });
+  }
 
-  // 2️⃣ Fetch discounts ONCE
-  const discounts = await fetchActiveDiscounts();
+  // -----------------------------------
+  // 🔹 ALL VIDEOS
+  // -----------------------------------
+  const videos = await Videos.find({}, { password: 0 }).lean();
 
-  // 3️⃣ Apply pricing per video
-  const pricedVideos = mergedVideos.map((video) => {
+  const mergedVideos = videos.map((video) => {
+    const creatorKey = video.creatorName?.trim().toLowerCase();
+    const creator = creatorMap[creatorKey] || {};
+
     const pricing = applyDiscount(video, discounts);
 
     return {
       ...video,
-      creatorTelegramId: creator.telegramId ?? null,
+
+      // CDN
       thumbnail: withCDN(video.thumbnail),
       url: withCDN(video.url),
+
+      // creator flags
+      premium: creator.premium ?? false,
+      pay: creator.pay ?? false,
+      creatorTelegramId: creator.telegramId,
+
+      // pricing
+      price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
       discount: pricing.discount,
@@ -184,7 +209,7 @@ export async function GET() {
     };
   });
 
-  return Response.json({ videos: pricedVideos });
+  return Response.json({ videos: mergedVideos });
 }
 
 /* ------------------------------------------
