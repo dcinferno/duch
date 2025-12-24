@@ -29,8 +29,27 @@ const escapeHTML = (str = "") =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-// Only escape & for URLs (do NOT escape < >)
 const escapeUrl = (url = "") => String(url).replace(/&/g, "&amp;");
+
+// --------------------------------------------------
+// Price helpers (NEW)
+// --------------------------------------------------
+function formatPrice(video) {
+  const base = Number(video.basePrice ?? video.price ?? 0);
+  const final = Number(video.finalPrice ?? base);
+  const discount = video.discount;
+
+  if (final <= 0) return "Free";
+
+  if (discount && final < base) {
+    const label = discount.label || discount.name || "Discount";
+    return `<s>$${base.toFixed(2)}</s> → <b>$${final.toFixed(
+      2
+    )}</b> (${escapeHTML(label)})`;
+  }
+
+  return `$${final.toFixed(2)}`;
+}
 
 // --------------------------------------------------
 // Send Telegram message with thumbnail + button
@@ -39,7 +58,6 @@ export async function sendTelegramMessage(video) {
   const token = process.env.BOT_TOKEN;
   const channelId = process.env.CHANNEL_ID;
   const publicBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  const redirectHost = process.env.NEXT_REDIRECT_URL;
   const CDN = process.env.PUSHR_CDN_URL;
 
   if (!token || !channelId) {
@@ -48,15 +66,15 @@ export async function sendTelegramMessage(video) {
   }
 
   // --------------------------------------------------
-  // Build URLs safely
+  // URLs
   // --------------------------------------------------
-  const trackingUrl =
+  const previewUrl =
     publicBaseUrl && video._id
       ? new URL(`/api/redirect?videoId=${video._id}`, publicBaseUrl).toString()
       : null;
 
   const purchaseUrl =
-    publicBaseUrl && video._id && video.pay && video.price > 0
+    publicBaseUrl && video._id && video.pay && video.finalPrice > 0
       ? new URL(`/api/purchase?videoId=${video._id}`, publicBaseUrl).toString()
       : null;
 
@@ -65,7 +83,7 @@ export async function sendTelegramMessage(video) {
     : `${CDN}${video.thumbnail}`;
 
   // --------------------------------------------------
-  // Creator line (safe, no broken <a>)
+  // Creator line
   // --------------------------------------------------
   let creatorLine = `👤 ${escapeHTML(video.creatorName || "Unknown")}`;
 
@@ -76,22 +94,12 @@ export async function sendTelegramMessage(video) {
   }
 
   // --------------------------------------------------
-  // Optional creator page link (body link)
+  // Price line (NEW)
   // --------------------------------------------------
-  let creatorPageLine = "";
-  if (video.creatorUrlHandle && publicBaseUrl) {
-    const creatorUrl = new URL(
-      `/${video.creatorUrlHandle}`,
-      publicBaseUrl
-    ).toString();
-
-    creatorPageLine = `🔗 <a href="${escapeUrl(
-      creatorUrl
-    )}">Visit Creator Page</a>`;
-  }
+  const priceLine = `💰 ${formatPrice(video)}`;
 
   // --------------------------------------------------
-  // Caption (NO newlines inside <a> tags)
+  // Caption
   // --------------------------------------------------
   const message = `
 <b>${escapeHTML(video.title || "")}</b>
@@ -99,12 +107,11 @@ export async function sendTelegramMessage(video) {
 ${escapeHTML(video.description || "")}
 
 ${creatorLine}
-${creatorPageLine}
-💎 ${video.price === 0 ? "Free" : `$${video.price}`}
+${priceLine}
 `.trim();
 
   // --------------------------------------------------
-  // Build payload
+  // Payload
   // --------------------------------------------------
   const payload = new FormData();
   payload.append("chat_id", channelId);
@@ -113,11 +120,11 @@ ${creatorPageLine}
 
   const inlineKeyboard = [];
 
-  if (trackingUrl) {
+  if (previewUrl) {
     inlineKeyboard.push([
       {
         text: "▶️ Watch Preview",
-        url: trackingUrl,
+        url: previewUrl,
       },
     ]);
   }
@@ -125,8 +132,8 @@ ${creatorPageLine}
   if (purchaseUrl) {
     inlineKeyboard.push([
       {
-        text: `💳 Purchase ${
-          video.price === 0 ? "" : `$${video.price}`
+        text: `💳 Buy ${
+          video.finalPrice <= 0 ? "" : `$${video.finalPrice.toFixed(2)}`
         }`.trim(),
         url: purchaseUrl,
       },
@@ -143,14 +150,14 @@ ${creatorPageLine}
   }
 
   // --------------------------------------------------
-  // Fetch thumbnail safely
+  // Fetch thumbnail
   // --------------------------------------------------
   const imageRes = await safeFetch(thumbnailUrl);
   const buffer = await imageRes.arrayBuffer();
   payload.append("photo", new Blob([buffer]), "thumb.jpg");
 
   // --------------------------------------------------
-  // Send to Telegram safely
+  // Send
   // --------------------------------------------------
   const res = await safeFetch(
     `https://api.telegram.org/bot${token}/sendPhoto`,
