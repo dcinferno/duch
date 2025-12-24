@@ -43,6 +43,18 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   // HELPERS
   // ===============================
+  function isDiscounted(video) {
+    const base =
+      typeof video.basePrice === "number"
+        ? video.basePrice
+        : Number(video.price) || 0;
+
+    const final =
+      typeof video.finalPrice === "number" ? video.finalPrice : base;
+
+    return final < base;
+  }
+
   function getDisplayPrice(video) {
     const price =
       video.displayPrice ??
@@ -118,11 +130,9 @@ export default function VideoGridClient({ videos = [] }) {
       // ❗ IMPORTANT: keep free videos
       if (showPaidOnly && !video.pay) return false;
       // 🎄 CHRISTMAS DISCOUNT FILTER
-      if (
-        showDiscountedOnly &&
-        getDisplayPrice(video) >= (video.basePrice ?? video.price)
-      )
+      if (showDiscountedOnly && !isDiscounted(video)) {
         return false;
+      }
 
       if (showJonusOnly && !video.tags?.includes("25daysofjonus")) return false;
 
