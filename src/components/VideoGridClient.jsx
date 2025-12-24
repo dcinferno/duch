@@ -35,18 +35,25 @@ export default function VideoGridClient({ videos = [] }) {
   const closedManuallyRef = useRef(false);
   const [VideoViews, setVideoViews] = useState({});
 
-  const [FFWednesday, setFFWednesday] = useState(false);
-  const [FFThursday, setFFThursday] = useState(false);
-  const [wednesdayFilterOn, setWednesdayFilterOn] = useState(false);
-  const [thursdayFilterOn, setThursdayFilterOn] = useState(false);
-
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [unlockTargetId, setUnlockTargetId] = useState(null);
+  const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
 
   // ===============================
   // HELPERS
   // ===============================
+  function getDisplayPrice(video) {
+    const price =
+      video.displayPrice ??
+      video.finalPrice ?? // legacy compatibility
+      video.basePrice ??
+      video.price ??
+      0;
+
+    return Number(price);
+  }
+
   const isPurchased = (videoId) => !!purchasedVideos[videoId];
 
   const aggressivePreload = async (url, maxMB = 8) => {
@@ -107,17 +114,13 @@ export default function VideoGridClient({ videos = [] }) {
         return false;
 
       if (showPremiumOnly && !video.premium) return false;
-      if (showPaidOnly && !(video.pay && video.fullKey)) return false;
 
+      // ❗ IMPORTANT: keep free videos
+      if (showPaidOnly && !video.pay) return false;
+      // 🎄 CHRISTMAS DISCOUNT FILTER
       if (
-        wednesdayFilterOn &&
-        !(video.type === "video" && video.tags?.includes("wagon"))
-      )
-        return false;
-
-      if (
-        thursdayFilterOn &&
-        !video.creatorName?.toLowerCase().includes("pudding")
+        showDiscountedOnly &&
+        getDisplayPrice(video) >= (video.basePrice ?? video.price)
       )
         return false;
 
@@ -132,11 +135,11 @@ export default function VideoGridClient({ videos = [] }) {
 
   const videosToRender = (() => {
     if (sortByPrice) {
-      return [...filteredVideos].sort((a, b) => {
-        if (a.price !== b.price) return a.price - b.price;
-        return (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0);
-      });
+      return [...filteredVideos].sort(
+        (a, b) => getDisplayPrice(a) - getDisplayPrice(b)
+      );
     }
+
     if (sortByViews) {
       return [...filteredVideos].sort(
         (a, b) => (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0)
@@ -259,12 +262,6 @@ export default function VideoGridClient({ videos = [] }) {
   }, [jonusUnlocked]);
 
   useEffect(() => {
-    const day = new Date().getDay();
-    setFFWednesday(day === 3);
-    setFFThursday(day === 4);
-  }, []);
-
-  useEffect(() => {
     const id = searchParams.get("video");
 
     // No video in URL → reset flags and STOP
@@ -314,36 +311,14 @@ export default function VideoGridClient({ videos = [] }) {
     setShowPremiumOnly(false);
     setSortByViews(false);
     setSortByPrice(false);
-    setWednesdayFilterOn(false);
-    setThursdayFilterOn(false);
     setShowJonusOnly(false);
+    setShowDiscountedOnly(false);
   };
 
   const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
+  const canPay = (video) =>
+    video.pay && !!video.fullKey && getDisplayPrice(video) > 0;
 
-  const canPay = (video) => video.pay && video.price > 0 && !!video.fullKey;
-
-  const getDisplayPrice = (video) => {
-    let price = video.price;
-
-    if (
-      FFThursday &&
-      video.type === "video" &&
-      video.creatorName?.toLowerCase().includes("pudding")
-    ) {
-      price = +(price * 0.75).toFixed(2);
-    }
-
-    if (
-      FFWednesday &&
-      video.type === "video" &&
-      video.tags?.includes("wagon")
-    ) {
-      price = 13.34;
-    }
-
-    return price;
-  };
   const openVideoFromUrl = (video, index) => {
     setSelectedVideo(video);
     setSelectedVideoIndex(index);
@@ -417,6 +392,16 @@ export default function VideoGridClient({ videos = [] }) {
           {videosToRender.length}{" "}
           {videosToRender.length === 1 ? "item" : "items"}
         </span>
+        <button
+          onClick={() => setShowDiscountedOnly((s) => !s)}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            showDiscountedOnly
+              ? "bg-red-600 text-white border-red-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-red-100"
+          }`}
+        >
+          🎄 Christmas Deals
+        </button>
 
         {/* PREMIUM */}
         <button
@@ -469,35 +454,6 @@ export default function VideoGridClient({ videos = [] }) {
         >
           💸😭 Broke
         </button>
-
-        {/* WEDNESDAY */}
-        {FFWednesday && (
-          <button
-            onClick={() => setWednesdayFilterOn((s) => !s)}
-            className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
-              wednesdayFilterOn
-                ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
-                : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
-            }`}
-          >
-            Wagon Wednesday
-          </button>
-        )}
-
-        {/* THURSDAY */}
-        {FFThursday && (
-          <button
-            onClick={() => setThursdayFilterOn((s) => !s)}
-            className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
-              thursdayFilterOn
-                ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
-                : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
-            }`}
-          >
-            🍷 Thirsty Thursday
-          </button>
-        )}
-
         {/* 25 DAYS OF JONUS */}
         <button
           onClick={() => setShowJonusOnly((s) => !s)}
@@ -549,8 +505,6 @@ export default function VideoGridClient({ videos = [] }) {
           showPremiumOnly ||
           sortByViews ||
           sortByPrice ||
-          wednesdayFilterOn ||
-          thursdayFilterOn ||
           showJonusOnly) && (
           <button
             onClick={clearFilters}
@@ -655,33 +609,27 @@ export default function VideoGridClient({ videos = [] }) {
                         {video.creatorName}
                       </a>
                       {/* PRICE */}
-                      {video.creatorName.toLowerCase().includes("pudding") &&
-                      FFThursday &&
-                      video.type === "video" ? (
-                        <span className="flex items-center gap-1">
-                          <span className="line-through text-gray-400">
-                            ${video.price}
+                      <div className="flex items-center gap-2">
+                        {video.discount ? (
+                          <>
+                            <span className="line-through text-gray-400">
+                              ${(video.basePrice ?? video.price).toFixed(2)}
+                            </span>
+                            <span className="text-blue-600 font-semibold">
+                              ${getDisplayPrice(video).toFixed(2)}
+                            </span>
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                              {video.discount.label}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-blue-700">
+                            {getDisplayPrice(video) === 0
+                              ? "Free"
+                              : `$${getDisplayPrice(video).toFixed(2)}`}
                           </span>
-                          <span className="text-blue-600 font-semibold">
-                            {(video.price * 0.75).toFixed(2)}
-                          </span>
-                        </span>
-                      ) : video.tags?.includes("wagon") &&
-                        FFWednesday &&
-                        video.type === "video" ? (
-                        <span className="flex items-center gap-1">
-                          <span className="line-through text-gray-400">
-                            {video.price === 0 ? "Free" : `$${video.price}`}
-                          </span>
-                          <span className="text-blue-600 font-semibold">
-                            $13.34
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="text-blue-700">
-                          {video.price === 0 ? "Free" : `$${video.price}`}
-                        </span>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -767,7 +715,7 @@ export default function VideoGridClient({ videos = [] }) {
                             }}
                             className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
                           >
-                            Pay ${getDisplayPrice(video)}
+                            Pay ${video.finalPrice.toFixed(2)}
                           </button>
                         )}
                       </>
