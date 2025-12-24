@@ -48,7 +48,7 @@ export default function CreatorPage() {
 
         // Fetch videos
         const videosRes = await fetch(
-          `/api/videos?creator=${encodeURIComponent(creatorData.creatorName)}`
+          `/api/videos?creator=${encodeURIComponent(creatorData.name)}`
         );
         if (!videosRes.ok) throw new Error("Videos not found");
         const videoData = await videosRes.json();
