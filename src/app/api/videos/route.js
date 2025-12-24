@@ -159,7 +159,7 @@ export async function GET() {
       // 🔗 reattach creator-level flags
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
-
+      creatorTelegramId: creator.telegramId ?? null,
       // normalize pricing fields while we're here
       price: Number(video.price) || 0,
     };
