@@ -60,14 +60,6 @@ function applyDiscount(video, discounts) {
     },
   };
 }
-/* ------------------------------------------
-   GET — LIST VIDEOS + PRICING
-------------------------------------------- */
-
-/* ------------------------------------------
-   HELPERS
-------------------------------------------- */
-const normalize = (s) => s?.trim().toLowerCase();
 
 /* ------------------------------------------
    FETCH ACTIVE DISCOUNTS (PROCESS SERVER)
@@ -140,21 +132,22 @@ export async function GET(request) {
     return Response.json({
       ...video,
 
-      // CDN
       thumbnail: withCDN(video.thumbnail),
       url: withCDN(video.url),
 
-      // creator flags
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
       creatorTelegramId: creator.telegramId,
 
-      // pricing
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
-      discount: pricing.discount,
-      badge: pricing.discount?.badge ?? null,
+      discount: pricing.discount
+        ? {
+            label: pricing.discount.name,
+            percentOff: pricing.discount.percentOff,
+          }
+        : null,
     });
   }
 
@@ -185,8 +178,12 @@ export async function GET(request) {
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
-      discount: pricing.discount,
-      badge: pricing.discount?.badge ?? null,
+      discount: pricing.discount
+        ? {
+            label: pricing.discount.name,
+            percentOff: pricing.discount.percentOff,
+          }
+        : null,
     };
   });
 
