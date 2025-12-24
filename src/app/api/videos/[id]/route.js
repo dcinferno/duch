@@ -8,8 +8,9 @@ import { fetchActiveDiscounts } from "../../../../lib/fetchActiveDiscounts";
 
 export async function GET(req, { params }) {
   await connectToDB();
+  const { id } = await params;
 
-  const video = await Videos.findById(params.id).lean();
+  const video = await Videos.findById(id).lean();
   if (!video) {
     return new Response("Not found", { status: 404 });
   }
