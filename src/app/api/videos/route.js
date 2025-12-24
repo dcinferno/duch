@@ -32,6 +32,34 @@ function withCDN(path) {
   return `${CDN}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
+function applyDiscount(video, discounts) {
+  const basePrice = Number(video.price) || 0;
+
+  if (basePrice <= 0) {
+    return { basePrice, finalPrice: basePrice, discount: null };
+  }
+
+  const creatorKey = video.creatorName?.trim().toLowerCase();
+
+  const discount = discounts.creators?.[creatorKey] || discounts.global || null;
+
+  if (!discount) {
+    return { basePrice, finalPrice: basePrice, discount: null };
+  }
+
+  const finalPrice = discount.percentOff
+    ? basePrice * (1 - discount.percentOff / 100)
+    : basePrice;
+
+  return {
+    basePrice,
+    finalPrice: Number(finalPrice.toFixed(2)),
+    discount: {
+      name: discount.name,
+      percentOff: discount.percentOff,
+    },
+  };
+}
 /* ------------------------------------------
    GET — LIST VIDEOS + PRICING
 ------------------------------------------- */
@@ -59,53 +87,6 @@ async function fetchActiveDiscounts() {
   }
 
   return res.json();
-}
-
-/* ------------------------------------------
-   APPLY DISCOUNT TO VIDEO
-------------------------------------------- */
-function applyDiscount(video, discounts) {
-  const basePrice = Number(video.price) || 0;
-
-  if (basePrice <= 0) {
-    return { basePrice, finalPrice: basePrice, discount: null };
-  }
-
-  const creatorKey = normalize(video.creatorName);
-
-  const discount =
-    discounts?.creators?.[creatorKey] || discounts?.global || null;
-
-  if (!discount || !discount.type) {
-    return { basePrice, finalPrice: basePrice, discount: null };
-  }
-
-  let finalPrice = basePrice;
-
-  if (discount.type === "percentage") {
-    if (typeof discount.percentOff !== "number") {
-      return { basePrice, finalPrice: basePrice, discount: null };
-    } else {
-      finalPrice = basePrice * (1 - discount.percentOff / 100);
-    }
-  }
-
-  if (discount.type === "fixed") {
-    if (typeof discount.value !== "number") {
-      return { basePrice, finalPrice: basePrice, discount: null };
-    } else {
-      finalPrice = discount.value;
-    }
-  }
-
-  // Safety clamp
-  if (finalPrice < 0) finalPrice = 0;
-
-  return {
-    basePrice,
-    finalPrice: Number(finalPrice.toFixed(2)),
-    discount,
-  };
 }
 
 /* ------------------------------------------
