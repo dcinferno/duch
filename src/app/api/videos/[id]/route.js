@@ -8,7 +8,7 @@ import Creators from "../../../../models/creators";
 export async function GET(req, { params }) {
   await connectToDB();
 
-  const { id } = params;
+  const { id } = await params;
 
   if (!id) {
     return new Response("Missing id", { status: 400 });
