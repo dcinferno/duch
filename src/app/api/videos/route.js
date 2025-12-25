@@ -40,46 +40,49 @@ function applyDiscount(video, discounts) {
   }
 
   const normalize = (s) => s?.trim().toLowerCase();
-
   const creatorKey = normalize(video.creatorName);
-  const creatorDiscount = discounts.creators?.[creatorKey] || null;
+
+  const creatorDiscounts = discounts.creators?.[creatorKey] || [];
+
+  // -----------------------------------
+  // 1️⃣ Find ALL applicable creator discounts
+  // -----------------------------------
+  const applicableCreatorDiscounts = creatorDiscounts.filter((d) => {
+    // Blanket creator discount
+    if (!Array.isArray(d.tags) || d.tags.length === 0) {
+      return true;
+    }
+
+    // Tag-based creator discount
+    return video.tags?.some((t) => d.tags.includes(normalize(t)));
+  });
 
   let appliedDiscount = null;
+  let source = null;
 
-  // -----------------------------------
-  // 1️⃣ Creator discount (tags optional)
-  // -----------------------------------
-  if (creatorDiscount) {
-    let tagMatch = true;
+  if (applicableCreatorDiscounts.length > 0) {
+    // Pick STRONGEST creator discount
+    appliedDiscount = applicableCreatorDiscounts.reduce(
+      (best, d) => (!best || d.percentOff > best.percentOff ? d : best),
+      null
+    );
 
-    if (
-      Array.isArray(creatorDiscount.tags) &&
-      creatorDiscount.tags.length > 0
-    ) {
-      tagMatch = video.tags?.some((t) =>
-        creatorDiscount.tags.includes(normalize(t))
-      );
-    }
-
-    if (tagMatch) {
-      appliedDiscount = creatorDiscount;
-    }
+    source = "creator";
   }
 
   // -----------------------------------
-  // 2️⃣ Fallback to global discount
+  // 2️⃣ Global fallback
   // -----------------------------------
   if (!appliedDiscount && discounts.global) {
     appliedDiscount = discounts.global;
+    source = "global";
   }
 
   if (!appliedDiscount) {
     return { basePrice, finalPrice: basePrice, discount: null };
   }
 
-  const finalPrice = appliedDiscount.percentOff
-    ? basePrice * (1 - appliedDiscount.percentOff / 100)
-    : basePrice;
+  const finalPrice = basePrice * (1 - appliedDiscount.percentOff / 100);
 
   return {
     basePrice,
@@ -87,6 +90,7 @@ function applyDiscount(video, discounts) {
     discount: {
       name: appliedDiscount.name,
       percentOff: appliedDiscount.percentOff,
+      source,
     },
   };
 }
