@@ -39,24 +39,54 @@ function applyDiscount(video, discounts) {
     return { basePrice, finalPrice: basePrice, discount: null };
   }
 
-  const creatorKey = video.creatorName?.trim().toLowerCase();
+  const normalize = (s) => s?.trim().toLowerCase();
 
-  const discount = discounts.creators?.[creatorKey] || discounts.global || null;
+  const creatorKey = normalize(video.creatorName);
+  const creatorDiscount = discounts.creators?.[creatorKey] || null;
 
-  if (!discount) {
+  let appliedDiscount = null;
+
+  // -----------------------------------
+  // 1️⃣ Creator discount (tags optional)
+  // -----------------------------------
+  if (creatorDiscount) {
+    let tagMatch = true;
+
+    if (
+      Array.isArray(creatorDiscount.tags) &&
+      creatorDiscount.tags.length > 0
+    ) {
+      tagMatch = video.tags?.some((t) =>
+        creatorDiscount.tags.includes(normalize(t))
+      );
+    }
+
+    if (tagMatch) {
+      appliedDiscount = creatorDiscount;
+    }
+  }
+
+  // -----------------------------------
+  // 2️⃣ Fallback to global discount
+  // -----------------------------------
+  if (!appliedDiscount && discounts.global) {
+    appliedDiscount = discounts.global;
+  }
+
+  if (!appliedDiscount) {
     return { basePrice, finalPrice: basePrice, discount: null };
   }
 
-  const finalPrice = discount.percentOff
-    ? basePrice * (1 - discount.percentOff / 100)
+  const finalPrice = appliedDiscount.percentOff
+    ? basePrice * (1 - appliedDiscount.percentOff / 100)
     : basePrice;
 
   return {
     basePrice,
     finalPrice: Number(finalPrice.toFixed(2)),
     discount: {
-      name: discount.name,
-      percentOff: discount.percentOff,
+      name: appliedDiscount.name,
+      percentOff: appliedDiscount.percentOff,
     },
   };
 }
