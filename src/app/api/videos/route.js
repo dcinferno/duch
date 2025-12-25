@@ -42,7 +42,11 @@ function applyDiscount(video, discounts) {
   const normalize = (s) => s?.trim().toLowerCase();
   const creatorKey = normalize(video.creatorName);
 
-  const creatorDiscounts = discounts.creators?.[creatorKey] || [];
+  const rawCreatorDiscounts = discounts?.creators?.[creatorKey];
+
+  const creatorDiscounts = Array.isArray(rawCreatorDiscounts)
+    ? rawCreatorDiscounts
+    : [];
 
   // -----------------------------------
   // 1️⃣ Find ALL applicable creator discounts
@@ -121,6 +125,23 @@ async function fetchActiveDiscounts() {
 export async function GET(request) {
   await connectToDB();
   const discounts = await fetchActiveDiscounts();
+
+  const safeDiscounts = {
+    global:
+      discounts?.global &&
+      typeof discounts.global === "object" &&
+      !Array.isArray(discounts.global)
+        ? discounts.global
+        : null,
+
+    creators:
+      discounts?.creators &&
+      typeof discounts.creators === "object" &&
+      !Array.isArray(discounts.creators)
+        ? discounts.creators
+        : {},
+  };
+
   const { searchParams } = new URL(request.url);
 
   const videoId = searchParams.get("id");
@@ -153,7 +174,7 @@ export async function GET(request) {
 
     const creatorKey = video.creatorName?.trim().toLowerCase();
     const creator = creatorMap[creatorKey] || {};
-    const pricing = applyDiscount(video, discounts);
+    const pricing = applyDiscount(video, safeDiscounts);
 
     return Response.json({
       ...video,
@@ -205,7 +226,7 @@ export async function GET(request) {
   const mergedVideos = videos.map((video) => {
     const creatorKey = video.creatorName?.trim().toLowerCase();
     const creator = creatorMap[creatorKey] || {};
-    const pricing = applyDiscount(video, discounts);
+    const pricing = applyDiscount(video, safeDiscounts);
 
     return {
       ...video,
