@@ -92,6 +92,20 @@ export async function sendTelegramMessage(video) {
       video.creatorName || "Creator"
     )}</a>`;
   }
+  // --------------------------------------------------
+  // Optional creator page link (body link)
+  // --------------------------------------------------
+  let creatorPageLine = "";
+  if (video.creatorUrlHandle && publicBaseUrl) {
+    const creatorUrl = new URL(
+      `/${video.creatorUrlHandle}`,
+      publicBaseUrl
+    ).toString();
+
+    creatorPageLine = `🔗 <a href="${escapeUrl(
+      creatorUrl
+    )}">Visit Creator Page</a>`;
+  }
 
   // --------------------------------------------------
   // Price line (NEW)
@@ -107,6 +121,7 @@ export async function sendTelegramMessage(video) {
 ${escapeHTML(video.description || "")}
 
 ${creatorLine}
+${creatorPageLine}
 ${priceLine}
 `.trim();
 
