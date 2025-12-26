@@ -5,32 +5,81 @@ import { connectToDB } from "../../../../lib/mongodb.js";
 import Videos from "../../../../models/videos";
 import Creators from "../../../../models/creators";
 import { fetchActiveDiscounts } from "../../../../lib/fetchActiveDiscounts";
-function applyDiscountToVideo(video, discounts) {
-  const basePrice = Number(video.price) || 0;
+const normalize = (s) => s?.trim().toLowerCase();
 
-  if (basePrice <= 0) {
-    return { basePrice, finalPrice: basePrice, discount: null };
+function normalizeTags(tags) {
+  if (!Array.isArray(tags)) return [];
+  return tags.map(normalize);
+}
+
+function discountAppliesToVideo(discount, video) {
+  if (!Array.isArray(discount.tags) || discount.tags.length === 0) {
+    return true;
   }
 
-  const creatorKey = video.creatorName?.trim().toLowerCase();
+  const videoTags = normalizeTags(video.tags);
+  return discount.tags.some((t) => videoTags.includes(t));
+}
 
-  const discount = discounts.creators?.[creatorKey] || discounts.global || null;
+function getDiscountsForVideo(video, safeDiscounts) {
+  const list = [];
 
-  if (!discount) {
-    return { basePrice, finalPrice: basePrice, discount: null };
+  if (
+    safeDiscounts.global &&
+    discountAppliesToVideo(safeDiscounts.global, video)
+  ) {
+    list.push(safeDiscounts.global);
   }
 
-  const finalPrice = discount.percentOff
-    ? basePrice * (1 - discount.percentOff / 100)
-    : basePrice;
+  const creatorKey = normalize(video.creatorName);
+  const creatorDiscounts = safeDiscounts.creators?.[creatorKey];
+
+  if (Array.isArray(creatorDiscounts)) {
+    for (const d of creatorDiscounts) {
+      if (discountAppliesToVideo(d, video)) {
+        list.push(d);
+      }
+    }
+  }
+
+  return list;
+}
+
+function applyDiscount({ basePrice, discounts = [] }) {
+  let best = null;
+
+  for (const d of discounts) {
+    if (!d || !d.type) continue;
+
+    if (d.type === "percentage" && Number.isFinite(d.percentOff)) {
+      if (
+        !best ||
+        (best.type === "percentage" && d.percentOff > best.percentOff)
+      ) {
+        best = d;
+      }
+      continue;
+    }
+
+    if (d.type === "fixed" && Number.isFinite(d.amount)) {
+      if (!best || (best.type === "fixed" && d.amount < best.amount)) {
+        best = d;
+      }
+    }
+  }
+
+  let finalPrice = basePrice;
+
+  if (best?.type === "percentage") {
+    finalPrice = Math.round(basePrice * (1 - best.percentOff / 100));
+  } else if (best?.type === "fixed") {
+    finalPrice = best.amount;
+  }
 
   return {
     basePrice,
-    finalPrice: Number(finalPrice.toFixed(2)),
-    discount: {
-      name: discount.name,
-      percentOff: discount.percentOff,
-    },
+    finalPrice,
+    appliedDiscount: best,
   };
 }
 
@@ -51,7 +100,13 @@ export async function GET(req, { params }) {
   // 🔑 FETCH DISCOUNTS HERE
   const discounts = await fetchActiveDiscounts();
 
-  const pricing = applyDiscountToVideo(video, discounts);
+  const basePrice = Number(video.price) || 0;
+  const discountsForVideo = getDiscountsForVideo(video, discounts);
+
+  const pricing = applyDiscount({
+    basePrice,
+    discounts: discountsForVideo,
+  });
 
   return Response.json({
     ...video,
