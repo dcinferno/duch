@@ -32,6 +32,43 @@ function withCDN(path) {
   return `${CDN}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
+function discountAppliesToVideo(discount, video) {
+  // No tag restriction → applies to all
+  if (!Array.isArray(discount.tags) || discount.tags.length === 0) {
+    return true;
+  }
+
+  // Video must have at least one matching tag
+  if (!Array.isArray(video.tags)) return false;
+
+  return discount.tags.some((tag) => video.tags.includes(tag));
+}
+
+function getDiscountsForVideo(video, safeDiscounts) {
+  const list = [];
+
+  // 🌍 Global discount
+  if (safeDiscounts.global) {
+    if (discountAppliesToVideo(safeDiscounts.global, video)) {
+      list.push(safeDiscounts.global);
+    }
+  }
+
+  // 👤 Creator discounts
+  const creatorKey = video.creatorName?.trim().toLowerCase();
+  const creatorDiscounts = safeDiscounts.creators?.[creatorKey];
+
+  if (Array.isArray(creatorDiscounts)) {
+    for (const d of creatorDiscounts) {
+      if (discountAppliesToVideo(d, video)) {
+        list.push(d);
+      }
+    }
+  }
+
+  return list;
+}
+
 function applyDiscount({ basePrice, discounts = [] }) {
   let best = null;
 
@@ -144,14 +181,20 @@ export async function GET(request) {
   // -----------------------------------
   if (videoId) {
     const video = await Videos.findById(videoId, { password: 0 }).lean();
-
+    delete video.discounts;
     if (!video) {
       return Response.json({ error: "Video not found" }, { status: 404 });
     }
 
     const creatorKey = video.creatorName?.trim().toLowerCase();
     const creator = creatorMap[creatorKey] || {};
-    const pricing = applyDiscount(video, safeDiscounts);
+    const basePrice = Number(video.price) || 0;
+    const discountsForVideo = getDiscountsForVideo(video, safeDiscounts);
+
+    const pricing = applyDiscount({
+      basePrice,
+      discounts: discountsForVideo,
+    });
 
     return Response.json({
       ...video,
@@ -201,9 +244,16 @@ export async function GET(request) {
   const videos = await Videos.find(videoQuery, { password: 0 }).lean();
 
   const mergedVideos = videos.map((video) => {
+    delete video.discounts;
     const creatorKey = video.creatorName?.trim().toLowerCase();
     const creator = creatorMap[creatorKey] || {};
-    const pricing = applyDiscount(video, safeDiscounts);
+    const basePrice = Number(video.price) || 0;
+    const discountsForVideo = getDiscountsForVideo(video, safeDiscounts);
+
+    const pricing = applyDiscount({
+      basePrice,
+      discounts: discountsForVideo,
+    });
 
     return {
       ...video,
@@ -217,10 +267,10 @@ export async function GET(request) {
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
-      discount: pricing.discount
+      discount: pricing.appliedDiscount
         ? {
-            label: pricing.discount.name,
-            percentOff: pricing.discount.percentOff,
+            label: pricing.appliedDiscount.name,
+            percentOff: pricing.appliedDiscount.percentOff,
           }
         : null,
     };

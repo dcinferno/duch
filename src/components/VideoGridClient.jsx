@@ -626,16 +626,23 @@ export default function VideoGridClient({ videos = [] }) {
                       </a>
                       {/* PRICE */}
                       <div className="flex items-center gap-2">
-                        {video.discount ? (
+                        {video.finalPrice < video.basePrice ? (
                           <>
                             <span className="line-through text-gray-400">
-                              ${(video.basePrice ?? video.price).toFixed(2)}
+                              $
+                              {Number(
+                                video.basePrice ?? video.price ?? 0
+                              ).toFixed(2)}
                             </span>
+
                             <span className="text-blue-600 font-semibold">
                               ${getDisplayPrice(video).toFixed(2)}
                             </span>
+
                             <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                              {video.discount.label}
+                              {video.discount?.percentOff
+                                ? `${video.discount.percentOff}% OFF`
+                                : "SALE"}
                             </span>
                           </>
                         ) : (
@@ -731,7 +738,7 @@ export default function VideoGridClient({ videos = [] }) {
                             }}
                             className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
                           >
-                            Pay ${video.finalPrice.toFixed(2)}
+                            Pay ${getDisplayPrice(video).toFixed(2)}
                           </button>
                         )}
                       </>
