@@ -707,34 +707,50 @@ export default function VideoGridClient({ videos = [] }) {
                         >
                           Preview
                         </button>
-
                         {/* PAY */}
-
                         {canPay(video) && (
                           <button
                             onClick={async () => {
-                              const userId = getOrCreateUserId();
-                              localStorage.setItem("userId", userId);
+                              // ✅ MUST happen synchronously
+                              const stripeWindow = window.open("", "_self");
+                              // use "_blank" if you want a new tab instead
 
-                              const payload = {
-                                userId,
-                                videoId: video._id,
-                                creatorName: video.creatorName,
-                                creatorTelegramId:
-                                  video.creatorTelegramId || "", // REQUIRED for tagging
-                                creatorUrl: video.socialMediaUrl || "", // fallback link
-                                site: "A",
-                              };
+                              try {
+                                const userId = getOrCreateUserId();
+                                localStorage.setItem("userId", userId);
 
-                              const url = getCheckOutUrl();
-                              const res = await fetch(`${url}/api/checkout`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify(payload),
-                              });
+                                const payload = {
+                                  userId,
+                                  videoId: video._id,
+                                  creatorName: video.creatorName,
+                                  creatorTelegramId:
+                                    video.creatorTelegramId || "",
+                                  creatorUrl: video.socialMediaUrl || "",
+                                  site: "A",
+                                };
 
-                              const data = await res.json();
-                              if (data.url) window.location.href = data.url;
+                                const url = getCheckOutUrl();
+                                const res = await fetch(`${url}/api/checkout`, {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify(payload),
+                                });
+
+                                const data = await res.json();
+
+                                if (!data?.url) {
+                                  throw new Error("No Stripe URL returned");
+                                }
+
+                                // ✅ Safari allows this because the window already exists
+                                stripeWindow.location = data.url;
+                              } catch (err) {
+                                console.error("Checkout failed", err);
+                                stripeWindow?.close?.();
+                                alert("Checkout failed. Please try again.");
+                              }
                             }}
                             className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
                           >
