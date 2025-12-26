@@ -23,14 +23,12 @@ export default function VideoGridClient({ videos = [] }) {
   const [loadingVideoId, setLoadingVideoId] = useState(null);
 
   const [purchasedVideos, setPurchasedVideos] = useState({});
-  const [jonusUnlocked, setJonusUnlocked] = useState({});
 
   const [selectedTags, setSelectedTags] = useState([]);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
   const [showPaidOnly, setShowPaidOnly] = useState(false);
   const [sortByViews, setSortByViews] = useState(false);
   const [sortByPrice, setSortByPrice] = useState(false);
-  const [showJonusOnly, setShowJonusOnly] = useState(false);
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
   const closedManuallyRef = useRef(false);
   const [VideoViews, setVideoViews] = useState({});
@@ -133,8 +131,6 @@ export default function VideoGridClient({ videos = [] }) {
         return false;
       }
 
-      if (showJonusOnly && !video.tags?.includes("25daysofjonus")) return false;
-
       return true;
     })
     .sort(
@@ -168,15 +164,6 @@ export default function VideoGridClient({ videos = [] }) {
     if (!video) return;
 
     if (selectedVideo?._id === video._id) return;
-
-    const isJonusLocked =
-      video.tags?.includes("25daysofjonus") && !jonusUnlocked[video._id];
-
-    if (isJonusLocked) {
-      setUnlockTargetId(video._id);
-      setShowPasswordModal(true);
-      return;
-    }
 
     let urlToPlay = video.url;
 
@@ -269,15 +256,6 @@ export default function VideoGridClient({ videos = [] }) {
   }, [purchasedVideos]);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("jonusUnlocked") || "{}");
-    setJonusUnlocked(saved);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("jonusUnlocked", JSON.stringify(jonusUnlocked));
-  }, [jonusUnlocked]);
-
-  useEffect(() => {
     const id = searchParams.get("video");
 
     // No video in URL → reset flags and STOP
@@ -327,7 +305,6 @@ export default function VideoGridClient({ videos = [] }) {
     setShowPremiumOnly(false);
     setSortByViews(false);
     setSortByPrice(false);
-    setShowJonusOnly(false);
     setShowDiscountedOnly(false);
   };
 
@@ -378,26 +355,6 @@ export default function VideoGridClient({ videos = [] }) {
         body: JSON.stringify({ videoId }),
       });
     } catch {}
-  };
-
-  const attemptUnlock = async () => {
-    const res = await fetch("/api/validate-lock", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        videoId: unlockTargetId,
-        password: passwordInput,
-      }),
-    });
-
-    const data = await res.json();
-    if (data.unlockedUrl) {
-      setJonusUnlocked((prev) => ({ ...prev, [unlockTargetId]: true }));
-      setShowPasswordModal(false);
-      setPasswordInput("");
-    } else {
-      alert("Incorrect password");
-    }
   };
 
   return (
@@ -470,17 +427,6 @@ export default function VideoGridClient({ videos = [] }) {
         >
           💸😭 Broke
         </button>
-        {/* 25 DAYS OF JONUS */}
-        <button
-          onClick={() => setShowJonusOnly((s) => !s)}
-          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
-            showJonusOnly
-              ? "bg-red-600 text-white border-red-600 shadow-lg scale-105"
-              : "bg-white text-gray-800 border-gray-300 hover:bg-red-100"
-          }`}
-        >
-          🎄 25 Days of Jonus
-        </button>
 
         {/* TAGS DROPDOWN */}
         <div className="relative">
@@ -520,8 +466,7 @@ export default function VideoGridClient({ videos = [] }) {
         {(selectedTags.length > 0 ||
           showPremiumOnly ||
           sortByViews ||
-          sortByPrice ||
-          showJonusOnly) && (
+          sortByPrice) && (
           <button
             onClick={clearFilters}
             className="px-3 py-1.5 rounded-full border text-sm font-medium bg-blue-100 hover:bg-blue-200 text-blue-700"
@@ -537,10 +482,6 @@ export default function VideoGridClient({ videos = [] }) {
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visibleVideos.map((video, index) => {
-            const isJonusLocked =
-              video.tags?.includes("25daysofjonus") &&
-              !jonusUnlocked[video._id];
-
             const thumbSrc =
               video.type === "image" ? video.url : video.thumbnail;
 
@@ -560,22 +501,8 @@ export default function VideoGridClient({ videos = [] }) {
                   <img
                     src={thumbSrc}
                     alt={video.title}
-                    className={`w-full h-full object-cover transition-all ${
-                      isJonusLocked ? "blur-xl brightness-50" : ""
-                    }`}
+                    className={`w-full h-full object-cover transition-all`}
                   />
-
-                  {isJonusLocked && (
-                    <button
-                      onClick={() => {
-                        setUnlockTargetId(video._id);
-                        setShowPasswordModal(true);
-                      }}
-                      className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 text-white text-xl font-bold"
-                    >
-                      🔒 Unlock
-                    </button>
-                  )}
                 </div>
 
                 {/* CONTENT */}
@@ -845,40 +772,6 @@ export default function VideoGridClient({ videos = [] }) {
                 </span>
                 <span>{VideoViews[selectedVideo._id] ?? 0} views</span>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PASSWORD MODAL ==================================================== */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4 text-center">
-              Unlock Jonus Image
-            </h2>
-
-            <input
-              type="string"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              placeholder="Enter password"
-              className="border p-2 rounded w-full mb-4"
-            />
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowPasswordModal(false)}
-                className="px-4 py-2 border rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={attemptUnlock}
-                className="px-4 py-2 bg-blue-600 text-white rounded"
-              >
-                Unlock
-              </button>
             </div>
           </div>
         </div>
