@@ -712,7 +712,7 @@ export default function VideoGridClient({ videos = [] }) {
                           <button
                             onClick={async () => {
                               // ✅ MUST happen synchronously
-                              const stripeWindow = window.open("", "_self");
+                              const stripeWindow = window.open("", "_blank");
                               // use "_blank" if you want a new tab instead
 
                               try {
