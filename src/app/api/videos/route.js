@@ -120,9 +120,8 @@ async function fetchActiveDiscounts() {
   const url = `${process.env.NEXT_PUBLIC_SERVER_URL}/api/discount/active`;
 
   const res = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-    },
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
   });
 
   if (!res.ok) {
