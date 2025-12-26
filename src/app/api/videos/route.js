@@ -32,70 +32,41 @@ function withCDN(path) {
   return `${CDN}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
-function applyDiscount(video, discounts) {
-  const basePrice = Number(video.price) || 0;
+function applyDiscount({ basePrice, discounts = [] }) {
+  let best = null;
 
-  if (basePrice <= 0) {
-    return { basePrice, finalPrice: basePrice, discount: null };
-  }
+  for (const d of discounts) {
+    if (!d) continue;
 
-  const normalize = (s) => s?.trim().toLowerCase();
-  const creatorKey = normalize(video.creatorName);
-
-  const rawCreatorDiscounts = discounts?.creators?.[creatorKey];
-
-  const creatorDiscounts = Array.isArray(rawCreatorDiscounts)
-    ? rawCreatorDiscounts
-    : [];
-
-  // -----------------------------------
-  // 1️⃣ Find ALL applicable creator discounts
-  // -----------------------------------
-  const applicableCreatorDiscounts = creatorDiscounts.filter((d) => {
-    // Blanket creator discount
-    if (!Array.isArray(d.tags) || d.tags.length === 0) {
-      return true;
+    if (d.type === "percentage" && Number.isFinite(d.percentOff)) {
+      if (!best || d.percentOff > best.percentOff) {
+        best = d;
+      }
     }
 
-    // Tag-based creator discount
-    return video.tags?.some((t) => d.tags.includes(normalize(t)));
-  });
-
-  let appliedDiscount = null;
-  let source = null;
-
-  if (applicableCreatorDiscounts.length > 0) {
-    // Pick STRONGEST creator discount
-    appliedDiscount = applicableCreatorDiscounts.reduce(
-      (best, d) => (!best || d.percentOff > best.percentOff ? d : best),
-      null
-    );
-
-    source = "creator";
+    if (d.type === "fixed" && Number.isFinite(d.amount)) {
+      if (!best || d.amount < best.amount) {
+        best = d;
+      }
+    }
   }
 
-  // -----------------------------------
-  // 2️⃣ Global fallback
-  // -----------------------------------
-  if (!appliedDiscount && discounts.global) {
-    appliedDiscount = discounts.global;
-    source = "global";
-  }
+  let finalPrice = basePrice;
 
-  if (!appliedDiscount) {
-    return { basePrice, finalPrice: basePrice, discount: null };
-  }
+  if (best) {
+    if (best.type === "percentage") {
+      finalPrice = Math.round(basePrice * (1 - best.percentOff / 100));
+    }
 
-  const finalPrice = basePrice * (1 - appliedDiscount.percentOff / 100);
+    if (best.type === "fixed") {
+      finalPrice = best.amount;
+    }
+  }
 
   return {
     basePrice,
-    finalPrice: Number(finalPrice.toFixed(2)),
-    discount: {
-      name: appliedDiscount.name,
-      percentOff: appliedDiscount.percentOff,
-      source,
-    },
+    finalPrice,
+    appliedDiscount: best, // 🔴 THIS IS THE KEY
   };
 }
 
