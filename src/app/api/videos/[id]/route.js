@@ -107,11 +107,20 @@ export async function GET(req, { params }) {
     basePrice,
     discounts: discountsForVideo,
   });
-
   return Response.json({
     ...video,
     premium: Boolean(creator?.premium),
     pay: Boolean(creator?.pay),
-    ...pricing,
+
+    price: basePrice,
+    basePrice: pricing.basePrice,
+    finalPrice: pricing.finalPrice,
+
+    discount: pricing.appliedDiscount
+      ? {
+          label: pricing.appliedDiscount.name,
+          percentOff: pricing.appliedDiscount.percentOff,
+        }
+      : null,
   });
 }
