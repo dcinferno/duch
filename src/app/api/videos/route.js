@@ -36,16 +36,22 @@ function applyDiscount({ basePrice, discounts = [] }) {
   let best = null;
 
   for (const d of discounts) {
-    if (!d) continue;
+    if (!d || !d.type) continue;
 
+    // ---- percentage vs percentage
     if (d.type === "percentage" && Number.isFinite(d.percentOff)) {
-      if (!best || d.percentOff > best.percentOff) {
+      if (
+        !best ||
+        (best.type === "percentage" && d.percentOff > best.percentOff)
+      ) {
         best = d;
       }
+      continue;
     }
 
+    // ---- fixed vs fixed
     if (d.type === "fixed" && Number.isFinite(d.amount)) {
-      if (!best || d.amount < best.amount) {
+      if (!best || (best.type === "fixed" && d.amount < best.amount)) {
         best = d;
       }
     }
@@ -66,7 +72,7 @@ function applyDiscount({ basePrice, discounts = [] }) {
   return {
     basePrice,
     finalPrice,
-    appliedDiscount: best, // 🔴 THIS IS THE KEY
+    appliedDiscount: best,
   };
 }
 
