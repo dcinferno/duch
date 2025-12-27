@@ -219,7 +219,7 @@ export default function UploadPage() {
       // Full → Bunny (optional)
       let fullPromise = Promise.resolve(null);
 
-      if (creator.pay && fullVideoFile) {
+      if (fullVideoFile) {
         const fullPath = generateFullVideoFileName(
           title,
           creatorName,
