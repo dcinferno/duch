@@ -27,7 +27,7 @@ export default function UploadPage() {
   // --- State ---
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState(0);
+  const [price, setPrice] = useState(null);
   const [creatorName, setCreatorName] = useState("");
   const [socialMediaUrl, setSocialMediaUrl] = useState("");
   const [videoFile, setVideoFile] = useState(null); // preview
@@ -275,8 +275,11 @@ export default function UploadPage() {
         <input
           type="number"
           placeholder="Price"
-          value={price}
-          onChange={(e) => setPrice(Number(e.target.value))}
+          value={price ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            setPrice(val === "" ? null : Number(val));
+          }}
           className="w-full p-3 border rounded"
           min={0}
         />
