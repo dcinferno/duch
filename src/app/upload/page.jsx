@@ -365,19 +365,16 @@ export default function UploadPage() {
         {/* Full */}
         <button
           type="button"
-          onClick={() => fullVideoInputRef.current?.click()}
+          onClick={() => {
+            if (fullVideoInputRef.current) {
+              fullVideoInputRef.current.value = ""; // 🔑 CRITICAL
+              fullVideoInputRef.current.click();
+            }
+          }}
           className="w-full bg-purple-600 text-white py-3 rounded hover:bg-purple-700 transition"
         >
           {fullVideoFile ? fullVideoFile.name : "Upload Full Video (Optional)"}
         </button>
-        <input
-          ref={fullVideoInputRef}
-          type="file"
-          accept="video/*"
-          hidden
-          onChange={(e) => setFullVideoFile(e.target.files[0] || null)}
-        />
-
         {/* Thumbnail */}
         <button
           type="button"
