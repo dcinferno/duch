@@ -374,6 +374,14 @@ export default function UploadPage() {
         >
           {fullVideoFile ? fullVideoFile.name : "Upload Full Video (Optional)"}
         </button>
+        <input
+          ref={fullVideoInputRef}
+          type="file"
+          accept="video/*"
+          className="hidden" // ✅ CSS hidden, not HTML hidden attribute
+          onChange={(e) => setFullVideoFile(e.target.files[0] || null)}
+        />
+
         {/* Thumbnail */}
         <button
           type="button"
