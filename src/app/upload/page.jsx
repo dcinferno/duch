@@ -358,6 +358,7 @@ export default function UploadPage() {
           ref={videoInputRef}
           type="file"
           accept="video/*"
+          className="hidden"
           onChange={(e) => setVideoFile(e.target.files[0] || null)}
         />
 
