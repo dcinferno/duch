@@ -397,7 +397,7 @@ export default function UploadPage() {
           ref={customThumbnailInputRef}
           type="file"
           accept="image/*"
-          hidden
+          className="hidden"
           onChange={(e) => setCustomThumbnailFile(e.target.files[0] || null)}
         />
 
