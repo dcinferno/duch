@@ -177,51 +177,86 @@ export default function UploadPage() {
   --------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!videoFile || !creatorName || !secretKey) return;
+
+    if (!videoFile || !creatorName || !secretKey) {
+      alert("Missing required fields");
+      return;
+    }
 
     setSubmitting(true);
+    setSuccessMessage("");
 
     try {
       const creator = creators.find((c) => c.name === creatorName);
+      if (!creator) throw new Error("Creator not found");
+
       const slug = slugify(creatorName);
 
+      // ---------------------------------
+      // 1️⃣ Generate thumbnail FIRST
+      // ---------------------------------
       const thumbFile =
         customThumbnailFile || (await generateThumbnail(videoFile));
 
-      const thumbUrl = await uploadToPushr(
+      // ---------------------------------
+      // 2️⃣ Start uploads in PARALLEL
+      // ---------------------------------
+
+      // Thumbnail → Pushr
+      const thumbPromise = uploadToPushr(
         thumbFile,
         `${slug}/thumbnails`,
         setThumbnailProgress
       );
-      setThumbnailUrl(thumbUrl);
 
-      const previewUrl = await uploadToPushr(
+      // Preview → Pushr
+      const previewPromise = uploadToPushr(
         videoFile,
         `${slug}/videos`,
         setVideoProgress
       );
-      setVideoUrl(previewUrl);
 
-      let fullKeyValue = null;
-      if (creator?.pay && fullVideoFile) {
+      // Full → Bunny (optional)
+      let fullPromise = Promise.resolve(null);
+
+      if (creator.pay && fullVideoFile) {
         const fullPath = generateFullVideoFileName(
           title,
           creatorName,
           fullVideoFile
         );
-        fullKeyValue = await uploadToBunny(fullVideoFile, fullPath);
-        setFullKey(fullKeyValue);
+
+        fullPromise = uploadToBunny(fullVideoFile, fullPath);
       }
 
-      await fetch("/api/videos", {
+      // ---------------------------------
+      // 3️⃣ Wait for ALL uploads
+      // ---------------------------------
+      const [thumbUrl, previewUrl, fullKeyValue] = await Promise.all([
+        thumbPromise,
+        previewPromise,
+        fullPromise,
+      ]);
+
+      // ---------------------------------
+      // 4️⃣ Persist state
+      // ---------------------------------
+      setThumbnailUrl(thumbUrl);
+      setVideoUrl(previewUrl);
+      setFullKey(fullKeyValue);
+
+      // ---------------------------------
+      // 5️⃣ Save metadata in DB
+      // ---------------------------------
+      const res = await fetch("/api/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
           description,
-          price,
+          price, // null-safe
           creatorName,
-          socialMediaUrl: socialMediaUrl || creator?.url || "",
+          socialMediaUrl: socialMediaUrl || creator.url || "",
           thumbnail: thumbUrl,
           url: previewUrl,
           fullKey: fullKeyValue,
@@ -232,10 +267,15 @@ export default function UploadPage() {
         }),
       });
 
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || "Failed to save video");
+      }
+
       setSuccessMessage("✅ Upload successful!");
     } catch (err) {
       console.error("❌ Upload failed:", err);
-      alert("Upload failed — see console");
+      alert("Upload failed — see console for details");
     } finally {
       setSubmitting(false);
     }
