@@ -70,49 +70,45 @@ function getDiscountsForVideo(video, safeDiscounts) {
 }
 
 function applyDiscount({ basePrice, discounts = [] }) {
-  let best = null;
+  let bestPrice = basePrice;
+  let appliedDiscount = null;
 
   for (const d of discounts) {
     if (!d || !d.type) continue;
 
-    // ---- percentage vs percentage
+    let candidate = basePrice;
+
+    // % off
     if (d.type === "percentage" && Number.isFinite(d.percentOff)) {
-      if (
-        !best ||
-        (best.type === "percentage" && d.percentOff > best.percentOff)
-      ) {
-        best = d;
-      }
-      continue;
+      candidate = basePrice * (1 - d.percentOff / 100);
     }
 
-    // ---- fixed vs fixed
-    if (d.type === "fixed" && Number.isFinite(d.amount)) {
-      if (!best || (best.type === "fixed" && d.amount < best.amount)) {
-        best = d;
-      }
-    }
-  }
-
-  let finalPrice = basePrice;
-
-  if (best) {
-    if (best.type === "percentage") {
-      finalPrice = Math.round(basePrice * (1 - best.percentOff / 100));
+    // $ off
+    if (d.type === "amount" && Number.isFinite(d.amountOff)) {
+      candidate = basePrice - d.amountOff;
     }
 
-    if (best.type === "fixed") {
-      finalPrice = best.amount;
+    // flat price
+    if (d.type === "fixed" && Number.isFinite(d.fixedPrice)) {
+      candidate = d.fixedPrice;
+    }
+
+    candidate = Math.max(0, Number(candidate));
+
+    // choose lowest final price
+    if (candidate < bestPrice) {
+      bestPrice = candidate;
+      appliedDiscount = d;
     }
   }
 
   return {
     basePrice,
-    finalPrice,
-    appliedDiscount: best,
+    finalPrice: Number(bestPrice.toFixed(2)),
+    appliedDiscount,
   };
 }
-
+a``;
 /* ------------------------------------------
    FETCH ACTIVE DISCOUNTS (PROCESS SERVER)
 ------------------------------------------- */
