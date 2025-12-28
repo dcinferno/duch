@@ -70,46 +70,43 @@ function getDiscountsForVideo(video, safeDiscounts) {
 }
 
 function applyDiscount({ basePrice, discounts = [] }) {
-  let best = null;
+  let bestPrice = basePrice;
+  let appliedDiscount = null;
 
   for (const d of discounts) {
     if (!d || !d.type) continue;
 
-    // ---- percentage vs percentage
+    let candidate = basePrice;
+
+    // % off
     if (d.type === "percentage" && Number.isFinite(d.percentOff)) {
-      if (
-        !best ||
-        (best.type === "percentage" && d.percentOff > best.percentOff)
-      ) {
-        best = d;
-      }
-      continue;
+      candidate = basePrice * (1 - d.percentOff / 100);
     }
 
-    // ---- fixed vs fixed
-    if (d.type === "fixed" && Number.isFinite(d.amount)) {
-      if (!best || (best.type === "fixed" && d.amount < best.amount)) {
-        best = d;
-      }
-    }
-  }
-
-  let finalPrice = basePrice;
-
-  if (best) {
-    if (best.type === "percentage") {
-      finalPrice = Math.round(basePrice * (1 - best.percentOff / 100));
+    // $ off
+    if (d.type === "amount" && Number.isFinite(d.amountOff)) {
+      candidate = basePrice - d.amountOff;
     }
 
-    if (best.type === "fixed") {
-      finalPrice = best.amount;
+    // flat price
+    if (d.type === "fixed" && Number.isFinite(d.fixedPrice)) {
+      candidate = d.fixedPrice;
+    }
+
+    // never go below zero
+    candidate = Math.max(0, Number(candidate));
+
+    // choose the lowest final price
+    if (candidate < bestPrice) {
+      bestPrice = candidate;
+      appliedDiscount = d;
     }
   }
 
   return {
     basePrice,
-    finalPrice,
-    appliedDiscount: best,
+    finalPrice: Number(bestPrice.toFixed(2)),
+    appliedDiscount,
   };
 }
 
@@ -208,10 +205,13 @@ export async function GET(request) {
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
-      discount: pricing.discount
+      discount: pricing.appliedDiscount
         ? {
-            label: pricing.discount.name,
-            percentOff: pricing.discount.percentOff,
+            label: pricing.appliedDiscount.name,
+            type: pricing.appliedDiscount.type,
+            percentOff: pricing.appliedDiscount.percentOff ?? null,
+            amountOff: pricing.appliedDiscount.amountOff ?? null,
+            fixedPrice: pricing.appliedDiscount.fixedPrice ?? null,
           }
         : null,
     });
@@ -269,7 +269,10 @@ export async function GET(request) {
       discount: pricing.appliedDiscount
         ? {
             label: pricing.appliedDiscount.name,
-            percentOff: pricing.appliedDiscount.percentOff,
+            type: pricing.appliedDiscount.type,
+            percentOff: pricing.appliedDiscount.percentOff ?? null,
+            amountOff: pricing.appliedDiscount.amountOff ?? null,
+            fixedPrice: pricing.appliedDiscount.fixedPrice ?? null,
           }
         : null,
     };
