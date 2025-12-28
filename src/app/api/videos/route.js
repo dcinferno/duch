@@ -108,7 +108,6 @@ function applyDiscount({ basePrice, discounts = [] }) {
     appliedDiscount,
   };
 }
-a``;
 /* ------------------------------------------
    FETCH ACTIVE DISCOUNTS (PROCESS SERVER)
 ------------------------------------------- */
