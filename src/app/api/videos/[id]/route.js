@@ -121,7 +121,10 @@ export async function GET(req, { params }) {
     discount: pricing.appliedDiscount
       ? {
           label: pricing.appliedDiscount.name,
-          percentOff: pricing.appliedDiscount.percentOff,
+          type: pricing.appliedDiscount.type,
+          percentOff: pricing.appliedDiscount.percentOff ?? null,
+          amountOff: pricing.appliedDiscount.amountOff ?? null,
+          fixedPrice: pricing.appliedDiscount.fixedPrice ?? null,
         }
       : null,
   });

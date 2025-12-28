@@ -204,10 +204,13 @@ export async function GET(request) {
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
-      discount: pricing.discount
+      discount: pricing.appliedDiscount
         ? {
-            label: pricing.discount.name,
-            percentOff: pricing.discount.percentOff,
+            label: pricing.appliedDiscount.name,
+            type: pricing.appliedDiscount.type,
+            percentOff: pricing.appliedDiscount.percentOff ?? null,
+            amountOff: pricing.appliedDiscount.amountOff ?? null,
+            fixedPrice: pricing.appliedDiscount.fixedPrice ?? null,
           }
         : null,
     });
@@ -265,7 +268,10 @@ export async function GET(request) {
       discount: pricing.appliedDiscount
         ? {
             label: pricing.appliedDiscount.name,
-            percentOff: pricing.appliedDiscount.percentOff,
+            type: pricing.appliedDiscount.type,
+            percentOff: pricing.appliedDiscount.percentOff ?? null,
+            amountOff: pricing.appliedDiscount.amountOff ?? null,
+            fixedPrice: pricing.appliedDiscount.fixedPrice ?? null,
           }
         : null,
     };
