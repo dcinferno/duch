@@ -93,9 +93,10 @@ function applyDiscount({ basePrice, discounts = [] }) {
       candidate = d.fixedPrice;
     }
 
+    // never go below zero
     candidate = Math.max(0, Number(candidate));
 
-    // choose lowest final price
+    // choose the lowest final price
     if (candidate < bestPrice) {
       bestPrice = candidate;
       appliedDiscount = d;
@@ -108,6 +109,7 @@ function applyDiscount({ basePrice, discounts = [] }) {
     appliedDiscount,
   };
 }
+
 /* ------------------------------------------
    FETCH ACTIVE DISCOUNTS (PROCESS SERVER)
 ------------------------------------------- */
