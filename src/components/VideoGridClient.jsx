@@ -126,7 +126,7 @@ export default function VideoGridClient({ videos = [] }) {
 
       // ❗ IMPORTANT: keep free videos
       if (showPaidOnly && !video.pay) return false;
-      // 🎄 CHRISTMAS DISCOUNT FILTER
+      //  DISCOUNT FILTER
       if (showDiscountedOnly && !isDiscounted(video)) {
         return false;
       }
@@ -373,7 +373,7 @@ export default function VideoGridClient({ videos = [] }) {
               : "bg-white text-gray-800 border-gray-300 hover:bg-red-100"
           }`}
         >
-          🎄 Christmas Deals
+          🤑 Deals
         </button>
 
         {/* PREMIUM */}
