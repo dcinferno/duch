@@ -373,7 +373,7 @@ export default function VideoGridClient({ videos = [] }) {
               : "bg-white text-gray-800 border-gray-300 hover:bg-red-100"
           }`}
         >
-          Deals
+          🤑 Deals
         </button>
 
         {/* PREMIUM */}
