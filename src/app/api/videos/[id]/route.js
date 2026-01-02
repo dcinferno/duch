@@ -110,11 +110,12 @@ export async function GET(req, { params }) {
     basePrice,
     discounts: discountsForVideo,
   });
+
   return Response.json({
     ...video,
+    fullKey: Boolean(video.fullKey),
     premium: Boolean(creator?.premium),
     pay: Boolean(creator?.pay),
-
     price: basePrice,
     basePrice: pricing.basePrice,
     finalPrice: pricing.finalPrice,
