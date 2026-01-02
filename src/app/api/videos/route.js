@@ -197,7 +197,7 @@ export async function GET(request) {
 
       thumbnail: withCDN(video.thumbnail),
       url: withCDN(video.url),
-
+      fullKey: Boolean(video.fullKey),
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
       creatorTelegramId: creator.telegramId ?? null,
@@ -258,7 +258,7 @@ export async function GET(request) {
       ...video,
       thumbnail: withCDN(video.thumbnail),
       url: withCDN(video.url),
-
+      fullKey: Boolean(video.fullKey),
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
       creatorTelegramId: creator.telegramId ?? null,
