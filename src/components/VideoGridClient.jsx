@@ -274,9 +274,8 @@ export default function VideoGridClient({ videos = [] }) {
 
     openedFromUrlRef.current = true;
 
-    // ⚠️ IMPORTANT: preview only, NEVER fetch full here
-    setSelectedVideo(visibleVideos[idx]);
-    setSelectedVideoIndex(idx);
+    // 🔥 reuse the real playback logic
+    openVideo(idx);
   }, [searchParams, visibleVideos, selectedVideo]);
 
   useEffect(() => {
