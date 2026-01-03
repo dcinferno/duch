@@ -16,7 +16,6 @@ export default function VideoGridClient({ videos = [] }) {
   const loggedVideosRef = useRef(new Set());
   const loadMoreRef = useRef(null);
   const scrollYRef = useRef(0);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
@@ -672,9 +671,13 @@ export default function VideoGridClient({ videos = [] }) {
                         </button>
                         {/* PAY */}
                         {canPay(video) && (
-                          <button onClick={() => startCheckout(video)}>
-                            Pay
+                          <button
+                            onClick={() => startCheckout(selectedVideo)}
+                            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg"
+                          >
+                            Pay ${Number(selectedVideo.price).toFixed(2)}
                           </button>
+                        )}
                         )}
                       </>
                     )}
