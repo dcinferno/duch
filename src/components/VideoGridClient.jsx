@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
+import { startCheckout } from "@/lib/startCheckout";
 
 export default function VideoGridClient({ videos = [] }) {
   const router = useRouter();
@@ -42,43 +42,6 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   // HELPERS
   // ===============================
-  const handleModalCheckout = async (video) => {
-    // ✅ MUST be synchronous (Safari)
-    const stripeWindow = window.open("", "_blank");
-
-    try {
-      const userId = getOrCreateUserId();
-      localStorage.setItem("userId", userId);
-
-      const payload = {
-        userId,
-        videoId: video._id,
-        creatorName: video.creatorName,
-        creatorTelegramId: video.creatorTelegramId || "",
-        creatorUrl: video.socialMediaUrl || "",
-        site: "A",
-      };
-
-      const url = getCheckOutUrl();
-      const res = await fetch(`${url}/api/checkout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!data?.url) {
-        throw new Error("No Stripe URL returned");
-      }
-
-      // ✅ Safari-safe redirect
-      stripeWindow.location = data.url;
-    } catch (err) {
-      console.error("Checkout failed", err);
-      stripeWindow?.close?.();
-      alert("Checkout failed. Please try again.");
-    }
-  };
 
   function isDiscounted(video) {
     const base =
@@ -397,13 +360,6 @@ export default function VideoGridClient({ videos = [] }) {
     setSelectedVideoIndex(index);
   };
 
-  const getCheckOutUrl = () => {
-    const isDev = process.env.NODE_ENV === "development";
-    return isDev
-      ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
-      : process.env.NEXT_PUBLIC_SERVER_URL;
-  };
-
   const closeModal = () => {
     closedManuallyRef.current = true;
     openedFromUrlRef.current = false;
@@ -716,52 +672,8 @@ export default function VideoGridClient({ videos = [] }) {
                         </button>
                         {/* PAY */}
                         {canPay(video) && (
-                          <button
-                            onClick={async () => {
-                              // ✅ MUST happen synchronously
-                              const stripeWindow = window.open("", "_blank");
-                              // use "_blank" if you want a new tab instead
-
-                              try {
-                                const userId = getOrCreateUserId();
-                                localStorage.setItem("userId", userId);
-
-                                const payload = {
-                                  userId,
-                                  videoId: video._id,
-                                  creatorName: video.creatorName,
-                                  creatorTelegramId:
-                                    video.creatorTelegramId || "",
-                                  creatorUrl: video.socialMediaUrl || "",
-                                  site: "A",
-                                };
-
-                                const url = getCheckOutUrl();
-                                const res = await fetch(`${url}/api/checkout`, {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify(payload),
-                                });
-
-                                const data = await res.json();
-
-                                if (!data?.url) {
-                                  throw new Error("No Stripe URL returned");
-                                }
-
-                                // ✅ Safari allows this because the window already exists
-                                stripeWindow.location = data.url;
-                              } catch (err) {
-                                console.error("Checkout failed", err);
-                                stripeWindow?.close?.();
-                                alert("Checkout failed. Please try again.");
-                              }
-                            }}
-                            className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
-                          >
-                            Pay ${getDisplayPrice(video).toFixed(2)}
+                          <button onClick={() => startCheckout(video)}>
+                            Pay
                           </button>
                         )}
                       </>
@@ -851,13 +763,10 @@ export default function VideoGridClient({ videos = [] }) {
               {/* 💜 PAY BUTTON */}
               {!isPurchased(selectedVideo._id) && selectedVideo.fullKey && (
                 <button
-                  disabled={checkoutLoading}
-                  onClick={() => handleModalCheckout(selectedVideo)}
-                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-semibold py-3 rounded-lg"
+                  onClick={() => startCheckout(selectedVideo)}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg"
                 >
-                  {checkoutLoading
-                    ? "Redirecting…"
-                    : `Pay $${Number(selectedVideo.price).toFixed(2)}`}
+                  Pay ${Number(selectedVideo.price).toFixed(2)}
                 </button>
               )}
 
