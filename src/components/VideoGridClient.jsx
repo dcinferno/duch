@@ -678,7 +678,6 @@ export default function VideoGridClient({ videos = [] }) {
                             Pay ${Number(selectedVideo.price).toFixed(2)}
                           </button>
                         )}
-                        )}
                       </>
                     )}
                   </div>
