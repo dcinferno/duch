@@ -810,7 +810,7 @@ export default function VideoGridClient({ videos = [] }) {
               </div>
 
               {/* 💜 PAY BUTTON */}
-              {!isPurchased(selectedVideo._id) && (
+              {!isPurchased(selectedVideo._id) && selectedVideo.fullKey && (
                 <button
                   onClick={() => handleCheckout(selectedVideo)}
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors"
