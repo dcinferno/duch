@@ -16,6 +16,7 @@ export default function VideoGridClient({ videos = [] }) {
   const loggedVideosRef = useRef(new Set());
   const loadMoreRef = useRef(null);
   const scrollYRef = useRef(0);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
@@ -41,6 +42,28 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   // HELPERS
   // ===============================
+  const handleModalCheckout = async (video) => {
+    if (checkoutLoading) return;
+    setCheckoutLoading(true);
+
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId: video._id }),
+      });
+
+      const data = await res.json();
+      if (!data?.url) throw new Error("No checkout URL");
+
+      window.location.href = data.url;
+    } catch {
+      alert("Failed to start checkout");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   function isDiscounted(video) {
     const base =
       typeof video.basePrice === "number"
@@ -812,10 +835,13 @@ export default function VideoGridClient({ videos = [] }) {
               {/* 💜 PAY BUTTON */}
               {!isPurchased(selectedVideo._id) && selectedVideo.fullKey && (
                 <button
-                  onClick={() => handleCheckout(selectedVideo)}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                  disabled={checkoutLoading}
+                  onClick={() => handleModalCheckout(selectedVideo)}
+                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-semibold py-3 rounded-lg"
                 >
-                  Pay ${Number(selectedVideo.price).toFixed(2)}
+                  {checkoutLoading
+                    ? "Redirecting…"
+                    : `Pay $${Number(selectedVideo.price).toFixed(2)}`}
                 </button>
               )}
 
