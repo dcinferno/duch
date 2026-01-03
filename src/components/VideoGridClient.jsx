@@ -783,36 +783,47 @@ export default function VideoGridClient({ videos = [] }) {
             </button>
 
             <div className="p-6 flex flex-col items-center">
-              <h2 className="text-xl font-bold mb-3">{selectedVideo.title}</h2>
+              <h2 className="text-xl font-bold mb-3 text-center">
+                {selectedVideo.title}
+              </h2>
 
-              {selectedVideo.type === "video" ? (
-                <video
-                  key={selectedVideo.url} // 🚨 REQUIRED
-                  src={selectedVideo.url}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="w-full max-h-[300px] rounded mb-4 object-contain"
-                  onPlay={() => logVideoViews(selectedVideo._id)}
-                />
-              ) : (
-                <img
-                  src={selectedVideo.url}
-                  alt={selectedVideo.title}
-                  className="w-full max-h-[300px] rounded mb-4 object-contain"
-                />
-              )}
+              {/* 🎬 VIDEO ONLY */}
+              <video
+                key={selectedVideo.url} // 🔑 ensures reload when URL changes
+                src={selectedVideo.url}
+                controls
+                autoPlay
+                playsInline
+                className="w-full max-h-[300px] rounded mb-4 object-contain"
+                onPlay={() => logVideoViews(selectedVideo._id)}
+              />
 
               <p className="text-sm text-gray-700 mb-4 text-center">
                 {selectedVideo.description}
               </p>
 
-              <div className="flex justify-between w-full text-sm text-gray-600">
+              <div className="flex justify-between w-full text-sm text-gray-600 mb-4">
                 <span className="font-medium text-blue-700">
                   {selectedVideo.creatorName}
                 </span>
                 <span>{VideoViews[selectedVideo._id] ?? 0} views</span>
               </div>
+
+              {/* 💜 PAY BUTTON */}
+              {!isPurchased(selectedVideo._id) && (
+                <button
+                  onClick={() => handleCheckout(selectedVideo)}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                >
+                  Pay ${Number(selectedVideo.price).toFixed(2)}
+                </button>
+              )}
+
+              {isPurchased(selectedVideo._id) && (
+                <div className="w-full text-center text-sm text-green-600 font-medium">
+                  ✔ Purchased
+                </div>
+              )}
             </div>
           </div>
         </div>
