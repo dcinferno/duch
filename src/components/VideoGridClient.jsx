@@ -43,24 +43,40 @@ export default function VideoGridClient({ videos = [] }) {
   // HELPERS
   // ===============================
   const handleModalCheckout = async (video) => {
-    if (checkoutLoading) return;
-    setCheckoutLoading(true);
+    // ✅ MUST be synchronous (Safari)
+    const stripeWindow = window.open("", "_blank");
 
     try {
-      const res = await fetch("/api/checkout", {
+      const userId = getOrCreateUserId();
+      localStorage.setItem("userId", userId);
+
+      const payload = {
+        userId,
+        videoId: video._id,
+        creatorName: video.creatorName,
+        creatorTelegramId: video.creatorTelegramId || "",
+        creatorUrl: video.socialMediaUrl || "",
+        site: "A",
+      };
+
+      const url = getCheckOutUrl();
+      const res = await fetch(`${url}/api/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId: video._id }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!data?.url) throw new Error("No checkout URL");
+      if (!data?.url) {
+        throw new Error("No Stripe URL returned");
+      }
 
-      window.location.href = data.url;
-    } catch {
-      alert("Failed to start checkout");
-    } finally {
-      setCheckoutLoading(false);
+      // ✅ Safari-safe redirect
+      stripeWindow.location = data.url;
+    } catch (err) {
+      console.error("Checkout failed", err);
+      stripeWindow?.close?.();
+      alert("Checkout failed. Please try again.");
     }
   };
 
