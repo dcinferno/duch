@@ -257,25 +257,36 @@ export default function VideoGridClient({ videos = [] }) {
 
   useEffect(() => {
     const id = searchParams.get("video");
+    if (!id) return;
 
-    // No video in URL → reset flags and STOP
-    if (!id) {
-      openedFromUrlRef.current = false;
+    if (closedManuallyRef.current) return;
+    if (selectedVideo?._id === id) return;
+
+    // 1️⃣ Try grid first
+    const idx = visibleVideos.findIndex((v) => v._id === id);
+    if (idx !== -1) {
+      openVideo(idx);
       return;
     }
 
-    // ❌ User manually closed — do NOT reopen anything
-    if (closedManuallyRef.current) return;
+    // 2️⃣ Fallback: fetch single video (homepage deep-link)
+    (async () => {
+      try {
+        const res = await fetch(`/api/videos?id=${id}`);
+        if (!res.ok) throw new Error("Video fetch failed");
 
-    if (selectedVideo?._id === id) return;
+        const video = await res.json();
+        if (!video?._id) return;
 
-    const idx = visibleVideos.findIndex((v) => v._id === id);
-    if (idx === -1) return;
+        openedFromUrlRef.current = true;
 
-    openedFromUrlRef.current = true;
-
-    // 🔥 reuse the real playback logic
-    openVideo(idx);
+        // 🔥 open with full logic
+        setSelectedVideoIndex(-1);
+        openVideoFromObject(video); // see below
+      } catch (err) {
+        console.warn("Deep-link video load failed", err);
+      }
+    })();
   }, [searchParams, visibleVideos, selectedVideo]);
 
   useEffect(() => {
@@ -291,6 +302,37 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   // MISSING HELPERS (FIXES CRASHES)
   // ===============================
+  const openVideoFromObject = async (video) => {
+    scrollYRef.current = window.scrollY;
+
+    let urlToPlay = video.url;
+
+    if (isPurchased(video._id)) {
+      try {
+        setLoadingVideoId(video._id);
+        const purchase = purchasedVideos[video._id];
+
+        if (!purchase?.token) return;
+
+        const res = await fetch("/api/download-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: purchase.token }),
+        });
+
+        const data = await res.json();
+        if (data?.url) {
+          urlToPlay = data.url;
+        }
+      } catch {
+        return;
+      } finally {
+        setLoadingVideoId(null);
+      }
+    }
+
+    setSelectedVideo({ ...video, url: urlToPlay });
+  };
 
   const togglePremium = () => setShowPremiumOnly((p) => !p);
 
