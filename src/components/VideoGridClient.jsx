@@ -672,10 +672,10 @@ export default function VideoGridClient({ videos = [] }) {
                         {/* PAY */}
                         {canPay(video) && (
                           <button
-                            onClick={() => startCheckout(selectedVideo)}
+                            onClick={() => startCheckout(video)}
                             className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg"
                           >
-                            Pay ${Number(selectedVideo.price).toFixed(2)}
+                            Pay ${Number(video.price).toFixed(2)}
                           </button>
                         )}
                       </>
