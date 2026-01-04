@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getOrCreateUserId } from "@/lib/getOrCreateUserId";
+import { startCheckout } from "@/lib/startCheckout";
 
 export default function VideoGridClient({ videos = [] }) {
   const router = useRouter();
@@ -41,6 +41,7 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   // HELPERS
   // ===============================
+
   function isDiscounted(video) {
     const base =
       typeof video.basePrice === "number"
@@ -257,26 +258,36 @@ export default function VideoGridClient({ videos = [] }) {
 
   useEffect(() => {
     const id = searchParams.get("video");
+    if (!id) return;
 
-    // No video in URL → reset flags and STOP
-    if (!id) {
-      openedFromUrlRef.current = false;
+    if (closedManuallyRef.current) return;
+    if (selectedVideo?._id === id) return;
+
+    // 1️⃣ Try grid first
+    const idx = visibleVideos.findIndex((v) => v._id === id);
+    if (idx !== -1) {
+      openVideo(idx);
       return;
     }
 
-    // ❌ User manually closed — do NOT reopen anything
-    if (closedManuallyRef.current) return;
+    // 2️⃣ Fallback: fetch single video (homepage deep-link)
+    (async () => {
+      try {
+        const res = await fetch(`/api/videos?id=${id}`);
+        if (!res.ok) throw new Error("Video fetch failed");
 
-    if (selectedVideo?._id === id) return;
+        const video = await res.json();
+        if (!video?._id) return;
 
-    const idx = visibleVideos.findIndex((v) => v._id === id);
-    if (idx === -1) return;
+        openedFromUrlRef.current = true;
 
-    openedFromUrlRef.current = true;
-
-    // ⚠️ IMPORTANT: preview only, NEVER fetch full here
-    setSelectedVideo(visibleVideos[idx]);
-    setSelectedVideoIndex(idx);
+        // 🔥 open with full logic
+        setSelectedVideoIndex(-1);
+        openVideoFromObject(video); // see below
+      } catch (err) {
+        console.warn("Deep-link video load failed", err);
+      }
+    })();
   }, [searchParams, visibleVideos, selectedVideo]);
 
   useEffect(() => {
@@ -292,6 +303,37 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   // MISSING HELPERS (FIXES CRASHES)
   // ===============================
+  const openVideoFromObject = async (video) => {
+    scrollYRef.current = window.scrollY;
+
+    let urlToPlay = video.url;
+
+    if (isPurchased(video._id)) {
+      try {
+        setLoadingVideoId(video._id);
+        const purchase = purchasedVideos[video._id];
+
+        if (!purchase?.token) return;
+
+        const res = await fetch("/api/download-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: purchase.token }),
+        });
+
+        const data = await res.json();
+        if (data?.url) {
+          urlToPlay = data.url;
+        }
+      } catch {
+        return;
+      } finally {
+        setLoadingVideoId(null);
+      }
+    }
+
+    setSelectedVideo({ ...video, url: urlToPlay });
+  };
 
   const togglePremium = () => setShowPremiumOnly((p) => !p);
 
@@ -315,13 +357,6 @@ export default function VideoGridClient({ videos = [] }) {
   const openVideoFromUrl = (video, index) => {
     setSelectedVideo(video);
     setSelectedVideoIndex(index);
-  };
-
-  const getCheckOutUrl = () => {
-    const isDev = process.env.NODE_ENV === "development";
-    return isDev
-      ? process.env.NEXT_PUBLIC_SERVER_URL_DEV
-      : process.env.NEXT_PUBLIC_SERVER_URL;
   };
 
   const closeModal = () => {
@@ -637,51 +672,10 @@ export default function VideoGridClient({ videos = [] }) {
                         {/* PAY */}
                         {canPay(video) && (
                           <button
-                            onClick={async () => {
-                              // ✅ MUST happen synchronously
-                              const stripeWindow = window.open("", "_blank");
-                              // use "_blank" if you want a new tab instead
-
-                              try {
-                                const userId = getOrCreateUserId();
-                                localStorage.setItem("userId", userId);
-
-                                const payload = {
-                                  userId,
-                                  videoId: video._id,
-                                  creatorName: video.creatorName,
-                                  creatorTelegramId:
-                                    video.creatorTelegramId || "",
-                                  creatorUrl: video.socialMediaUrl || "",
-                                  site: "A",
-                                };
-
-                                const url = getCheckOutUrl();
-                                const res = await fetch(`${url}/api/checkout`, {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify(payload),
-                                });
-
-                                const data = await res.json();
-
-                                if (!data?.url) {
-                                  throw new Error("No Stripe URL returned");
-                                }
-
-                                // ✅ Safari allows this because the window already exists
-                                stripeWindow.location = data.url;
-                              } catch (err) {
-                                console.error("Checkout failed", err);
-                                stripeWindow?.close?.();
-                                alert("Checkout failed. Please try again.");
-                              }
-                            }}
+                            onClick={() => startCheckout(video)}
                             className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
                           >
-                            Pay ${getDisplayPrice(video).toFixed(2)}
+                            Pay ${Number(video.price).toFixed(2)}
                           </button>
                         )}
                       </>
@@ -742,36 +736,47 @@ export default function VideoGridClient({ videos = [] }) {
             </button>
 
             <div className="p-6 flex flex-col items-center">
-              <h2 className="text-xl font-bold mb-3">{selectedVideo.title}</h2>
+              <h2 className="text-xl font-bold mb-3 text-center">
+                {selectedVideo.title}
+              </h2>
 
-              {selectedVideo.type === "video" ? (
-                <video
-                  key={selectedVideo.url} // 🚨 REQUIRED
-                  src={selectedVideo.url}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="w-full max-h-[300px] rounded mb-4 object-contain"
-                  onPlay={() => logVideoViews(selectedVideo._id)}
-                />
-              ) : (
-                <img
-                  src={selectedVideo.url}
-                  alt={selectedVideo.title}
-                  className="w-full max-h-[300px] rounded mb-4 object-contain"
-                />
-              )}
+              {/* 🎬 VIDEO ONLY */}
+              <video
+                key={selectedVideo.url} // 🔑 ensures reload when URL changes
+                src={selectedVideo.url}
+                controls
+                autoPlay
+                playsInline
+                className="w-full max-h-[300px] rounded mb-4 object-contain"
+                onPlay={() => logVideoViews(selectedVideo._id)}
+              />
 
               <p className="text-sm text-gray-700 mb-4 text-center">
                 {selectedVideo.description}
               </p>
 
-              <div className="flex justify-between w-full text-sm text-gray-600">
+              <div className="flex justify-between w-full text-sm text-gray-600 mb-4">
                 <span className="font-medium text-blue-700">
                   {selectedVideo.creatorName}
                 </span>
                 <span>{VideoViews[selectedVideo._id] ?? 0} views</span>
               </div>
+
+              {/* 💜 PAY BUTTON */}
+              {!isPurchased(selectedVideo._id) && selectedVideo.fullKey && (
+                <button
+                  onClick={() => startCheckout(selectedVideo)}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg"
+                >
+                  Pay ${Number(selectedVideo.price).toFixed(2)}
+                </button>
+              )}
+
+              {isPurchased(selectedVideo._id) && (
+                <div className="w-full text-center text-sm text-green-600 font-medium">
+                  ✔ Purchased
+                </div>
+              )}
             </div>
           </div>
         </div>
