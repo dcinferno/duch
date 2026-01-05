@@ -675,7 +675,7 @@ export default function VideoGridClient({ videos = [] }) {
                             onClick={() => startCheckout(video)}
                             className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
                           >
-                            Pay ${Number(video.price).toFixed(2)}
+                            Pay ${getDisplayPrice(video).toFixed(2)}
                           </button>
                         )}
                       </>
@@ -768,7 +768,7 @@ export default function VideoGridClient({ videos = [] }) {
                   onClick={() => startCheckout(selectedVideo)}
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg"
                 >
-                  Pay ${Number(selectedVideo.price).toFixed(2)}
+                  Pay ${getDisplayPrice(selectedVideo).toFixed(2)}
                 </button>
               )}
 
