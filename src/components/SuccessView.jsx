@@ -7,7 +7,7 @@ export default function SuccessView({ urlHandle, router }) {
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const VIP_TELEGRAM_INVITE = process.env.VIP_TELEGRAM_INVITE;
+  const VIP_TELEGRAM_INVITE = process.env.NEXT_PUBLIC_VIP_TELEGRAM_INVITE;
 
   // ------------------------------------------
   // 1️⃣ Read access token from URL
