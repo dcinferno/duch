@@ -7,6 +7,7 @@ export default function SuccessView({ urlHandle, router }) {
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const VIP_TELEGRAM_INVITE = process.env.VIP_TELEGRAM_INVITE;
 
   // ------------------------------------------
   // 1️⃣ Read access token from URL
@@ -125,6 +126,26 @@ export default function SuccessView({ urlHandle, router }) {
             Tip: Once the video opens, right-click and choose
             <strong>“Save video as…”</strong>
           </p>
+          <button
+            disabled={!downloadUrl}
+            onClick={() =>
+              window.open(VIP_TELEGRAM_INVITE, "_blank", "noopener,noreferrer")
+            }
+            className={`w-full py-3 rounded-lg font-medium ${
+              downloadUrl
+                ? "bg-purple-600 text-white hover:bg-purple-700"
+                : "bg-gray-400 text-white cursor-not-allowed"
+            }`}
+          >
+            <span
+              className={`transition-transform ${
+                downloadUrl ? "scale-110 animate-pulse" : ""
+              }`}
+            >
+              👑
+            </span>
+            {downloadUrl ? "Join VIP Telegram" : "Unlocking VIP Access…"}
+          </button>
 
           <button
             onClick={() => router.push(urlHandle ? `/${urlHandle}` : "/")}
