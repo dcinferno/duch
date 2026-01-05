@@ -144,7 +144,7 @@ export default function SuccessView({ urlHandle, router }) {
             >
               👑
             </span>
-            {downloadUrl ? "Join VIP Telegram" : "Unlocking VIP Access…"}
+            {downloadUrl ? " Join VIP Telegram" : "Unlocking VIP Access…"}
           </button>
 
           <button
