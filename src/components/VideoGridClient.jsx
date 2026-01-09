@@ -16,6 +16,8 @@ export default function VideoGridClient({ videos = [] }) {
   const loggedVideosRef = useRef(new Set());
   const loadMoreRef = useRef(null);
   const scrollYRef = useRef(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchLogTimeoutRef = useRef(null);
 
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
@@ -37,6 +39,8 @@ export default function VideoGridClient({ videos = [] }) {
   const [passwordInput, setPasswordInput] = useState("");
   const [unlockTargetId, setUnlockTargetId] = useState(null);
   const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
+  const LATEST_VIDEO_TYPE =
+    process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE?.toLowerCase() || null;
 
   // ===============================
   // HELPERS
@@ -117,6 +121,23 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   const filteredVideos = videos
     .filter((video) => {
+      // 🔍 SEARCH FILTER
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        if (q && q === LATEST_VIDEO_TYPE) {
+          return true;
+        }
+
+        const matches =
+          video.title?.toLowerCase().includes(q) ||
+          video.creatorName?.toLowerCase().includes(q) ||
+          video.description?.toLowerCase().includes(q) ||
+          video.tags?.some((t) => t.toLowerCase().includes(q));
+
+        if (!matches) return false;
+      }
+
+      // 🏷️ TAG FILTER
       if (
         selectedTags.length &&
         !selectedTags.every((t) => video.tags?.includes(t))
@@ -124,13 +145,8 @@ export default function VideoGridClient({ videos = [] }) {
         return false;
 
       if (showPremiumOnly && !video.premium) return false;
-
-      // ❗ IMPORTANT: keep free videos
       if (showPaidOnly && !video.pay) return false;
-      //  DISCOUNT FILTER
-      if (showDiscountedOnly && !isDiscounted(video)) {
-        return false;
-      }
+      if (showDiscountedOnly && !isDiscounted(video)) return false;
 
       return true;
     })
@@ -206,6 +222,44 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   // EFFECTS
   // ===============================
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) return;
+
+    // debounce
+    clearTimeout(searchLogTimeoutRef.current);
+
+    searchLogTimeoutRef.current = setTimeout(() => {
+      fetch("/api/log-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: q,
+          resultsCount: videosToRender.length,
+          filters: {
+            premium: showPremiumOnly,
+            paid: showPaidOnly,
+            discounted: showDiscountedOnly,
+            tags: selectedTags,
+          },
+          source: "VideoGridClient",
+        }),
+      }).catch(() => {});
+    }, 600);
+
+    return () => clearTimeout(searchLogTimeoutRef.current);
+  }, [
+    searchQuery,
+    videosToRender.length,
+    showPremiumOnly,
+    showPaidOnly,
+    showDiscountedOnly,
+    selectedTags,
+  ]);
 
   useEffect(() => {
     if (!videos.length) return;
@@ -395,11 +449,77 @@ export default function VideoGridClient({ videos = [] }) {
   return (
     <div className="w-full">
       {/* FILTER BAR ======================================================= */}
+      {/* MOBILE SEARCH ROW */}
+      <div className="w-full mb-4 sm:hidden">
+        <div className="relative w-full">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search…"
+            className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-300"
+          />
+
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="
+        absolute right-2 top-1/2 -translate-y-1/2
+        text-gray-500 hover:text-gray-800
+        p-2 rounded-full
+        hover:bg-gray-100
+        transition
+      "
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-3 mb-6 justify-center items-center">
         <span className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full shadow-sm">
           {videosToRender.length}{" "}
           {videosToRender.length === 1 ? "item" : "items"}
         </span>
+        {/* DESKTOP SEARCH */}
+        <div className="relative hidden sm:flex items-center">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search…"
+            className="
+      px-3 py-1.5 pr-8
+      rounded-full
+      border border-gray-300
+      text-sm
+      focus:outline-none focus:ring-2 focus:ring-blue-500
+    "
+          />
+
+          {/* CLEAR (DESKTOP) */}
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className={`
+      absolute right-2
+      text-gray-400
+      transition-all
+      ${
+        searchQuery
+          ? "opacity-100 hover:text-red-500 hover:scale-110"
+          : "opacity-0 pointer-events-none"
+      }
+    `}
+            aria-label="Clear search"
+          >
+            ✕
+          </button>
+        </div>
+
         <button
           onClick={() => setShowDiscountedOnly((s) => !s)}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${

@@ -5,9 +5,10 @@ import ClientOnly from "../components/ClientOnly";
 import VideosClientPage from "../components/VideoGridClient";
 
 export default function Home() {
+  const type = process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE;
   return (
     <div className="w-full px-2 sm:px-4 py-6">
-      <h1 className="text-2xl font-bold mb-4">Latest Videos</h1>
+      <h1 className="text-2xl font-bold mb-4">Latest {type} Videos</h1>
 
       <ClientOnly fallback={<p>Loading videos...</p>}>
         <VideosFetcher />
