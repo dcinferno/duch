@@ -444,26 +444,44 @@ export default function VideoGridClient({ videos = [] }) {
   return (
     <div className="w-full">
       {/* FILTER BAR ======================================================= */}
+      {/* MOBILE SEARCH ROW */}
+      <div className="w-full mb-4 sm:hidden">
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search..."
+            className="flex-1 px-4 py-3 rounded-xl border border-gray-300 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="px-3 py-3 text-gray-500 text-lg"
+              aria-label="Clear search"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-3 mb-6 justify-center items-center">
         <span className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full shadow-sm">
           {videosToRender.length}{" "}
           {videosToRender.length === 1 ? "item" : "items"}
         </span>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search videos, creators, tags…"
-          className="px-4 py-2 rounded-full border border-gray-300 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery("")}
-            className="text-sm text-gray-500 hover:text-gray-800"
-          >
-            Clear
-          </button>
-        )}
+        {/* DESKTOP SEARCH */}
+        <div className="hidden sm:flex items-center gap-2">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search…"
+            className="px-3 py-1.5 rounded-full border border-gray-300 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
         <button
           onClick={() => setShowDiscountedOnly((s) => !s)}
