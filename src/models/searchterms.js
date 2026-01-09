@@ -5,7 +5,6 @@ const SearchTermSchema = new mongoose.Schema(
     term: {
       type: String,
       required: true,
-      index: true,
     },
 
     count: {

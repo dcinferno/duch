@@ -125,7 +125,7 @@ export default function VideoGridClient({ videos = [] }) {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         if (q && q === LATEST_VIDEO_TYPE) {
-          // do nothing — allow all videos through
+          return true;
         }
 
         const matches =
@@ -451,22 +451,29 @@ export default function VideoGridClient({ videos = [] }) {
       {/* FILTER BAR ======================================================= */}
       {/* MOBILE SEARCH ROW */}
       <div className="w-full mb-4 sm:hidden">
-        <div className="flex items-center gap-2">
+        <div className="relative w-full">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
-            className="flex-1 px-4 py-3 rounded-xl border border-gray-300 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Search…"
+            className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-300"
           />
 
           {searchQuery && (
             <button
+              type="button"
               onClick={() => setSearchQuery("")}
-              className="px-3 py-3 text-gray-500 text-lg"
+              className="
+        absolute right-2 top-1/2 -translate-y-1/2
+        text-gray-500 hover:text-gray-800
+        p-2 rounded-full
+        hover:bg-gray-100
+        transition
+      "
               aria-label="Clear search"
             >
-              Clear
+              ✕
             </button>
           )}
         </div>
@@ -478,14 +485,39 @@ export default function VideoGridClient({ videos = [] }) {
           {videosToRender.length === 1 ? "item" : "items"}
         </span>
         {/* DESKTOP SEARCH */}
-        <div className="hidden sm:flex items-center gap-2">
+        <div className="relative hidden sm:flex items-center">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search…"
-            className="px-3 py-1.5 rounded-full border border-gray-300 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="
+      px-3 py-1.5 pr-8
+      rounded-full
+      border border-gray-300
+      text-sm
+      focus:outline-none focus:ring-2 focus:ring-blue-500
+    "
           />
+
+          {/* CLEAR (DESKTOP) */}
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className={`
+      absolute right-2
+      text-gray-400
+      transition-all
+      ${
+        searchQuery
+          ? "opacity-100 hover:text-red-500 hover:scale-110"
+          : "opacity-0 pointer-events-none"
+      }
+    `}
+            aria-label="Clear search"
+          >
+            ✕
+          </button>
         </div>
 
         <button
