@@ -39,6 +39,8 @@ export default function VideoGridClient({ videos = [] }) {
   const [passwordInput, setPasswordInput] = useState("");
   const [unlockTargetId, setUnlockTargetId] = useState(null);
   const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
+  const LATEST_VIDEO_TYPE =
+    process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE?.toLowerCase() || null;
 
   // ===============================
   // HELPERS
@@ -122,6 +124,9 @@ export default function VideoGridClient({ videos = [] }) {
       // 🔍 SEARCH FILTER
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
+        if (q && q === LATEST_VIDEO_TYPE) {
+          // do nothing — allow all videos through
+        }
 
         const matches =
           video.title?.toLowerCase().includes(q) ||
