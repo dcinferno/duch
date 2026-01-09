@@ -16,6 +16,8 @@ export default function VideoGridClient({ videos = [] }) {
   const loggedVideosRef = useRef(new Set());
   const loadMoreRef = useRef(null);
   const scrollYRef = useRef(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchLogTimeoutRef = useRef(null);
 
   const [visibleCount, setVisibleCount] = useState(12);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
@@ -117,6 +119,20 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   const filteredVideos = videos
     .filter((video) => {
+      // 🔍 SEARCH FILTER
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+
+        const matches =
+          video.title?.toLowerCase().includes(q) ||
+          video.creatorName?.toLowerCase().includes(q) ||
+          video.description?.toLowerCase().includes(q) ||
+          video.tags?.some((t) => t.toLowerCase().includes(q));
+
+        if (!matches) return false;
+      }
+
+      // 🏷️ TAG FILTER
       if (
         selectedTags.length &&
         !selectedTags.every((t) => video.tags?.includes(t))
@@ -124,13 +140,8 @@ export default function VideoGridClient({ videos = [] }) {
         return false;
 
       if (showPremiumOnly && !video.premium) return false;
-
-      // ❗ IMPORTANT: keep free videos
       if (showPaidOnly && !video.pay) return false;
-      //  DISCOUNT FILTER
-      if (showDiscountedOnly && !isDiscounted(video)) {
-        return false;
-      }
+      if (showDiscountedOnly && !isDiscounted(video)) return false;
 
       return true;
     })
@@ -206,6 +217,44 @@ export default function VideoGridClient({ videos = [] }) {
   // ===============================
   // EFFECTS
   // ===============================
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) return;
+
+    // debounce
+    clearTimeout(searchLogTimeoutRef.current);
+
+    searchLogTimeoutRef.current = setTimeout(() => {
+      fetch("/api/log-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: q,
+          resultsCount: videosToRender.length,
+          filters: {
+            premium: showPremiumOnly,
+            paid: showPaidOnly,
+            discounted: showDiscountedOnly,
+            tags: selectedTags,
+          },
+          source: "VideoGridClient",
+        }),
+      }).catch(() => {});
+    }, 600);
+
+    return () => clearTimeout(searchLogTimeoutRef.current);
+  }, [
+    searchQuery,
+    videosToRender.length,
+    showPremiumOnly,
+    showPaidOnly,
+    showDiscountedOnly,
+    selectedTags,
+  ]);
 
   useEffect(() => {
     if (!videos.length) return;
@@ -400,6 +449,22 @@ export default function VideoGridClient({ videos = [] }) {
           {videosToRender.length}{" "}
           {videosToRender.length === 1 ? "item" : "items"}
         </span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search videos, creators, tags…"
+          className="px-4 py-2 rounded-full border border-gray-300 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="text-sm text-gray-500 hover:text-gray-800"
+          >
+            Clear
+          </button>
+        )}
+
         <button
           onClick={() => setShowDiscountedOnly((s) => !s)}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
