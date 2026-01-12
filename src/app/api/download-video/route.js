@@ -16,7 +16,7 @@ export async function POST(req) {
   }
 
   // ----------------------------------
-  // 2️⃣ Verify token + resolve videoId
+  // 2️⃣ Verify token + resolve videoId(s)
   // ----------------------------------
   const verify = await fetch(
     `${process.env.NEXT_PUBLIC_SERVER_URL}/api/check-purchase`,
@@ -40,36 +40,58 @@ export async function POST(req) {
     );
   }
 
-  if (!result?.success || !result.videoId) {
+  if (!result?.success) {
     return Response.json(
       { error: "Invalid or expired access token" },
       { status: 403 }
     );
   }
 
-  const videoId = result.videoId;
+  // ✅ NEW: normalize to array (non-breaking)
+  const videoIds = Array.isArray(result.videoIds)
+    ? result.videoIds
+    : result.videoId
+    ? [result.videoId]
+    : [];
 
-  // ----------------------------------
-  // 3️⃣ Fetch video
-  // ----------------------------------
-  await connectToDB();
-
-  const video = await Videos.findById(videoId).lean();
-  if (!video || !video.fullKey) {
-    return Response.json({ error: "No full video available" }, { status: 400 });
+  if (videoIds.length === 0) {
+    return Response.json({ error: "No videos unlocked" }, { status: 400 });
   }
 
   // ----------------------------------
-  // 4️⃣ Generate signed Bunny URL
+  // 3️⃣ Fetch video(s)
   // ----------------------------------
-  const signedUrl = generateBunnySignedUrl(video.fullKey, 600);
+  await connectToDB();
+
+  const videos = await Videos.find(
+    { _id: { $in: videoIds } },
+    { fullKey: 1 }
+  ).lean();
+
+  if (!videos.length) {
+    return Response.json(
+      { error: "No full videos available" },
+      { status: 400 }
+    );
+  }
 
   // ----------------------------------
-  // 5️⃣ Return download info
+  // 4️⃣ Generate signed Bunny URLs
   // ----------------------------------
-  return Response.json({
+  const resolved = videos.map((video) => ({
     provider: "bunny",
-    videoId,
-    url: signedUrl,
-  });
+    videoId: video._id.toString(),
+    url: generateBunnySignedUrl(video.fullKey, 600),
+  }));
+
+  // ----------------------------------
+  // 5️⃣ NON-BREAKING RESPONSE
+  // ----------------------------------
+  // ✅ Single video → old shape
+  if (resolved.length === 1) {
+    return Response.json(resolved[0]);
+  }
+
+  // ✅ Multiple videos → new shape
+  return Response.json({ videos: resolved });
 }
