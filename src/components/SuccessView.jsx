@@ -30,6 +30,9 @@ export default function SuccessView({ urlHandle, router }) {
 
     async function loadAccess() {
       try {
+        setLoading(true);
+        setError(null);
+
         const res = await fetch("/api/download-video", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -37,40 +40,73 @@ export default function SuccessView({ urlHandle, router }) {
         });
 
         if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          throw new Error(data?.error || "Access denied.");
+          let msg = "Access denied.";
+          try {
+            const data = await res.json();
+            if (data?.error) msg = data.error;
+          } catch {}
+          throw new Error(msg);
         }
 
         const data = await res.json();
-        if (!data.url || !data.videoId) {
+
+        // ----------------------------------
+        // ✅ Normalize response (NON-BREAKING)
+        // ----------------------------------
+        const resolved = Array.isArray(data?.videos)
+          ? data.videos
+          : data?.videoId && data?.url
+          ? [{ videoId: data.videoId, url: data.url }]
+          : [];
+
+        if (resolved.length === 0) {
           throw new Error("Invalid access response.");
         }
+
+        // ----------------------------------
+        // ✅ Cache setup
+        // ----------------------------------
         const purchased =
           JSON.parse(localStorage.getItem("purchasedVideos")) || {};
-
-        purchased[data.videoId] = {
-          token, // 🔑 THIS IS WHAT VideoGrid NEEDS
-        };
-
-        localStorage.setItem("purchasedVideos", JSON.stringify(purchased));
-
-        setDownloadUrls({ [data.videoId]: data.url });
-
-        // Cache for VideoGrid playback
         const fullUrls =
           JSON.parse(localStorage.getItem("fullVideoUrls")) || {};
-        fullUrls[data.videoId] = data.url;
+
+        const videoMeta = [];
+
+        for (const item of resolved) {
+          if (!item.videoId || !item.url) continue;
+
+          purchased[item.videoId] = { token };
+          fullUrls[item.videoId] = item.url;
+
+          try {
+            const videoRes = await fetch(`/api/videos?id=${item.videoId}`);
+            if (videoRes.ok) {
+              videoMeta.push(await videoRes.json());
+            }
+          } catch (err) {
+            console.warn(
+              "⚠️ Failed to fetch video metadata:",
+              item.videoId,
+              err
+            );
+          }
+        }
+
+        localStorage.setItem("purchasedVideos", JSON.stringify(purchased));
         localStorage.setItem("fullVideoUrls", JSON.stringify(fullUrls));
 
-        // Fetch video metadata
-        const videoRes = await fetch(`/api/videos?id=${data.videoId}`);
-        if (videoRes.ok) {
-          const video = await videoRes.json();
-          setVideos([video]);
-        }
+        // ----------------------------------
+        // ✅ State updates
+        // ----------------------------------
+        setDownloadUrls(
+          Object.fromEntries(resolved.map((v) => [v.videoId, v.url]))
+        );
+
+        setVideos(videoMeta);
       } catch (err) {
         console.error("❌ SuccessView error:", err);
-        setError(err.message);
+        setError(err.message || "Something went wrong.");
       } finally {
         setLoading(false);
       }
