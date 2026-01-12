@@ -104,9 +104,9 @@ export default function Sidebar({ creators, onClose }) {
                       <span className="text-yellow-300 text-2xl animate-shimmer inline-block">
                         👑
                       </span>
-                    ) : creator.icon === "kiss" ? (
-                      <span className="text-pink-400 text-2xl animate-kiss inline-block">
-                        💋
+                    ) : creator.icon === "fox" ? (
+                      <span className="text-orange-400 text-xl animate-fox inline-block">
+                        🦊
                       </span>
                     ) : (
                       <span className="text-yellow-400 text-lg animate-pulse inline-block">
@@ -208,7 +208,19 @@ export default function Sidebar({ creators, onClose }) {
             background-position: 0% 50%;
           }
         }
+        .animate-fox {
+          animation: fox-pulse 2.1s ease-in-out infinite;
+        }
 
+        @keyframes fox-pulse {
+          0%,
+          100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.18);
+          }
+        }
         .animate-spin-slow {
           animation: spin-slow 15s linear infinite;
         }
