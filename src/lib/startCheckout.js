@@ -21,12 +21,18 @@ export async function startCheckout(video) {
 
     const payload = {
       userId,
-      videoId: video._id,
-      creatorName: video.creatorName,
-      creatorTelegramId: video.creatorTelegramId || "",
-      creatorUrl: video.socialMediaUrl || "",
       site: "A",
     };
+
+    if (item.type === "bundle") {
+      payload.bundleId = item.bundleId;
+    } else {
+      // existing video checkout (unchanged behavior)
+      payload.videoId = video._id;
+      payload.creatorName = video.creatorName;
+      payload.creatorTelegramId = video.creatorTelegramId || "";
+      payload.creatorUrl = video.socialMediaUrl || "";
+    }
 
     const baseUrl = getCheckOutUrl()?.replace(/\/$/, "");
     if (!baseUrl) {

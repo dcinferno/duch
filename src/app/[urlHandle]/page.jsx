@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import VideoGridClient from "../../components/VideoGridClient";
+import CreatorGrid from "@/components/CreatorGrid";
 import { FiLink } from "react-icons/fi";
 
 // ✅ Brand icons
@@ -18,6 +18,7 @@ import {
 
 export default function CreatorPage() {
   const { urlHandle } = useParams();
+  const [bundles, setBundles] = useState([]);
 
   const [creator, setCreator] = useState(null);
   const [videos, setVideos] = useState([]);
@@ -53,6 +54,20 @@ export default function CreatorPage() {
         if (!videosRes.ok) throw new Error("Videos not found");
         const videoData = await videosRes.json();
         setVideos(videoData);
+
+        // Fetch bundles (creator page only)
+        if (creatorData?._id) {
+          const bundlesRes = await fetch(
+            `/api/bundle?creatorId=${creatorData._id}`
+          );
+
+          if (bundlesRes.ok) {
+            const bundleData = await bundlesRes.json();
+            setBundles(Array.isArray(bundleData) ? bundleData : []);
+          } else {
+            setBundles([]);
+          }
+        }
       } catch (err) {
         console.error("❌ Creator page error:", err);
         setCreator(null);
@@ -124,7 +139,7 @@ export default function CreatorPage() {
       {/* Video Grid */}
       {/* ========================= */}
       {videos.length > 0 ? (
-        <VideoGridClient videos={videos} />
+        <CreatorGrid videos={videos} bundles={bundles} />
       ) : (
         <p className="text-gray-500">No videos found for this creator.</p>
       )}
