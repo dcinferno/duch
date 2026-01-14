@@ -207,7 +207,7 @@ export default function SuccessView({ token, videoId, bundleId, router }) {
       NAVIGATION
   ---------------------------------- */}
           <button
-            onClick={() => router.push(urlHandle ? `/${urlHandle}` : "/")}
+            onClick={() => router.push("/")}
             className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
           >
             Back to Home
