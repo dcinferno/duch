@@ -6,9 +6,9 @@ import Creator from "@/models/creators";
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
+  const creatorId = searchParams.get("creatorId");
 
-  if (!id) {
+  if (!creatorId) {
     return Response.json([], { status: 200 });
   }
 
