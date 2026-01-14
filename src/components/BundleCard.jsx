@@ -1,6 +1,16 @@
 "use client";
 
 export default function BundleCard({ bundle, onBuy }) {
+  const scrollToVideo = (videoId) => {
+    const el = document.getElementById(`video-${videoId}`);
+    if (!el) return;
+
+    el.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   return (
     <div className="rounded-2xl border border-zinc-300 overflow-hidden bg-zinc-600">
       {/* HEADER */}
@@ -25,7 +35,16 @@ export default function BundleCard({ bundle, onBuy }) {
       <div className="px-5 py-4 bg-zinc-600">
         <ul className="space-y-1.5 text-sm text-white">
           {bundle.videos.map((video) => (
-            <li key={video._id} className="break-words line-clamp-2">
+            <li
+              key={video._id}
+              className="break-words 
+              line-clamp-2
+              cursor-pointer
+              hover:text-purple-300
+              hover:underline
+              transition-colors"
+              onClick={() => scrollToVideo(video._id)}
+            >
               • {video.title}
             </li>
           ))}

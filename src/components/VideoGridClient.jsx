@@ -642,6 +642,7 @@ export default function VideoGridClient({ videos = [] }) {
 
             return (
               <div
+                id={`video-${video._id}`}
                 key={video._id}
                 ref={(el) => (videoRefs.current[video._id] = el)}
                 className="bg-white shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
