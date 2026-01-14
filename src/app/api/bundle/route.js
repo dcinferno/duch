@@ -38,8 +38,9 @@ export async function GET(req) {
       _id: b._id,
       name: b.name,
       description: b.description,
-      price: b.price,
+      price: Number(b.price),
       creatorId: b.creatorId,
+      videoIds: b.videoIds.map((id) => id.toString()),
       videoCount: b.videoIds.length,
       videos: b.videoIds.map((id) => videoMap[id.toString()]).filter(Boolean),
     }))

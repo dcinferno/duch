@@ -35,7 +35,7 @@ export default function BundleCard({ bundle, onBuy }) {
       {/* FOOTER */}
       <div className="px-5 py-4 bg-zinc-600 flex items-center justify-center">
         <button
-          onClick={() => onBuy(bundle)}
+          onClick={onBuy}
           className="px-6 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-base font-semibold"
         >
           Pay ${Number(bundle.price).toFixed(2)}
