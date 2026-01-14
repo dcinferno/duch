@@ -52,7 +52,7 @@ export async function GET(req) {
       // ✅ merged creator snapshot (NOT stored)
       creatorName: creator.name,
       creatorTelegramId: creator.telegramId || "",
-      creatorUrl: creator.socialMediaUrl || "",
+      creatorUrl: creator.url || "",
 
       videoCount: b.videoIds.length,
       videos: b.videoIds.map((id) => videoMap[id.toString()]).filter(Boolean),
