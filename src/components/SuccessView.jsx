@@ -2,21 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-export default function SuccessView({ urlHandle, router }) {
+export default function SuccessView({ token, videoId, bundleId, router }) {
   const [videos, setVideos] = useState([]);
   const [downloadUrls, setDownloadUrls] = useState({});
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const VIP_TELEGRAM_INVITE = process.env.NEXT_PUBLIC_VIP_TELEGRAM_INVITE;
-
-  // ------------------------------------------
-  // 1️⃣ Read access token from URL
-  // ------------------------------------------
-  const token =
-    typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("token")
-      : null;
 
   // ------------------------------------------
   // 2️⃣ Exchange token for video access

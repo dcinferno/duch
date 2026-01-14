@@ -7,11 +7,11 @@ export default function SuccessPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Existing param (single video)
   const videoId = searchParams.get("videoId");
 
-  // Future bundle param (not used yet)
   const bundleId = searchParams.get("bundleId");
+
+  const token = searchParams.get("token");
 
   return (
     <SuccessView
@@ -19,6 +19,7 @@ export default function SuccessPage() {
       videoId={videoId}
       bundleId={bundleId}
       router={router}
+      token={token}
     />
   );
 }
