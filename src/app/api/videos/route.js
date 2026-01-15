@@ -304,7 +304,7 @@ export async function POST(request) {
     if (!creator) {
       return Response.json({ error: "Creator not found" }, { status: 400 });
     }
-
+    const normalizedFullKey = normalizeFullKey(fullKey);
     const video = await Videos.create({
       title,
       description,
@@ -313,15 +313,16 @@ export async function POST(request) {
       creatorName: creator.name,
       socialMediaUrl: creator.url,
       url: normalizePath(url),
-      fullKey: normalizeFullKey(fullKey),
+      fullKey: normalizedFullKey,
       tags,
       pay: creator.pay || false,
       premium: creator.premium || false,
     });
-
+    delete video.fullKey;
     await sendTelegramMessage({
       ...video.toObject(),
       creatorUrlHandle: creator.urlHandle,
+      fullKey,
     });
 
     return Response.json(video, { status: 201 });
