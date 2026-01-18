@@ -709,15 +709,15 @@ export default function VideoGridClient({ videos = [] }) {
                           {video.creatorName}
                         </a>
                         {/* Separator */}
-                        <span className="text-gray-400">·</span>
+                        <span className="mx-1 text-blue-600">·</span>
 
                         {/* Internal Creator Page */}
                         {video.creatorUrlHandle && (
                           <a
                             href={`/creator/${video.creatorUrlHandle}`}
-                            className="text-gray-500 hover:text-gray-800 hover:underline"
+                            className="text-blue-600 hover:underline"
                           >
-                            View Creator Page →
+                            View Creator Page
                           </a>
                         )}
                       </div>
@@ -732,7 +732,7 @@ export default function VideoGridClient({ videos = [] }) {
                               ).toFixed(2)}
                             </span>
 
-                            <span className="text-blue-600 font-semibold">
+                            <span className="font-semibold text-gray-900">
                               ${getDisplayPrice(video).toFixed(2)}
                             </span>
 
