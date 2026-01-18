@@ -4,7 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startCheckout } from "@/lib/startCheckout";
 
-export default function VideoGridClient({ videos = [] }) {
+export default function VideoGridClient({
+  videos = [],
+  showCreatorPageLink = true,
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -712,7 +715,7 @@ export default function VideoGridClient({ videos = [] }) {
                         <span className="mx-1 text-blue-600">·</span>
 
                         {/* Internal Creator Page */}
-                        {video.creatorUrlHandle && (
+                        {showCreatorPageLink && video.creatorUrlHandle && (
                           <a
                             href={`/${video.creatorUrlHandle}`}
                             className="text-blue-600 hover:underline truncate whitespace-nowrap overflow-hidden"
