@@ -712,17 +712,21 @@ export default function VideoGridClient({
                           {video.creatorName}
                         </a>
                         {/* Separator */}
-                        <span className="mx-1 text-blue-600">·</span>
 
                         {/* Internal Creator Page */}
                         {showCreatorPageLink && video.creatorUrlHandle && (
-                          <a
-                            href={`/${video.creatorUrlHandle}`}
-                            className="text-blue-600 hover:underline truncate whitespace-nowrap overflow-hidden"
-                            title="View Creator Page"
-                          >
-                            View Page
-                          </a>
+                          <>
+                            <span className="mx-1 text-blue-600 shrink-0">
+                              ·
+                            </span>
+                            <a
+                              href={`/${video.creatorUrlHandle}`}
+                              className="text-blue-600 hover:underline truncate whitespace-nowrap overflow-hidden"
+                              title="View Creator Page"
+                            >
+                              View Page
+                            </a>
+                          </>
                         )}
                       </div>
                       {/* PRICE */}
