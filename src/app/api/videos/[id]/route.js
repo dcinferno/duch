@@ -111,7 +111,7 @@ export async function GET(req, { params }) {
     discounts: discountsForVideo,
   });
 
-  video.creatorUrlHandle = creator?.url || null;
+  video.creatorUrlHandle = creator?.urlHandle || null;
   return Response.json({
     ...video,
     fullKey: Boolean(video.fullKey),
