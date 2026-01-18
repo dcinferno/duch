@@ -318,11 +318,9 @@ export async function POST(request) {
       pay: creator.pay || false,
       premium: creator.premium || false,
     });
-    const finalPrice = price ? fullKey : 0;
     await sendTelegramMessage({
       ...video.toObject(),
       creatorUrlHandle: creator.urlHandle,
-      finalPrice,
     });
 
     return Response.json(video, { status: 201 });
