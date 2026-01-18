@@ -733,7 +733,7 @@ export default function VideoGridClient({ videos = [] }) {
                               ).toFixed(2)}
                             </span>
 
-                            <span className="font-semibold text-gray-900">
+                            <span className="font-semibold text-gray-800">
                               ${getDisplayPrice(video).toFixed(2)}
                             </span>
 
@@ -744,7 +744,7 @@ export default function VideoGridClient({ videos = [] }) {
                             </span>
                           </>
                         ) : (
-                          <span className="font-semibold text-gray-900">
+                          <span className="font-medium text-gray-800">
                             {getDisplayPrice(video) === 0
                               ? "Free"
                               : `$${getDisplayPrice(video).toFixed(2)}`}
