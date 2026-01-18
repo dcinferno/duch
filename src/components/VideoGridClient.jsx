@@ -697,14 +697,14 @@ export default function VideoGridClient({ videos = [] }) {
                     </div>
 
                     {/* PRICE + CREATOR (always visible even when locked) */}
-                    <div className="flex items-center justify-between text-sm text-gray-600">
+                    <div className="flex items-center justify-between text-sm text-gray-600 min-w-0">
                       <div className="flex items-center gap-1">
                         {/* Creator Name (LINKED) */}
                         <a
                           href={video.socialMediaUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium text-blue-700 hover:underline"
+                          className="font-medium text-blue-700 hover:underline shrink-0"
                         >
                           {video.creatorName}
                         </a>
@@ -715,7 +715,8 @@ export default function VideoGridClient({ videos = [] }) {
                         {video.creatorUrlHandle && (
                           <a
                             href={`/creator/${video.creatorUrlHandle}`}
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 hover:underline truncate whitespace-nowrap overflow-hidden"
+                            title="View Creator Page"
                           >
                             View Creator Page
                           </a>
@@ -743,7 +744,7 @@ export default function VideoGridClient({ videos = [] }) {
                             </span>
                           </>
                         ) : (
-                          <span className="text-blue-700">
+                          <span className="font-semibold text-gray-900">
                             {getDisplayPrice(video) === 0
                               ? "Free"
                               : `$${getDisplayPrice(video).toFixed(2)}`}
