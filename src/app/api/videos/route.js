@@ -159,7 +159,7 @@ export async function GET(request) {
 
   const creators = await Creators.find(
     {},
-    { name: 1, premium: 1, pay: 1, telegramId: 1 },
+    { name: 1, premium: 1, pay: 1, telegramId: 1, urlHandle: 1 },
   ).lean();
   const creatorMap = Object.fromEntries(
     creators.map((c) => [
@@ -168,6 +168,7 @@ export async function GET(request) {
         premium: Boolean(c.premium),
         pay: Boolean(c.pay),
         telegramId: c.telegramId ?? null,
+        urlHandle: c.urlHandle ?? null,
       },
     ]),
   );
