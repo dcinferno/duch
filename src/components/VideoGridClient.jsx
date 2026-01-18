@@ -698,27 +698,29 @@ export default function VideoGridClient({ videos = [] }) {
 
                     {/* PRICE + CREATOR (always visible even when locked) */}
                     <div className="flex items-center justify-between text-sm text-gray-600">
-                      {/* Creator Name (LINKED) */}
-                      <a
-                        href={video.socialMediaUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-blue-700 hover:underline"
-                      >
-                        {video.creatorName}
-                      </a>
-                      {/* Separator */}
-                      <span className="text-gray-400">·</span>
-
-                      {/* Internal Creator Page */}
-                      {video.creatorUrlHandle && (
+                      <div className="flex items-center gap-1">
+                        {/* Creator Name (LINKED) */}
                         <a
-                          href={`/creator/${video.creatorUrlHandle}`}
-                          className="text-gray-500 hover:text-gray-800 hover:underline"
+                          href={video.socialMediaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-blue-700 hover:underline"
                         >
-                          View Creator Page →
+                          {video.creatorName}
                         </a>
-                      )}
+                        {/* Separator */}
+                        <span className="text-gray-400">·</span>
+
+                        {/* Internal Creator Page */}
+                        {video.creatorUrlHandle && (
+                          <a
+                            href={`/creator/${video.creatorUrlHandle}`}
+                            className="text-gray-500 hover:text-gray-800 hover:underline"
+                          >
+                            View Creator Page →
+                          </a>
+                        )}
+                      </div>
                       {/* PRICE */}
                       <div className="flex items-center gap-2">
                         {video.finalPrice < video.basePrice ? (
