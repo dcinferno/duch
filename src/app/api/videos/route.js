@@ -159,7 +159,7 @@ export async function GET(request) {
 
   const creators = await Creators.find(
     {},
-    { name: 1, premium: 1, pay: 1, telegramId: 1 }
+    { name: 1, premium: 1, pay: 1, telegramId: 1 },
   ).lean();
   const creatorMap = Object.fromEntries(
     creators.map((c) => [
@@ -169,7 +169,7 @@ export async function GET(request) {
         pay: Boolean(c.pay),
         telegramId: c.telegramId ?? null,
       },
-    ])
+    ]),
   );
 
   // -----------------------------------
@@ -226,7 +226,7 @@ export async function GET(request) {
   if (creatorHandle) {
     const creator = await Creators.findOne(
       { urlHandle: creatorHandle },
-      { name: 1 }
+      { name: 1 },
     ).lean();
 
     if (!creator) {
@@ -304,7 +304,7 @@ export async function POST(request) {
     if (!creator) {
       return Response.json({ error: "Creator not found" }, { status: 400 });
     }
-
+    const normalizedFullKey = normalizeFullKey(fullKey);
     const video = await Videos.create({
       title,
       description,
@@ -313,12 +313,11 @@ export async function POST(request) {
       creatorName: creator.name,
       socialMediaUrl: creator.url,
       url: normalizePath(url),
-      fullKey: normalizeFullKey(fullKey),
+      fullKey: normalizedFullKey,
       tags,
       pay: creator.pay || false,
       premium: creator.premium || false,
     });
-
     await sendTelegramMessage({
       ...video.toObject(),
       creatorUrlHandle: creator.urlHandle,
