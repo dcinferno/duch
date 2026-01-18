@@ -97,7 +97,7 @@ export async function GET(req, { params }) {
 
   const creator = await Creators.findOne(
     { name: video.creatorName },
-    { premium: 1, pay: 1, url: 1 },
+    { premium: 1, pay: 1, urlHandle: 1 },
   ).lean();
 
   // 🔑 FETCH DISCOUNTS HERE
