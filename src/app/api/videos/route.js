@@ -200,8 +200,8 @@ export async function GET(request) {
       fullKey: Boolean(video.fullKey),
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
+      creatorUrlHandle: creator.urlHandle ?? null,
       creatorTelegramId: creator.telegramId ?? null,
-
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
@@ -262,7 +262,7 @@ export async function GET(request) {
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
       creatorTelegramId: creator.telegramId ?? null,
-
+      creatorUrlHandle: creator.urlHandle ?? null,
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,

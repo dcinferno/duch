@@ -152,19 +152,19 @@ export default function VideoGridClient({ videos = [] }) {
     })
     .sort(
       (a, b) =>
-        new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
+        new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt),
     );
 
   const videosToRender = (() => {
     if (sortByPrice) {
       return [...filteredVideos].sort(
-        (a, b) => getDisplayPrice(a) - getDisplayPrice(b)
+        (a, b) => getDisplayPrice(a) - getDisplayPrice(b),
       );
     }
 
     if (sortByViews) {
       return [...filteredVideos].sort(
-        (a, b) => (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0)
+        (a, b) => (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0),
       );
     }
     return filteredVideos;
@@ -349,7 +349,7 @@ export default function VideoGridClient({ videos = [] }) {
       (entries) => {
         if (entries[0].isIntersecting) setVisibleCount((p) => p + 12);
       },
-      { rootMargin: "400px" }
+      { rootMargin: "400px" },
     );
     if (loadMoreRef.current) ob.observe(loadMoreRef.current);
     return () => ob.disconnect();
@@ -393,7 +393,7 @@ export default function VideoGridClient({ videos = [] }) {
 
   const toggleTag = (tag) =>
     setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
 
   const clearFilters = () => {
@@ -707,6 +707,18 @@ export default function VideoGridClient({ videos = [] }) {
                       >
                         {video.creatorName}
                       </a>
+                      {/* Separator */}
+                      <span className="text-gray-400">·</span>
+
+                      {/* Internal Creator Page */}
+                      {video.creatorUrlHandle && (
+                        <a
+                          href={`/creator/${video.creatorUrlHandle}`}
+                          className="text-gray-500 hover:text-gray-800 hover:underline"
+                        >
+                          View Creator Page →
+                        </a>
+                      )}
                       {/* PRICE */}
                       <div className="flex items-center gap-2">
                         {video.finalPrice < video.basePrice ? (
@@ -714,7 +726,7 @@ export default function VideoGridClient({ videos = [] }) {
                             <span className="line-through text-gray-400">
                               $
                               {Number(
-                                video.basePrice ?? video.price ?? 0
+                                video.basePrice ?? video.price ?? 0,
                               ).toFixed(2)}
                             </span>
 
