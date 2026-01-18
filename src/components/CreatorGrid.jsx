@@ -37,7 +37,9 @@ export default function CreatorGrid({ videos = [], bundles = [] }) {
       {/* ========================= */}
       {/* VIDEOS */}
       {/* ========================= */}
-      {hasVideos && <VideoGridClient videos={videos} />}
+      {hasVideos && (
+        <VideoGridClient videos={videos} showCreatorPageLink={false} />
+      )}
     </>
   );
 }
