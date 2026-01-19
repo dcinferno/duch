@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { scrubVideoMetadata } from "../lib/scrubVideoMetadata";
+
 
 /* ---------------------------------
    Helpers
@@ -19,6 +21,32 @@ function generateFullVideoFileName(title, creatorName, file) {
   const ext = file?.name?.split(".").pop() || "mp4";
   return `${creatorSlug}/${titleSlug}-${Date.now()}.${ext}`;
 }
+
+export function getVideoDuration(file) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+
+    video.preload = "metadata";
+    video.src = URL.createObjectURL(file);
+
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+
+      const duration = video.duration;
+
+      if (!duration || isNaN(duration)) {
+        reject(new Error("Could not determine video duration"));
+      } else {
+        resolve(duration); // seconds (float)
+      }
+    };
+
+    video.onerror = () => {
+      reject(new Error("Failed to load video metadata"));
+    };
+  });
+}
+
 
 /* ---------------------------------
    Component
@@ -44,6 +72,7 @@ export default function UploadPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [tags, setTags] = useState("");
   const [customThumbnailFile, setCustomThumbnailFile] = useState(null);
+  const [duration, setDuration] = useState(null);
 
   const videoInputRef = useRef(null);
   const fullVideoInputRef = useRef(null);
@@ -217,12 +246,40 @@ export default function UploadPage() {
 
       const slug = slugify(creatorName);
 
-      // ---------------------------------
-      // 1️⃣ Generate thumbnail FIRST
-      // ---------------------------------
-      const thumbFile =
-        customThumbnailFile || (await generateThumbnail(videoFile));
+// ---------------------------------
+// 1️⃣ Scrub metadata FIRST
+// ---------------------------------
+let cleanPreviewFile = videoFile;
+let cleanFullFile = fullVideoFile;
 
+try {
+  cleanPreviewFile = await scrubVideoMetadata(videoFile);
+
+  if (fullVideoFile) {
+    cleanFullFile = await scrubVideoMetadata(fullVideoFile);
+  }
+} catch (err) {
+  console.warn("⚠️ Metadata scrub failed, continuing with original files", err);
+}
+
+// ---------------------------------
+// 2️⃣ Read duration from CLEAN preview file
+// ---------------------------------
+let videoDuration = null;
+
+try {
+  const rawDuration = await getVideoDuration(cleanPreviewFile);
+  videoDuration = Math.round(rawDuration); // seconds, integer
+  setDuration(videoDuration);
+} catch (err) {
+  console.warn("⚠️ Failed to read duration", err);
+  videoDuration = null;
+}
+// ---------------------------------
+// 3️⃣ Generate thumbnail from CLEAN preview
+// ---------------------------------
+const thumbFile =
+  customThumbnailFile || (await generateThumbnail(cleanPreviewFile));
       // ---------------------------------
       // 2️⃣ Start uploads in PARALLEL
       // ---------------------------------
@@ -236,7 +293,7 @@ export default function UploadPage() {
 
       // Preview → Pushr
       const previewPromise = uploadToPushr(
-        videoFile,
+        cleanPreviewFile,
         `${slug}/videos`,
         setVideoProgress
       );
@@ -244,15 +301,15 @@ export default function UploadPage() {
       // Full → Bunny (optional)
       let fullPromise = Promise.resolve(null);
 
-      if (fullVideoFile) {
-        const fullPath = generateFullVideoFileName(
-          title,
-          creatorName,
-          fullVideoFile
-        );
+if (cleanFullFile) {
+  const fullPath = generateFullVideoFileName(
+    title,
+    creatorName,
+    cleanFullFile
+  );
 
-        fullPromise = uploadToBunny(fullVideoFile, fullPath);
-      }
+  fullPromise = uploadToBunny(cleanFullFile, fullPath);
+}
 
       // ---------------------------------
       // 3️⃣ Wait for ALL uploads
@@ -285,6 +342,7 @@ export default function UploadPage() {
           thumbnail: thumbUrl,
           url: previewUrl,
           fullKey: fullKeyValue,
+          duration: videoDuration,
           tags: tags
             .split(",")
             .map((t) => t.trim())

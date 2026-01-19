@@ -295,6 +295,7 @@ export async function POST(request) {
       creatorName,
       url,
       tags,
+      duration,
       fullKey,
     } = await request.json();
 
@@ -316,6 +317,7 @@ export async function POST(request) {
       url: normalizePath(url),
       fullKey: normalizedFullKey,
       tags,
+      duration,
       pay: creator.pay || false,
       premium: creator.premium || false,
     });
