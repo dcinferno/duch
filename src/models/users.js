@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema({
-  _id,
+  _id: { type: String, required: true },
   telegramId: String, // PRIMARY IDENTITY
   telegramUsername: String,
   firstName: String,
