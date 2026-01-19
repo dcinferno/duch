@@ -2,8 +2,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { connectToDB } from "../../../../lib/mongodb";
-import Creators from "../../../../models/creators";
+import { connectToDB } from "@/lib/mongodb";
+import Creators from "@/models/creators";
 
 export async function GET(req) {
   // 🔐 Internal service auth
