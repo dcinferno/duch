@@ -249,16 +249,20 @@ export default function UploadPage() {
 // ---------------------------------
 // 1️⃣ Scrub metadata FIRST
 // ---------------------------------
+const ext = videoFile.name.toLowerCase().split(".").pop();
+const shouldScrub = ["mov", "mp4"].includes(ext);
 let cleanPreviewFile = videoFile;
 let cleanFullFile = fullVideoFile;
 
 try {
-  cleanPreviewFile = await scrubVideoMetadata(videoFile);
+  if (shouldScrub) {
+    cleanPreviewFile = await scrubVideoMetadata(videoFile);
 
-  if (fullVideoFile) {
-    cleanFullFile = await scrubVideoMetadata(fullVideoFile);
+    if (fullVideoFile) {
+      cleanFullFile = await scrubVideoMetadata(fullVideoFile);
+    }
   }
-} catch (err) {
+}  catch (err) {
   console.warn("⚠️ Metadata scrub failed, continuing with original files", err);
 }
 
