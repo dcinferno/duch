@@ -1,10 +1,15 @@
 import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  isAdmin: { type: Boolean, default: false },
+  _id,
+  telegramId: String, // PRIMARY IDENTITY
+  telegramUsername: String,
+  firstName: String,
+  photoUrl: String,
+  role: "owner" | "creator" | "staff",
+  creatorId: ObjectId | null, // link to Creators later
+  createdAt,
+  lastLogin,
 });
 
 export default mongoose.models.User || mongoose.model("User", UserSchema);
