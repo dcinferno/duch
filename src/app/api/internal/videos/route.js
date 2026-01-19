@@ -20,7 +20,7 @@ export async function GET(req) {
 
   // Creator scoped query
   if (creatorId) {
-    filter.creator = creatorId;
+    filter._id= creatorId;
   }
 
   const videos = await Videos.find(filter)
