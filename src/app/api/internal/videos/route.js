@@ -12,14 +12,14 @@ export async function GET(req) {
   }
 
   const { searchParams } = new URL(req.url);
-  const creatorId = searchParams.get("creatorName");
+  const creatorName = searchParams.get("creatorName");
 
   await connectToDB();
 
   let filter = {};
 
   // Creator scoped query
-  if (creatorId) {
+  if (creatorName) {
    filter.creatorName = creatorName;
   }
 
