@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { scrubVideoMetadata } from "../lib/scrubVideoMetadata";
+import { scrubVideoMetadata } from "@/lib/scrubVideoMetadata";
 
 
 /* ---------------------------------
