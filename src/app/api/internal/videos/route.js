@@ -12,7 +12,7 @@ export async function GET(req) {
   }
 
   const { searchParams } = new URL(req.url);
-  const creatorId = searchParams.get("creatorId");
+  const creatorId = searchParams.get("creatorName");
 
   await connectToDB();
 
@@ -20,7 +20,7 @@ export async function GET(req) {
 
   // Creator scoped query
   if (creatorId) {
-    filter._id= creatorId;
+   filter.creatorName = creatorName;
   }
 
   const videos = await Videos.find(filter)
