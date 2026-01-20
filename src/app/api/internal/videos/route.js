@@ -29,15 +29,33 @@ function normalizeFullKey(key) {
    Internal Auth (shared)
 --------------------------------- */
 function isAuthorized(req) {
-  // Support both old and new header styles (safe migration)
   const legacy = req.headers.get("x-internal-secret");
-  const auth = req.headers.get("authorization");
 
-  if (legacy && legacy === process.env.INTERNAL_API_TOKEN) return true;
+  const authHeader = req.headers.get("authorization");
+  const bearer =
+    authHeader && authHeader.toLowerCase().startsWith("bearer ")
+      ? authHeader.slice(7).trim()
+      : null;
 
-  if (auth && auth === `Bearer ${process.env.INTERNAL_API_TOKEN}`) {
+  const token = legacy || bearer;
+
+  const expected = process.env.INTERNAL_API_TOKEN;
+
+  if (!expected) {
+    console.error("❌ INTERNAL_API_TOKEN not set in environment");
+    return false;
+  }
+
+  if (token === expected) {
     return true;
   }
+
+  console.warn("❌ Internal auth failed", {
+    hasLegacy: Boolean(legacy),
+    hasAuthHeader: Boolean(authHeader),
+    legacyValue: legacy,
+    bearerValue: bearer,
+  });
 
   return false;
 }
