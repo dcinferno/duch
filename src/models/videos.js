@@ -16,8 +16,17 @@ const VideosSchema = new mongoose.Schema(
     fullKey: { type: String, unique: true, trim: true },
     testMode: { type: Boolean, default: false },
     duration: { type: Number, default: null },
+    width: {
+      type: Number,
+      default: null,
+    },
+
+    height: {
+      type: Number,
+      default: null,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.Videos || mongoose.model("Videos", VideosSchema);
