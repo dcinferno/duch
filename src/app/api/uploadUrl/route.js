@@ -43,8 +43,15 @@ export async function POST(req) {
       isPublic = true,
     } = await req.json();
 
+    if (!secret) {
+  return NextResponse.json(
+    { error: "Missing upload secret" },
+    { status: 400 }
+  );
+}
+
     // Validate secret key
-    if (secret !== UPLOAD_SECRET_KEY) {
+    if (secret !== UPLOAD_SECRET_KEY && secret!== process.env.INTERNAL_API_TOKEN) {
       return NextResponse.json(
         { error: "Unauthorized: invalid upload key" },
         { status: 403 }

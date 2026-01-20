@@ -15,6 +15,7 @@ const VideosSchema = new mongoose.Schema(
     locked: { type: Boolean, default: false, sparse: true },
     fullKey: { type: String, unique: true, trim: true },
     testMode: { type: Boolean, default: false },
+    duration: { type: Number, default: null },
   },
   { timestamps: true }
 );

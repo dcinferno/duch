@@ -18,9 +18,13 @@ export async function POST(req) {
     // --------------------------------------------------
     // Optional secret gate (recommended)
     // --------------------------------------------------
-    if (process.env.UPLOAD_SECRET && secret !== process.env.UPLOAD_SECRET) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+if (
+  process.env.UPLOAD_SECRET &&
+  secret !== process.env.UPLOAD_SECRET &&
+  secret !== process.env.INTERNAL_API_TOKEN
+) {
+  return Response.json({ error: "Unauthorized" }, { status: 401 });
+}
 
     const zone = process.env.BUNNY_STORAGE_ZONE;
     const accessKey = process.env.BUNNY_STORAGE_API_KEY;
