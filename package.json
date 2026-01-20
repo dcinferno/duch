@@ -21,6 +21,7 @@
     "bcrypt": "^6.0.0",
     "busboy": "^1.6.0",
     "dotenv": "^17.2.3",
+    "formidable": "^3.5.4",
     "mongoose": "^8.19.1",
     "nanoid": "^5.1.6",
     "next": "16.0.7",
