@@ -136,7 +136,7 @@ export async function POST(req) {
       ip: req.headers.get("x-forwarded-for"),
     });
 
-    if (!title || !creatorName || !url || !previewUrl || !thumbnail) {
+    if (!title || !creatorName || !url  || !thumbnail) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 },
