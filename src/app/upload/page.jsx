@@ -129,11 +129,11 @@ export default function UploadPage() {
               }
 
               resolve(
-                new File([blob], "thumbnail.jpg", { type: "image/jpeg" })
+                new File([blob], "thumbnail.jpg", { type: "image/jpeg" }),
               );
             },
             "image/jpeg",
-            0.85
+            0.85,
           );
         } catch (err) {
           reject(err);
@@ -218,7 +218,7 @@ export default function UploadPage() {
       xhr.onerror = reject;
       xhr.open("PUT", data.uploadUrl);
       Object.entries(data.headers || {}).forEach(([k, v]) =>
-        xhr.setRequestHeader(k, v)
+        xhr.setRequestHeader(k, v),
       );
       xhr.send(file);
     });
@@ -292,14 +292,14 @@ const thumbFile =
       const thumbPromise = uploadToPushr(
         thumbFile,
         `${slug}/thumbnails`,
-        setThumbnailProgress
+        setThumbnailProgress,
       );
 
       // Preview → Pushr
       const previewPromise = uploadToPushr(
         cleanPreviewFile,
         `${slug}/videos`,
-        setVideoProgress
+        setVideoProgress,
       );
 
       // Full → Bunny (optional)
