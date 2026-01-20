@@ -1,6 +1,3 @@
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile } from "@ffmpeg/util";
-
 let ffmpeg = null;
 let loadingPromise = null;
 
@@ -8,15 +5,25 @@ async function loadFFmpeg() {
   if (ffmpeg) return ffmpeg;
 
   if (!loadingPromise) {
-    ffmpeg = new FFmpeg();
+    loadingPromise = (async () => {
+      const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+      const { fetchFile } = await import("@ffmpeg/util");
 
-    loadingPromise = ffmpeg.load({
-      coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js",
-      wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.wasm",
-    });
+      const instance = new FFmpeg();
+
+      await instance.load({
+        coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.js",
+        wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/ffmpeg-core.wasm",
+      });
+
+      // stash helpers on instance so we don’t re-import every call
+      instance._fetchFile = fetchFile;
+
+      return instance;
+    })();
   }
 
-  await loadingPromise;
+  ffmpeg = await loadingPromise;
   return ffmpeg;
 }
 
@@ -25,14 +32,13 @@ export async function scrubVideoMetadata(file) {
 
   const ext = file.name.toLowerCase().split(".").pop();
 
-  // Only scrub formats that commonly contain GPS / device metadata
+  // Only scrub risky formats
   if (!["mov", "mp4"].includes(ext)) {
     return file;
   }
 
-  // Safety: very large files can blow memory in some browsers
-  // (optional, but good production guard)
-  const MAX_SIZE_MB = 1500; // 1.5 GB safety limit
+  // Safety guard for very large files
+  const MAX_SIZE_MB = 1500;
   const sizeMB = file.size / (1024 * 1024);
 
   if (sizeMB > MAX_SIZE_MB) {
@@ -40,16 +46,17 @@ export async function scrubVideoMetadata(file) {
     return file;
   }
 
-  const ffmpegInstance = await loadFFmpeg();
-
-  const inputName = `input.${ext}`;
-  const outputName = `output.${ext}`;
-
   try {
-    // Write file into FFmpeg virtual FS
+    const ffmpegInstance = await loadFFmpeg();
+    const fetchFile = ffmpegInstance._fetchFile;
+
+    const inputName = `input.${ext}`;
+    const outputName = `output.${ext}`;
+
+    // Write file into wasm FS
     await ffmpegInstance.writeFile(inputName, await fetchFile(file));
 
-    // 🔥 Strip ALL metadata, no re-encode (fast + lossless)
+    // 🔥 Strip ALL metadata, no re-encode
     await ffmpegInstance.exec([
       "-i",
       inputName,
@@ -62,7 +69,7 @@ export async function scrubVideoMetadata(file) {
 
     const data = await ffmpegInstance.readFile(outputName);
 
-    // Cleanup FS (important to prevent memory bloat on multiple uploads)
+    // Cleanup FS
     try {
       await ffmpegInstance.deleteFile(inputName);
       await ffmpegInstance.deleteFile(outputName);
@@ -72,7 +79,7 @@ export async function scrubVideoMetadata(file) {
   } catch (err) {
     console.error("❌ Metadata scrub failed:", err);
 
-    // Always fail open — never block upload
+    // Fail open — never block uploads in prod
     return file;
   }
 }
