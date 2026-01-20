@@ -31,20 +31,31 @@ function normalizeFullKey(key) {
 function isAuthorized(req) {
   const legacy = req.headers.get("x-internal-secret");
 
-  const authHeader = req.headers.get("authorization");
-  const bearer =
-    authHeader && authHeader.toLowerCase().startsWith("bearer ")
-      ? authHeader.slice(7).trim()
-      : null;
+ const authHeader = req.headers.get("authorization");
 
-  const token = legacy || bearer;
+let bearer = null;
+if (authHeader?.startsWith("Bearer ")) {
+  bearer = authHeader.slice(7).trim();
+}
 
-  const expected = process.env.INTERNAL_API_TOKEN;
+const token = bearer || legacy;
+const expected = process.env.INTERNAL_API_TOKEN;
 
-  if (!expected) {
-    console.error("❌ INTERNAL_API_TOKEN not set in environment");
-    return false;
-  }
+if (!expected) {
+  console.error("❌ INTERNAL_API_TOKEN not set in environment");
+  return false;
+}
+
+if (!token) {
+  console.error("❌ No internal auth token provided");
+  return false;
+}
+
+if (token !== expected) {
+  console.error("❌ Invalid internal auth token");
+  return false;
+}
+
 
   if (token === expected) {
     return true;
