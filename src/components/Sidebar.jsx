@@ -14,7 +14,7 @@ export default function Sidebar({ creators, onClose }) {
     .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity));
 
   const topCreators = creators.filter(
-    (creator) => !creator.premium && creator.urlHandle && !creator.secret
+    (creator) => !creator.premium && creator.urlHandle && !creator.secret,
   );
 
   const handleClick = (e, creator) => {
@@ -108,6 +108,15 @@ export default function Sidebar({ creators, onClose }) {
                       <span className="text-orange-400 text-xl animate-fox inline-block">
                         🦊
                       </span>
+                    ) : creator.icon === "peach-queen" ? (
+                      <div className="flex gap-1 items-center">
+                        <span className="text-pink-400 text-xl animate-kiss inline-block">
+                          🍑
+                        </span>
+                        <span className="text-yellow-300 text-xl animate-shimmer inline-block">
+                          👑
+                        </span>
+                      </div>
                     ) : (
                       <span className="text-yellow-400 text-lg animate-pulse inline-block">
                         ⭐
