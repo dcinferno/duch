@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
 import Creators from "../../../models/creators.js";
-import { sendTelegramMessage } from "../../../lib/telegram.js";
+
 
 const CDN = process.env.CDN_URL || "";
 
@@ -299,6 +299,10 @@ export async function POST(request) {
       fullKey,
     } = await request.json();
 
+        if (!creatorName?.trim()) {
+      return Response.json({ error: "creatorName is required" }, { status: 400 });
+    }
+
     const creator = await Creators.findOne({
       name: new RegExp(`^${creatorName.trim()}$`, "i"),
     });
@@ -321,11 +325,14 @@ export async function POST(request) {
       pay: creator.pay || false,
       premium: creator.premium || false,
     });
-    await sendTelegramMessage({
-      ...video.toObject(),
-      creatorUrlHandle: creator.urlHandle,
-    });
 
+      const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL 
+    //create telegram message
+       // fire-and-forget telegram notify
+    fetch(`${baseUrl}/api/telegram/${video._id}`).catch((err) => {
+      console.error("⚠️ Telegram notify failed:", err);
+    });
     return Response.json(video, { status: 201 });
   } catch (err) {
     console.error("❌ Error creating video:", err);
