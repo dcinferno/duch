@@ -1,6 +1,7 @@
 // app/layout.jsx
 export const dynamic = "force-dynamic";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { Analytics } from '@vercel/analytics/next';
 import "./globals.css";
 import BetaBanner from "../components/BetaBanner";
 import RootLayoutClient from "../components/RootLayoutClient";
@@ -49,6 +50,7 @@ export default async function RootLayout({ children }) {
             <SidebarLayout>{children}</SidebarLayout>
           </ClientOnly>
         </RootLayoutClient>
+         <Analytics />
       </body>
     </html>
   );
