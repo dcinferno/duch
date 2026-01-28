@@ -31,31 +31,30 @@ function normalizeFullKey(key) {
 function isAuthorized(req) {
   const legacy = req.headers.get("x-internal-secret");
 
- const authHeader = req.headers.get("authorization");
+  const authHeader = req.headers.get("authorization");
 
-let bearer = null;
-if (authHeader?.startsWith("Bearer ")) {
-  bearer = authHeader.slice(7).trim();
-}
+  let bearer = null;
+  if (authHeader?.startsWith("Bearer ")) {
+    bearer = authHeader.slice(7).trim();
+  }
 
-const token = bearer || legacy;
-const expected = process.env.INTERNAL_API_TOKEN;
+  const token = bearer || legacy;
+  const expected = process.env.INTERNAL_API_TOKEN;
 
-if (!expected) {
-  console.error("❌ INTERNAL_API_TOKEN not set in environment");
-  return false;
-}
+  if (!expected) {
+    console.error("❌ INTERNAL_API_TOKEN not set in environment");
+    return false;
+  }
 
-if (!token) {
-  console.error("❌ No internal auth token provided");
-  return false;
-}
+  if (!token) {
+    console.error("❌ No internal auth token provided");
+    return false;
+  }
 
-if (token !== expected) {
-  console.error("❌ Invalid internal auth token");
-  return false;
-}
-
+  if (token !== expected) {
+    console.error("❌ Invalid internal auth token");
+    return false;
+  }
 
   if (token === expected) {
     return true;
@@ -136,7 +135,7 @@ export async function POST(req) {
       ip: req.headers.get("x-forwarded-for"),
     });
 
-    if (!title || !creatorName || !url  || !thumbnail) {
+    if (!title || !creatorName || !url || !thumbnail) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 },
@@ -174,9 +173,11 @@ export async function POST(req) {
       height,
     });
 
-    await sendTelegramMessage({
-      ...video.toObject(),
-      creatorUrlHandle: creator.urlHandle,
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    //create telegram message
+    // fire-and-forget telegram notify
+    fetch(`${baseUrl}/api/telegram/${video._id}`).catch((err) => {
+      console.error("⚠️ Telegram notify failed:", err);
     });
     // 🔥 Future: telegram hooks, analytics, etc go HERE
     // This becomes your ingestion pipeline

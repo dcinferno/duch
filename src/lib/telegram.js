@@ -74,7 +74,7 @@ export async function sendTelegramMessage(video) {
       : null;
 
   const purchaseUrl =
-    publicBaseUrl && video._id && video.pay && video.finalPrice > 0
+    publicBaseUrl && video?.fullKey && video.finalPrice > 0
       ? new URL(`/api/purchase?videoId=${video._id}`, publicBaseUrl).toString()
       : null;
 
