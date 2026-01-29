@@ -119,6 +119,13 @@ export default function VideoGridClient({
     });
   };
 
+  const formatDuration = (seconds) => {
+    if (!seconds || seconds <= 0) return null;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
   // ===============================
   // DERIVED DATA (ORDER MATTERS)
   // ===============================
@@ -669,6 +676,11 @@ export default function VideoGridClient({
                     alt={video.title}
                     className={`w-full h-full object-cover transition-all`}
                   />
+                  {video.type === "video" && video.duration && (
+                    <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded">
+                      {formatDuration(video.duration)}
+                    </span>
+                  )}
                 </div>
 
                 {/* CONTENT */}
