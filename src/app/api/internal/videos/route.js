@@ -195,3 +195,71 @@ export async function POST(req) {
     );
   }
 }
+
+/* ---------------------------------
+   PATCH — Internal update
+--------------------------------- */
+export async function PATCH(req) {
+  try {
+    // 🔐 Internal auth only
+    if (!isAuthorized(req)) {
+      return NextResponse.json(
+        { error: "Unauthorized (internal only)" },
+        { status: 401 },
+      );
+    }
+
+    const { id, ...updates } = await req.json();
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Missing video id" },
+        { status: 400 },
+      );
+    }
+
+    await connectToDB();
+
+    // Normalize paths if provided
+    if (updates.thumbnail) {
+      updates.thumbnail = normalizePath(updates.thumbnail);
+    }
+    if (updates.url) {
+      updates.url = normalizePath(updates.url);
+    }
+    if (updates.fullKey) {
+      updates.fullKey = normalizeFullKey(updates.fullKey);
+    }
+
+    const video = await Videos.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true },
+    ).lean();
+
+    if (!video) {
+      return NextResponse.json(
+        { error: "Video not found" },
+        { status: 404 },
+      );
+    }
+
+    console.log("INTERNAL VIDEO UPDATE:", {
+      id,
+      updates: Object.keys(updates),
+      ip: req.headers.get("x-forwarded-for"),
+    });
+
+    return NextResponse.json({
+      ok: true,
+      video,
+    });
+  } catch (err) {
+    console.error("INTERNAL VIDEO UPDATE ERROR:", err);
+
+    return NextResponse.json(
+      { error: err.message || "Internal update failed" },
+      { status: 500 },
+    );
+  }
+}
