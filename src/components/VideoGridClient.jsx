@@ -148,7 +148,7 @@ export default function VideoGridClient({
         return false;
 
       if (showPremiumOnly && !video.premium) return false;
-      if (showPaidOnly && !video.pay) return false;
+      if (showPaidOnly && !video.fullKey) return false;
       if (showDiscountedOnly && !isDiscounted(video)) return false;
 
       return true;
