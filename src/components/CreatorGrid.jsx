@@ -7,6 +7,7 @@ import { startCheckout } from "@/lib/startCheckout";
 export default function CreatorGrid({ videos = [], bundles = [] }) {
   const hasVideos = videos.length > 0;
   const hasBundles = bundles.length > 0;
+  const shouldCollapseBundles = bundles.length > 2;
 
   if (!hasVideos && !hasBundles) {
     return <p className="text-center text-gray-600">No items found.</p>;
@@ -29,6 +30,7 @@ export default function CreatorGrid({ videos = [], bundles = [] }) {
                   bundleId: bundle._id,
                 })
               }
+              shouldCollapse={shouldCollapseBundles}
             />
           ))}
         </div>
