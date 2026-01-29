@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startCheckout } from "@/lib/startCheckout";
 
@@ -122,43 +122,47 @@ export default function VideoGridClient({
   // ===============================
   // DERIVED DATA (ORDER MATTERS)
   // ===============================
-  const filteredVideos = videos
-    .filter((video) => {
-      // 🔍 SEARCH FILTER
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        if (q && q === LATEST_VIDEO_TYPE) {
+  const filteredVideos = useMemo(
+    () =>
+      videos
+        .filter((video) => {
+          // 🔍 SEARCH FILTER
+          if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            if (q && q === LATEST_VIDEO_TYPE) {
+              return true;
+            }
+
+            const matches =
+              video.title?.toLowerCase().includes(q) ||
+              video.creatorName?.toLowerCase().includes(q) ||
+              video.description?.toLowerCase().includes(q) ||
+              video.tags?.some((t) => t.toLowerCase().includes(q));
+
+            if (!matches) return false;
+          }
+
+          // 🏷️ TAG FILTER
+          if (
+            selectedTags.length &&
+            !selectedTags.every((t) => video.tags?.includes(t))
+          )
+            return false;
+
+          if (showPremiumOnly && !video.premium) return false;
+          if (showPaidOnly && !video.fullKey) return false;
+          if (showDiscountedOnly && !isDiscounted(video)) return false;
+
           return true;
-        }
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt),
+        ),
+    [videos, searchQuery, selectedTags, showPremiumOnly, showPaidOnly, showDiscountedOnly],
+  );
 
-        const matches =
-          video.title?.toLowerCase().includes(q) ||
-          video.creatorName?.toLowerCase().includes(q) ||
-          video.description?.toLowerCase().includes(q) ||
-          video.tags?.some((t) => t.toLowerCase().includes(q));
-
-        if (!matches) return false;
-      }
-
-      // 🏷️ TAG FILTER
-      if (
-        selectedTags.length &&
-        !selectedTags.every((t) => video.tags?.includes(t))
-      )
-        return false;
-
-      if (showPremiumOnly && !video.premium) return false;
-      if (showPaidOnly && !video.fullKey) return false;
-      if (showDiscountedOnly && !isDiscounted(video)) return false;
-
-      return true;
-    })
-    .sort(
-      (a, b) =>
-        new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt),
-    );
-
-  const videosToRender = (() => {
+  const videosToRender = useMemo(() => {
     if (sortByPrice) {
       return [...filteredVideos].sort(
         (a, b) => getDisplayPrice(a) - getDisplayPrice(b),
@@ -171,7 +175,7 @@ export default function VideoGridClient({
       );
     }
     return filteredVideos;
-  })();
+  }, [filteredVideos, sortByPrice, sortByViews, VideoViews]);
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
@@ -407,7 +411,10 @@ export default function VideoGridClient({
     setShowDiscountedOnly(false);
   };
 
-  const allTags = Array.from(new Set(videos.flatMap((v) => v.tags || [])));
+  const allTags = useMemo(
+    () => Array.from(new Set(videos.flatMap((v) => v.tags || []))),
+    [videos],
+  );
   const canPay = (video) =>
     video.pay && !!video.fullKey && getDisplayPrice(video) > 0;
 
