@@ -93,7 +93,6 @@ export async function GET(req) {
 
   const videos = await Videos.find(filter)
     .sort({ createdAt: -1 })
-    .limit(200)
     .lean();
 
   return NextResponse.json({ videos });
