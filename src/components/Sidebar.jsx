@@ -4,9 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import logo from "../app/logo.svg";
 
-const PayBadge = () => (
-  <span className="ml-1 text-xs font-semibold text-pink-400">– PAY</span>
-);
 
 export default function Sidebar({ creators, onClose }) {
   const premiumCreators = creators
@@ -70,14 +67,13 @@ export default function Sidebar({ creators, onClose }) {
                   >
                     <span className="flex items-center">
                       {creator.name}
-                      {creator.pay && <PayBadge />}
                     </span>
                   </a>
 
                   <span>
-                    {creator.icon === "fire" ? (
+                    {creator.icon === "arrow-heart" ? (
                       <span className="text-orange-500 text-xl animate-flicker">
-                        🔥
+                        💘
                       </span>
                     ) : creator.icon === "devil" ? (
                       <span className="text-red-600 text-lg animate-pulse">
@@ -145,7 +141,6 @@ export default function Sidebar({ creators, onClose }) {
                   >
                     <span className="flex items-center">
                       {creator.name}
-                      {creator.pay && <PayBadge />}
                     </span>
                   </a>
                 </li>
