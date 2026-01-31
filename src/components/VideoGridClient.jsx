@@ -44,6 +44,7 @@ export default function VideoGridClient({
   const [passwordInput, setPasswordInput] = useState("");
   const [unlockTargetId, setUnlockTargetId] = useState(null);
   const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
+  const [showPurchasedOnly, setShowPurchasedOnly] = useState(false);
   const LATEST_VIDEO_TYPE =
     process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE?.toLowerCase() || null;
 
@@ -161,6 +162,8 @@ export default function VideoGridClient({
           if (showPremiumOnly && !video.premium) return false;
           if (showPaidOnly && !video.fullKey) return false;
           if (showDiscountedOnly && !isDiscounted(video)) return false;
+          if (showPurchasedOnly && !purchasedVideos[video._id]?.token)
+            return false;
 
           return true;
         })
@@ -168,7 +171,7 @@ export default function VideoGridClient({
           (a, b) =>
             new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt),
         ),
-    [videos, searchQuery, selectedTags, showPremiumOnly, showPaidOnly, showDiscountedOnly],
+    [videos, searchQuery, selectedTags, showPremiumOnly, showPaidOnly, showDiscountedOnly, showPurchasedOnly, purchasedVideos],
   );
 
   const videosToRender = useMemo(() => {
@@ -433,6 +436,7 @@ export default function VideoGridClient({
     setSortByDurationShort(false);
     setSortByDurationLong(false);
     setShowDiscountedOnly(false);
+    setShowPurchasedOnly(false);
   };
 
   const allTags = useMemo(
@@ -602,6 +606,18 @@ export default function VideoGridClient({
           💰💵 Paid Only
         </button>
 
+        {/* PURCHASED */}
+        <button
+          onClick={() => setShowPurchasedOnly((p) => !p)}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            showPurchasedOnly
+              ? "bg-green-600 text-white border-green-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-green-100"
+          }`}
+        >
+          ✅ Purchased
+        </button>
+
         {/* MOST VIEWED */}
         <button
           onClick={() => {
@@ -707,6 +723,7 @@ export default function VideoGridClient({
 
         {(selectedTags.length > 0 ||
           showPremiumOnly ||
+          showPurchasedOnly ||
           sortByViews ||
           sortByPrice ||
           sortByDurationShort ||
