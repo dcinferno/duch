@@ -34,6 +34,8 @@ export default function VideoGridClient({
   const [showPaidOnly, setShowPaidOnly] = useState(false);
   const [sortByViews, setSortByViews] = useState(false);
   const [sortByPrice, setSortByPrice] = useState(false);
+  const [sortByDurationShort, setSortByDurationShort] = useState(false);
+  const [sortByDurationLong, setSortByDurationLong] = useState(false);
   const [showTagsDropdown, setShowTagsDropdown] = useState(false);
   const closedManuallyRef = useRef(false);
   const [VideoViews, setVideoViews] = useState({});
@@ -181,8 +183,21 @@ export default function VideoGridClient({
         (a, b) => (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0),
       );
     }
+
+    if (sortByDurationShort) {
+      return [...filteredVideos].sort(
+        (a, b) => (a.duration ?? Infinity) - (b.duration ?? Infinity),
+      );
+    }
+
+    if (sortByDurationLong) {
+      return [...filteredVideos].sort(
+        (a, b) => (b.duration ?? 0) - (a.duration ?? 0),
+      );
+    }
+
     return filteredVideos;
-  }, [filteredVideos, sortByPrice, sortByViews, VideoViews]);
+  }, [filteredVideos, sortByPrice, sortByViews, sortByDurationShort, sortByDurationLong, VideoViews]);
 
   const visibleVideos = videosToRender.slice(0, visibleCount);
 
@@ -415,6 +430,8 @@ export default function VideoGridClient({
     setShowPremiumOnly(false);
     setSortByViews(false);
     setSortByPrice(false);
+    setSortByDurationShort(false);
+    setSortByDurationLong(false);
     setShowDiscountedOnly(false);
   };
 
@@ -600,6 +617,44 @@ export default function VideoGridClient({
           💸😭 Broke
         </button>
 
+        {/* SHORT DURATION */}
+        <button
+          onClick={() => {
+            setSortByDurationShort((p) => !p);
+            if (!sortByDurationShort) {
+              setSortByDurationLong(false);
+              setSortByViews(false);
+              setSortByPrice(false);
+            }
+          }}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            sortByDurationShort
+              ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
+          }`}
+        >
+          ⚡ Short
+        </button>
+
+        {/* LONG DURATION */}
+        <button
+          onClick={() => {
+            setSortByDurationLong((p) => !p);
+            if (!sortByDurationLong) {
+              setSortByDurationShort(false);
+              setSortByViews(false);
+              setSortByPrice(false);
+            }
+          }}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            sortByDurationLong
+              ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
+          }`}
+        >
+          🎬 Long
+        </button>
+
         {/* TAGS DROPDOWN */}
         <div className="relative">
           <button
@@ -638,7 +693,9 @@ export default function VideoGridClient({
         {(selectedTags.length > 0 ||
           showPremiumOnly ||
           sortByViews ||
-          sortByPrice) && (
+          sortByPrice ||
+          sortByDurationShort ||
+          sortByDurationLong) && (
           <button
             onClick={clearFilters}
             className="px-3 py-1.5 rounded-full border text-sm font-medium bg-blue-100 hover:bg-blue-200 text-blue-700"
