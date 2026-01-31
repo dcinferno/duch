@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import logo from "../app/logo.svg";
+import CreatorIcon from "./CreatorIcon";
 
 
 export default function Sidebar({ creators, onClose }) {
@@ -70,55 +71,7 @@ export default function Sidebar({ creators, onClose }) {
                     </span>
                   </a>
 
-                  <span>
-                    {creator.icon === "arrow-heart" ? (
-                      <span className="text-orange-500 text-xl animate-flicker">
-                        💘
-                      </span>
-                    ) : creator.icon === "devil" ? (
-                      <span className="text-red-600 text-lg animate-pulse">
-                        😈
-                      </span>
-                    ) : creator.icon === "main-duo" ? (
-                      <div className="flex gap-1">
-                        <span className="animate-spin-slow">❄️</span>
-                        <span className="text-pink-400 text-lg animate-bounce">
-                          🐰
-                        </span>
-                      </div>
-                    ) : creator.icon === "bowing-man" ? (
-                      <span className="text-2xl animate-bow">🙇🏿‍♂️</span>
-                    ) : creator.icon === "cherry" ? (
-                      <span className="text-red-500 text-lg animate-cherry inline-block">
-                        🍒
-                      </span>
-                    ) : creator.icon === "princess" ? (
-                      <span className="text-pink-300 text-2xl animate-princess inline-block">
-                        🧝🏻‍♀️
-                      </span>
-                    ) : creator.icon === "crown" ? (
-                      <span className="text-yellow-300 text-2xl animate-shimmer inline-block">
-                        👑
-                      </span>
-                    ) : creator.icon === "fox" ? (
-                      <span className="text-orange-400 text-xl animate-fox inline-block">
-                        🦊
-                      </span>
-                    ) : creator.icon === "peach-queen" ? (
-                      <div className="flex gap-1 items-center">
-                        <span className="text-pink-400 text-xl animate-kiss inline-block">
-                          🍑
-                        </span>
-                        <span className="text-yellow-300 text-xl animate-shimmer inline-block">
-                          👑
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-yellow-400 text-lg animate-pulse inline-block">
-                        ⭐
-                      </span>
-                    )}
-                  </span>
+                  <CreatorIcon icon={creator.icon} />
                 </li>
               ))}
             </ul>
@@ -191,110 +144,6 @@ export default function Sidebar({ creators, onClose }) {
           }
           100% {
             background-position: 0% 50%;
-          }
-        }
-        .animate-fox {
-          animation: fox-pulse 2.1s ease-in-out infinite;
-        }
-
-        @keyframes fox-pulse {
-          0%,
-          100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.18);
-          }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 15s linear infinite;
-        }
-        @keyframes spin-slow {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        .animate-bow {
-          animation: bow 2.5s ease-in-out infinite;
-          transform-origin: bottom center;
-        }
-        @keyframes bow {
-          0%,
-          100% {
-            transform: rotate(0deg) scale(1);
-          }
-          50% {
-            transform: rotate(25deg) scale(0.95);
-          }
-        }
-
-        .animate-flicker {
-          animation: flicker 1s infinite ease-in-out;
-        }
-        @keyframes flicker {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.75;
-            transform: scale(1.1);
-          }
-        }
-
-        .animate-cherry {
-          animation: cherry-pulse 1.8s ease-in-out infinite;
-        }
-        @keyframes cherry-pulse {
-          0%,
-          100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.3);
-          }
-        }
-
-        .animate-princess {
-          animation: princess-glow 2.2s ease-in-out infinite;
-        }
-        @keyframes princess-glow {
-          0%,
-          100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.08);
-          }
-        }
-
-        .animate-shimmer {
-          animation: shimmer 2s ease-in-out infinite;
-        }
-        @keyframes shimmer {
-          0%,
-          100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.08);
-          }
-        }
-
-        .animate-kiss {
-          animation: kiss-pulse 1.9s ease-in-out infinite;
-        }
-        @keyframes kiss-pulse {
-          0%,
-          100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.25);
           }
         }
       `}</style>
