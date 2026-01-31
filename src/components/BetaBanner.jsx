@@ -8,10 +8,11 @@ export default function BetaBanner() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Change this to your actual beta hostname
+    const hostname = window.location.hostname;
+
     if (
-      window.location.hostname.startsWith("beta.") ||
-      window.location.hostname.startsWith("localhost")
+      hostname.startsWith("beta.") ||
+      process.env.NODE_ENV === "development"
     ) {
       setShow(true);
     }
