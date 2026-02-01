@@ -4,7 +4,7 @@ import { useState, useReducer, useRef, useEffect, useMemo, useCallback } from "r
 import { useRouter, useSearchParams } from "next/navigation";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { startCheckout } from "@/lib/startCheckout";
-import { filterReducer, initialFilterState } from "./filterReducer";
+import { filterReducer, initialFilterState } from "@/lib/filterReducer";
 
 export default function VideoGridClient({
   videos = [],
