@@ -1,4 +1,4 @@
-import { filterReducer, initialFilterState } from "../src/components/filterReducer";
+import { filterReducer, initialFilterState } from "../src/lib/filterReducer";
 
 describe("filterReducer", () => {
   describe("SET_SEARCH", () => {
