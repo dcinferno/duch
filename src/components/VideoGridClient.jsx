@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useReducer, useRef, useEffect, useMemo } from "react";
+import { useState, useReducer, useRef, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { startCheckout } from "@/lib/startCheckout";
 import { filterReducer, initialFilterState } from "./filterReducer";
 
@@ -18,11 +19,11 @@ export default function VideoGridClient({
   const openedFromUrlRef = useRef(false);
   const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
-  const loadMoreRef = useRef(null);
   const scrollYRef = useRef(0);
   const searchLogTimeoutRef = useRef(null);
+  const gridContainerRef = useRef(null);
 
-  const [visibleCount, setVisibleCount] = useState(12);
+  const [columnCount, setColumnCount] = useState(1);
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [loadingVideoId, setLoadingVideoId] = useState(null);
@@ -208,14 +209,33 @@ export default function VideoGridClient({
     return filteredVideos;
   }, [filteredVideos, sortByPrice, sortByViews, sortByDurationShort, sortByDurationLong, VideoViews]);
 
-  const visibleVideos = videosToRender.slice(0, visibleCount);
+  // Group videos into rows for virtualization
+  const rows = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < videosToRender.length; i += columnCount) {
+      result.push(videosToRender.slice(i, i + columnCount));
+    }
+    return result;
+  }, [videosToRender, columnCount]);
+
+  // Virtualizer for rows with dynamic measurement
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => gridContainerRef.current,
+    estimateSize: () => 620, // Initial estimate, will be refined by measurement
+    overscan: 3, // Render 3 extra rows above/below viewport
+    measureElement: (element) => {
+      // Measure actual height including margin/gap
+      return element.getBoundingClientRect().height + 16;
+    },
+  });
 
   // ===============================
   // OPEN VIDEO
   // ===============================
   const openVideo = async (index) => {
-    scrollYRef.current = window.scrollY;
-    const video = visibleVideos[index];
+    scrollYRef.current = gridContainerRef.current?.scrollTop || 0;
+    const video = videosToRender[index];
     if (!video) return;
 
     if (selectedVideo?._id === video._id) return;
@@ -260,9 +280,20 @@ export default function VideoGridClient({
   // ===============================
   // EFFECTS
   // ===============================
+  // Track container width for responsive columns
   useEffect(() => {
-    setVisibleCount(12);
-  }, [searchQuery]);
+    const updateColumns = () => {
+      const width = window.innerWidth;
+      if (width >= 1280) setColumnCount(4);      // xl
+      else if (width >= 1024) setColumnCount(3); // lg
+      else if (width >= 640) setColumnCount(2);  // sm
+      else setColumnCount(1);                    // mobile
+    };
+
+    updateColumns();
+    window.addEventListener("resize", updateColumns);
+    return () => window.removeEventListener("resize", updateColumns);
+  }, []);
 
   useEffect(() => {
     const q = searchQuery.trim();
@@ -356,7 +387,7 @@ export default function VideoGridClient({
     if (selectedVideo?._id === id) return;
 
     // 1️⃣ Try grid first
-    const idx = visibleVideos.findIndex((v) => v._id === id);
+    const idx = videosToRender.findIndex((v) => v._id === id);
     if (idx !== -1) {
       openVideo(idx);
       return;
@@ -380,18 +411,7 @@ export default function VideoGridClient({
         console.warn("Deep-link video load failed", err);
       }
     })();
-  }, [searchParams, visibleVideos, selectedVideo]);
-
-  useEffect(() => {
-    const ob = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) setVisibleCount((p) => p + 12);
-      },
-      { rootMargin: "400px" },
-    );
-    if (loadMoreRef.current) ob.observe(loadMoreRef.current);
-    return () => ob.disconnect();
-  }, []);
+  }, [searchParams, videosToRender, selectedVideo]);
   // ===============================
   // MISSING HELPERS (FIXES CRASHES)
   // ===============================
@@ -466,10 +486,9 @@ export default function VideoGridClient({
     setSelectedVideo(null);
     setSelectedVideoIndex(null);
     requestAnimationFrame(() => {
-      window.scrollTo({
-        top: scrollYRef.current,
-        behavior: "instant", // or "auto"
-      });
+      if (gridContainerRef.current) {
+        gridContainerRef.current.scrollTop = scrollYRef.current;
+      }
     });
   };
 
@@ -710,261 +729,250 @@ export default function VideoGridClient({
       </div>
 
       {/* GRID ============================================================ */}
-      {visibleVideos.length === 0 ? (
+      {videosToRender.length === 0 ? (
         <p className="text-center text-gray-600">No items found.</p>
       ) : (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visibleVideos.map((video, index) => {
-            const thumbSrc =
-              video.type === "image" ? video.url : video.thumbnail;
-
-            return (
-              <div
-                id={`video-${video._id}`}
-                key={video._id}
-                ref={(el) => (videoRefs.current[video._id] = el)}
-                className="bg-white shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
-                onMouseEnter={() => {
-                  if (video.type === "video" && !isPurchased(video._id)) {
-                    aggressivePreload(video.url, 8);
-                  }
-                }}
-              >
-                {/* THUMBNAIL */}
-                <div className="relative w-full h-64 sm:h-72">
-                  <img
-                    src={thumbSrc}
-                    alt={video.title}
-                    className={`w-full h-full object-cover transition-all`}
-                  />
-                  {video.type === "video" && video.duration && (
-                    <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded">
-                      {formatDuration(video.duration)}
-                    </span>
-                  )}
-                </div>
-
-                {/* CONTENT */}
-                <div className="p-3 flex flex-col flex-1">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {video.title}
-                      </h3>
-                      {video.premium && (
-                        <span className="text-blue-600 font-semibold">💎</span>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-gray-500 mb-2">
-                      {formatDate(video.createdAt)}
-                    </p>
-
-                    <p className="text-sm text-gray-700 line-clamp-3 mb-2">
-                      {video.description}
-                    </p>
-
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                      <span>{VideoViews[video._id] ?? 0} views</span>
-                      <button
-                        onClick={(e) => shareVideo(video._id, e)}
-                        className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors"
-                        title="Copy link"
-                      >
-                        {copiedVideoId === video._id ? (
-                          <span className="text-green-600">✓ Copied</span>
-                        ) : (
-                          <>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                              />
-                            </svg>
-                            Share
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {video.tags?.map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* PRICE + CREATOR (always visible even when locked) */}
-                    <div className="flex items-center justify-between text-sm text-gray-600 min-w-0">
-                      <div className="flex items-center gap-1">
-                        {/* Creator Name (LINKED) */}
-                        <a
-                          href={video.socialMediaUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium text-blue-700 hover:underline shrink-0"
-                        >
-                          {video.creatorName}
-                        </a>
-                        {/* Separator */}
-
-                        {/* Internal Creator Page */}
-                        {showCreatorPageLink && video.creatorUrlHandle && (
-                          <>
-                            <span className="mx-1 text-blue-600 shrink-0">
-                              ·
-                            </span>
-                            <a
-                              href={`/${video.creatorUrlHandle}`}
-                              className="text-blue-600 hover:underline truncate whitespace-nowrap overflow-hidden"
-                              title="View Creator Page"
-                            >
-                              View Page
-                            </a>
-                          </>
-                        )}
-                      </div>
-                      {/* PRICE */}
-                      <div className="flex items-center gap-2">
-                        {video.finalPrice < video.basePrice ? (
-                          <>
-                            <span className="line-through text-gray-400">
-                              $
-                              {Number(
-                                video.basePrice ?? video.price ?? 0,
-                              ).toFixed(2)}
-                            </span>
-
-                            <span className="font-semibold text-gray-800">
-                              ${getDisplayPrice(video).toFixed(2)}
-                            </span>
-
-                            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                              {video.discount?.percentOff
-                                ? `${video.discount.percentOff}% OFF`
-                                : "SALE"}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="font-medium text-gray-800">
-                            {getDisplayPrice(video) === 0
-                              ? "Free"
-                              : `$${getDisplayPrice(video).toFixed(2)}`}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ACTION BUTTONS: always show Preview, optionally show Pay */}
-                  {/* ACTION BUTTONS: Preview + (optional) Pay */}
-                  <div className="mt-3 flex flex-col gap-2 w-full">
-                    {isPurchased(video._id) ? (
-                      // ✅ WATCH FULL VIDEO
-                      <button
-                        onClick={() => openVideo(index)}
-                        disabled={loadingVideoId === video._id}
-                        className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition ${
-                          loadingVideoId === video._id
-                            ? "bg-green-400 cursor-not-allowed"
-                            : "bg-green-600 hover:bg-green-700 text-white"
-                        }`}
-                      >
-                        {loadingVideoId === video._id ? (
-                          <>
-                            <svg
-                              className="animate-spin h-4 w-4 text-white"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              />
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8v8H4z"
-                              />
-                            </svg>
-                            Loading…
-                          </>
-                        ) : (
-                          "▶ Watch Full Video"
-                        )}
-                      </button>
-                    ) : (
-                      <>
-                        {/* PREVIEW */}
-                        <button
-                          onClick={() => openVideo(index)}
-                          className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
-                        >
-                          Preview
-                        </button>
-                        {/* PAY */}
-                        {canPay(video) && (
-                          <button
-                            onClick={() => startCheckout(video)}
-                            className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
-                          >
-                            Pay ${getDisplayPrice(video).toFixed(2)}
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* LOAD MORE */}
-      {visibleVideos.length < videosToRender.length && (
         <div
-          ref={loadMoreRef}
-          className="flex justify-center items-center py-6"
+          ref={gridContainerRef}
+          className="h-[calc(200vh-200px)] overflow-auto"
         >
-          <svg
-            className="animate-spin h-5 w-5 mr-2 text-blue-400"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: "100%",
+              position: "relative",
+            }}
           >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8v8H4z"
-            ></path>
-          </svg>
-          Loading more...
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const rowVideos = rows[virtualRow.index];
+              return (
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 px-1 pb-4">
+                    {rowVideos.map((video) => {
+                      const globalIndex = videosToRender.findIndex(
+                        (v) => v._id === video._id
+                      );
+                      const thumbSrc =
+                        video.type === "image" ? video.url : video.thumbnail;
+
+                      return (
+                        <div
+                          id={`video-${video._id}`}
+                          key={video._id}
+                          ref={(el) => (videoRefs.current[video._id] = el)}
+                          className="bg-white shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
+                          onMouseEnter={() => {
+                            if (video.type === "video" && !isPurchased(video._id)) {
+                              aggressivePreload(video.url, 8);
+                            }
+                          }}
+                        >
+                          {/* THUMBNAIL */}
+                          <div className="relative w-full h-64 sm:h-72">
+                            <img
+                              src={thumbSrc}
+                              alt={video.title}
+                              className="w-full h-full object-cover transition-all"
+                              loading="lazy"
+                            />
+                            {video.type === "video" && video.duration && (
+                              <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded">
+                                {formatDuration(video.duration)}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* CONTENT */}
+                          <div className="p-3 flex flex-col flex-1">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                  {video.title}
+                                </h3>
+                                {video.premium && (
+                                  <span className="text-blue-600 font-semibold">💎</span>
+                                )}
+                              </div>
+
+                              <p className="text-xs text-gray-500 mb-2">
+                                {formatDate(video.createdAt)}
+                              </p>
+
+                              <p className="text-sm text-gray-700 line-clamp-3 mb-2">
+                                {video.description}
+                              </p>
+
+                              <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                                <span>{VideoViews[video._id] ?? 0} views</span>
+                                <button
+                                  onClick={(e) => shareVideo(video._id, e)}
+                                  className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                  title="Copy link"
+                                >
+                                  {copiedVideoId === video._id ? (
+                                    <span className="text-green-600">✓ Copied</span>
+                                  ) : (
+                                    <>
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-4 w-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                                        />
+                                      </svg>
+                                      Share
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1 mb-2">
+                                {video.tags?.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+
+                              {/* PRICE + CREATOR */}
+                              <div className="flex items-center justify-between text-sm text-gray-600 min-w-0">
+                                <div className="flex items-center gap-1">
+                                  <a
+                                    href={video.socialMediaUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium text-blue-700 hover:underline shrink-0"
+                                  >
+                                    {video.creatorName}
+                                  </a>
+                                  {showCreatorPageLink && video.creatorUrlHandle && (
+                                    <>
+                                      <span className="mx-1 text-blue-600 shrink-0">·</span>
+                                      <a
+                                        href={`/${video.creatorUrlHandle}`}
+                                        className="text-blue-600 hover:underline truncate whitespace-nowrap overflow-hidden"
+                                        title="View Creator Page"
+                                      >
+                                        View Page
+                                      </a>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {video.finalPrice < video.basePrice ? (
+                                    <>
+                                      <span className="line-through text-gray-400">
+                                        ${Number(video.basePrice ?? video.price ?? 0).toFixed(2)}
+                                      </span>
+                                      <span className="font-semibold text-gray-800">
+                                        ${getDisplayPrice(video).toFixed(2)}
+                                      </span>
+                                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                                        {video.discount?.percentOff
+                                          ? `${video.discount.percentOff}% OFF`
+                                          : "SALE"}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="font-medium text-gray-800">
+                                      {getDisplayPrice(video) === 0
+                                        ? "Free"
+                                        : `$${getDisplayPrice(video).toFixed(2)}`}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* ACTION BUTTONS */}
+                            <div className="mt-3 flex flex-col gap-2 w-full">
+                              {isPurchased(video._id) ? (
+                                <button
+                                  onClick={() => openVideo(globalIndex)}
+                                  disabled={loadingVideoId === video._id}
+                                  className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition ${
+                                    loadingVideoId === video._id
+                                      ? "bg-green-400 cursor-not-allowed"
+                                      : "bg-green-600 hover:bg-green-700 text-white"
+                                  }`}
+                                >
+                                  {loadingVideoId === video._id ? (
+                                    <>
+                                      <svg
+                                        className="animate-spin h-4 w-4 text-white"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <circle
+                                          className="opacity-25"
+                                          cx="12"
+                                          cy="12"
+                                          r="10"
+                                          stroke="currentColor"
+                                          strokeWidth="4"
+                                        />
+                                        <path
+                                          className="opacity-75"
+                                          fill="currentColor"
+                                          d="M4 12a8 8 0 018-8v8H4z"
+                                        />
+                                      </svg>
+                                      Loading…
+                                    </>
+                                  ) : (
+                                    "▶ Watch Full Video"
+                                  )}
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => openVideo(globalIndex)}
+                                    className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
+                                  >
+                                    Preview
+                                  </button>
+                                  {canPay(video) && (
+                                    <button
+                                      onClick={() => startCheckout(video)}
+                                      className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
+                                    >
+                                      Pay ${getDisplayPrice(video).toFixed(2)}
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
