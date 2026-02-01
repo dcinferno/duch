@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useReducer, useRef, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { startCheckout } from "@/lib/startCheckout";
+import { filterReducer, initialFilterState } from "./filterReducer";
 
 export default function VideoGridClient({
   videos = [],
@@ -19,7 +20,6 @@ export default function VideoGridClient({
   const loggedVideosRef = useRef(new Set());
   const loadMoreRef = useRef(null);
   const scrollYRef = useRef(0);
-  const [searchQuery, setSearchQuery] = useState("");
   const searchLogTimeoutRef = useRef(null);
 
   const [visibleCount, setVisibleCount] = useState(12);
@@ -29,22 +29,28 @@ export default function VideoGridClient({
 
   const [purchasedVideos, setPurchasedVideos] = useState({});
 
-  const [selectedTags, setSelectedTags] = useState([]);
-  const [showPremiumOnly, setShowPremiumOnly] = useState(false);
-  const [showPaidOnly, setShowPaidOnly] = useState(false);
-  const [sortByViews, setSortByViews] = useState(false);
-  const [sortByPrice, setSortByPrice] = useState(false);
-  const [sortByDurationShort, setSortByDurationShort] = useState(false);
-  const [sortByDurationLong, setSortByDurationLong] = useState(false);
-  const [showTagsDropdown, setShowTagsDropdown] = useState(false);
+  // Filter state managed by reducer
+  const [filterState, dispatch] = useReducer(filterReducer, initialFilterState);
+  const {
+    searchQuery,
+    selectedTags,
+    showPremiumOnly,
+    showPaidOnly,
+    showDiscountedOnly,
+    showPurchasedOnly,
+    sortByViews,
+    sortByPrice,
+    sortByDurationShort,
+    sortByDurationLong,
+    showTagsDropdown,
+  } = filterState;
+
   const closedManuallyRef = useRef(false);
   const [VideoViews, setVideoViews] = useState({});
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [unlockTargetId, setUnlockTargetId] = useState(null);
-  const [showDiscountedOnly, setShowDiscountedOnly] = useState(false);
-  const [showPurchasedOnly, setShowPurchasedOnly] = useState(false);
   const LATEST_VIDEO_TYPE =
     process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE?.toLowerCase() || null;
 
@@ -421,23 +427,9 @@ export default function VideoGridClient({
     setSelectedVideo({ ...video, url: urlToPlay });
   };
 
-  const togglePremium = () => setShowPremiumOnly((p) => !p);
-
-  const toggleTag = (tag) =>
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
-
-  const clearFilters = () => {
-    setSelectedTags([]);
-    setShowPremiumOnly(false);
-    setSortByViews(false);
-    setSortByPrice(false);
-    setSortByDurationShort(false);
-    setSortByDurationLong(false);
-    setShowDiscountedOnly(false);
-    setShowPurchasedOnly(false);
-  };
+  const togglePremium = () => dispatch({ type: "TOGGLE_PREMIUM" });
+  const toggleTag = (tag) => dispatch({ type: "TOGGLE_TAG", payload: tag });
+  const clearFilters = () => dispatch({ type: "CLEAR_ALL" });
 
   const allTags = useMemo(
     () => Array.from(new Set(videos.flatMap((v) => v.tags || []))),
@@ -508,7 +500,7 @@ export default function VideoGridClient({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => dispatch({ type: "SET_SEARCH", payload: e.target.value })}
             placeholder="Search…"
             className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-300"
           />
@@ -516,7 +508,7 @@ export default function VideoGridClient({
           {searchQuery && (
             <button
               type="button"
-              onClick={() => setSearchQuery("")}
+              onClick={() => dispatch({ type: "SET_SEARCH", payload: "" })}
               className="
         absolute right-2 top-1/2 -translate-y-1/2
         text-gray-500 hover:text-gray-800
@@ -542,7 +534,7 @@ export default function VideoGridClient({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => dispatch({ type: "SET_SEARCH", payload: e.target.value })}
             placeholder="Search…"
             className="
       px-3 py-1.5 pr-8
@@ -556,7 +548,7 @@ export default function VideoGridClient({
           {/* CLEAR (DESKTOP) */}
           <button
             type="button"
-            onClick={() => setSearchQuery("")}
+            onClick={() => dispatch({ type: "SET_SEARCH", payload: "" })}
             className={`
       absolute right-2
       text-gray-400
@@ -574,7 +566,7 @@ export default function VideoGridClient({
         </div>
 
         <button
-          onClick={() => setShowDiscountedOnly((s) => !s)}
+          onClick={() => dispatch({ type: "TOGGLE_DISCOUNTED" })}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             showDiscountedOnly
               ? "bg-red-600 text-white border-red-600 shadow-lg scale-105"
@@ -596,7 +588,7 @@ export default function VideoGridClient({
           💎 Featured Only
         </button>
         <button
-          onClick={() => setShowPaidOnly((p) => !p)}
+          onClick={() => dispatch({ type: "TOGGLE_PAID" })}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             showPaidOnly
               ? "bg-purple-600 text-white border-purple-600 shadow-lg scale-105"
@@ -608,7 +600,7 @@ export default function VideoGridClient({
 
         {/* PURCHASED */}
         <button
-          onClick={() => setShowPurchasedOnly((p) => !p)}
+          onClick={() => dispatch({ type: "TOGGLE_PURCHASED" })}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             showPurchasedOnly
               ? "bg-green-600 text-white border-green-600 shadow-lg scale-105"
@@ -620,10 +612,7 @@ export default function VideoGridClient({
 
         {/* MOST VIEWED */}
         <button
-          onClick={() => {
-            setSortByViews((p) => !p);
-            if (!sortByViews) setSortByPrice(false);
-          }}
+          onClick={() => dispatch({ type: "TOGGLE_SORT_VIEWS" })}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             sortByViews
               ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
@@ -635,10 +624,7 @@ export default function VideoGridClient({
 
         {/* BROKE */}
         <button
-          onClick={() => {
-            setSortByPrice((p) => !p);
-            if (!sortByPrice) setSortByViews(false);
-          }}
+          onClick={() => dispatch({ type: "TOGGLE_SORT_PRICE" })}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             sortByPrice
               ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
@@ -650,14 +636,7 @@ export default function VideoGridClient({
 
         {/* SHORT DURATION */}
         <button
-          onClick={() => {
-            setSortByDurationShort((p) => !p);
-            if (!sortByDurationShort) {
-              setSortByDurationLong(false);
-              setSortByViews(false);
-              setSortByPrice(false);
-            }
-          }}
+          onClick={() => dispatch({ type: "TOGGLE_SORT_DURATION_SHORT" })}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             sortByDurationShort
               ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
@@ -669,14 +648,7 @@ export default function VideoGridClient({
 
         {/* LONG DURATION */}
         <button
-          onClick={() => {
-            setSortByDurationLong((p) => !p);
-            if (!sortByDurationLong) {
-              setSortByDurationShort(false);
-              setSortByViews(false);
-              setSortByPrice(false);
-            }
-          }}
+          onClick={() => dispatch({ type: "TOGGLE_SORT_DURATION_LONG" })}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
             sortByDurationLong
               ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
@@ -689,7 +661,7 @@ export default function VideoGridClient({
         {/* TAGS DROPDOWN */}
         <div className="relative">
           <button
-            onClick={() => setShowTagsDropdown((p) => !p)}
+            onClick={() => dispatch({ type: "TOGGLE_TAGS_DROPDOWN" })}
             className="px-3 py-1.5 rounded-full border text-sm font-medium bg-white text-gray-800 border-gray-300 hover:bg-blue-100 flex items-center gap-1"
           >
             🏷️ Tags
