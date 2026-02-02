@@ -89,8 +89,8 @@ export default function VideoGridClient({
     if (showPaidOnly) params.set("paid", "true");
     else params.delete("paid");
 
-    if (showShadowGames) params.set("shadow", "true");
-    else params.delete("shadow");
+    if (showShadowGames) params.set("shadowgames", "true");
+    else params.delete("shadowgames");
 
     if (showDiscountedOnly) params.set("discounted", "true");
     else params.delete("discounted");
