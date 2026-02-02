@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useReducer, useRef, useEffect, useMemo, useCallback } from "react";
+import {
+  useState,
+  useReducer,
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { startCheckout } from "@/lib/startCheckout";
@@ -44,6 +51,7 @@ export default function VideoGridClient({
     sortByDurationShort,
     sortByDurationLong,
     showTagsDropdown,
+    showShadowGames,
   } = filterState;
 
   const closedManuallyRef = useRef(false);
@@ -171,14 +179,32 @@ export default function VideoGridClient({
           if (showDiscountedOnly && !isDiscounted(video)) return false;
           if (showPurchasedOnly && !purchasedVideos[video._id]?.token)
             return false;
-
+          if (
+            showShadowGames &&
+            !video.tags?.some(
+              (t) =>
+                t.toLowerCase() === "shadow" ||
+                t.toLowerCase() === "shadowgames",
+            )
+          )
+            return false;
           return true;
         })
         .sort(
           (a, b) =>
             new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt),
         ),
-    [videos, searchQuery, selectedTags, showPremiumOnly, showPaidOnly, showDiscountedOnly, showPurchasedOnly, purchasedVideos],
+    [
+      videos,
+      searchQuery,
+      selectedTags,
+      showPremiumOnly,
+      showPaidOnly,
+      showDiscountedOnly,
+      showPurchasedOnly,
+      purchasedVideos,
+      showShadowGames,
+    ],
   );
 
   const videosToRender = useMemo(() => {
@@ -207,7 +233,14 @@ export default function VideoGridClient({
     }
 
     return filteredVideos;
-  }, [filteredVideos, sortByPrice, sortByViews, sortByDurationShort, sortByDurationLong, VideoViews]);
+  }, [
+    filteredVideos,
+    sortByPrice,
+    sortByViews,
+    sortByDurationShort,
+    sortByDurationLong,
+    VideoViews,
+  ]);
 
   // Group videos into rows for virtualization
   const rows = useMemo(() => {
@@ -284,10 +317,13 @@ export default function VideoGridClient({
   useEffect(() => {
     const updateColumns = () => {
       const width = window.innerWidth;
-      if (width >= 1280) setColumnCount(4);      // xl
-      else if (width >= 1024) setColumnCount(3); // lg
-      else if (width >= 640) setColumnCount(2);  // sm
-      else setColumnCount(1);                    // mobile
+      if (width >= 1280)
+        setColumnCount(4); // xl
+      else if (width >= 1024)
+        setColumnCount(3); // lg
+      else if (width >= 640)
+        setColumnCount(2); // sm
+      else setColumnCount(1); // mobile
     };
 
     updateColumns();
@@ -519,7 +555,9 @@ export default function VideoGridClient({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => dispatch({ type: "SET_SEARCH", payload: e.target.value })}
+            onChange={(e) =>
+              dispatch({ type: "SET_SEARCH", payload: e.target.value })
+            }
             placeholder="Search…"
             className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-300"
           />
@@ -553,7 +591,9 @@ export default function VideoGridClient({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => dispatch({ type: "SET_SEARCH", payload: e.target.value })}
+            onChange={(e) =>
+              dispatch({ type: "SET_SEARCH", payload: e.target.value })
+            }
             placeholder="Search…"
             className="
       px-3 py-1.5 pr-8
@@ -641,16 +681,16 @@ export default function VideoGridClient({
           🔥 Most Viewed
         </button>
 
-        {/* BROKE */}
+        {/* SHOW BROKE */}
         <button
-          onClick={() => dispatch({ type: "TOGGLE_SORT_PRICE" })}
+          onClick={() => dispatch({ type: "TOGGLE_SHADOW_GAMES" })}
           className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
-            sortByPrice
-              ? "bg-blue-600 text-white border-blue-600 shadow-lg scale-105"
-              : "bg-white text-gray-800 border-gray-300 hover:bg-blue-100"
+            showShadowGames
+              ? "bg-black text-white border-black shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-gray-200"
           }`}
         >
-          💸😭 Broke
+          😈 Shadow Games
         </button>
 
         {/* SHORT DURATION */}
@@ -761,7 +801,7 @@ export default function VideoGridClient({
                   <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 px-1 pb-4">
                     {rowVideos.map((video) => {
                       const globalIndex = videosToRender.findIndex(
-                        (v) => v._id === video._id
+                        (v) => v._id === video._id,
                       );
                       const thumbSrc =
                         video.type === "image" ? video.url : video.thumbnail;
@@ -773,7 +813,10 @@ export default function VideoGridClient({
                           ref={(el) => (videoRefs.current[video._id] = el)}
                           className="bg-white shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
                           onMouseEnter={() => {
-                            if (video.type === "video" && !isPurchased(video._id)) {
+                            if (
+                              video.type === "video" &&
+                              !isPurchased(video._id)
+                            ) {
                               aggressivePreload(video.url, 8);
                             }
                           }}
@@ -801,7 +844,9 @@ export default function VideoGridClient({
                                   {video.title}
                                 </h3>
                                 {video.premium && (
-                                  <span className="text-blue-600 font-semibold">💎</span>
+                                  <span className="text-blue-600 font-semibold">
+                                    💎
+                                  </span>
                                 )}
                               </div>
 
@@ -821,7 +866,9 @@ export default function VideoGridClient({
                                   title="Copy link"
                                 >
                                   {copiedVideoId === video._id ? (
-                                    <span className="text-green-600">✓ Copied</span>
+                                    <span className="text-green-600">
+                                      ✓ Copied
+                                    </span>
                                   ) : (
                                     <>
                                       <svg
@@ -866,24 +913,30 @@ export default function VideoGridClient({
                                   >
                                     {video.creatorName}
                                   </a>
-                                  {showCreatorPageLink && video.creatorUrlHandle && (
-                                    <>
-                                      <span className="mx-1 text-blue-600 shrink-0">·</span>
-                                      <a
-                                        href={`/${video.creatorUrlHandle}`}
-                                        className="text-blue-600 hover:underline truncate whitespace-nowrap overflow-hidden"
-                                        title="View Creator Page"
-                                      >
-                                        View Page
-                                      </a>
-                                    </>
-                                  )}
+                                  {showCreatorPageLink &&
+                                    video.creatorUrlHandle && (
+                                      <>
+                                        <span className="mx-1 text-blue-600 shrink-0">
+                                          ·
+                                        </span>
+                                        <a
+                                          href={`/${video.creatorUrlHandle}`}
+                                          className="text-blue-600 hover:underline truncate whitespace-nowrap overflow-hidden"
+                                          title="View Creator Page"
+                                        >
+                                          View Page
+                                        </a>
+                                      </>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {video.finalPrice < video.basePrice ? (
                                     <>
                                       <span className="line-through text-gray-400">
-                                        ${Number(video.basePrice ?? video.price ?? 0).toFixed(2)}
+                                        $
+                                        {Number(
+                                          video.basePrice ?? video.price ?? 0,
+                                        ).toFixed(2)}
                                       </span>
                                       <span className="font-semibold text-gray-800">
                                         ${getDisplayPrice(video).toFixed(2)}
