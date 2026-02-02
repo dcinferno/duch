@@ -231,7 +231,7 @@ export default function VideoGridClient({
             showShadowGames &&
             !video.tags?.some(
               (t) =>
-                t.toLowerCase() === "shadow" ||
+                t.toLowerCase() === "shadow games" ||
                 t.toLowerCase() === "shadowgames",
             )
           )
