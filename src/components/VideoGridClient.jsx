@@ -16,6 +16,7 @@ import { filterReducer, initialFilterState } from "@/lib/filterReducer";
 export default function VideoGridClient({
   videos = [],
   showCreatorPageLink = true,
+  title,
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,6 +54,53 @@ export default function VideoGridClient({
     showTagsDropdown,
     showShadowGames,
   } = filterState;
+
+  // Initialize filters from URL params on mount
+  const initializedFromUrl = useRef(false);
+  useEffect(() => {
+    if (initializedFromUrl.current) return;
+    initializedFromUrl.current = true;
+
+    const paid = searchParams.get("paid") === "true";
+    const shadow = searchParams.get("shadowgames") === "true";
+    const discounted = searchParams.get("discounted") === "true";
+    const purchased = searchParams.get("purchased") === "true";
+
+    if (paid || shadow || discounted || purchased) {
+      dispatch({
+        type: "SET_FROM_URL",
+        payload: {
+          showPaidOnly: paid,
+          showShadowGames: shadow,
+          showDiscountedOnly: discounted,
+          showPurchasedOnly: purchased,
+        },
+      });
+    }
+  }, [searchParams]);
+
+  // Sync filter changes to URL
+  useEffect(() => {
+    if (!initializedFromUrl.current) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+
+    // Update or remove each filter param
+    if (showPaidOnly) params.set("paid", "true");
+    else params.delete("paid");
+
+    if (showShadowGames) params.set("shadow", "true");
+    else params.delete("shadow");
+
+    if (showDiscountedOnly) params.set("discounted", "true");
+    else params.delete("discounted");
+
+    if (showPurchasedOnly) params.set("purchased", "true");
+    else params.delete("purchased");
+
+    const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
+    router.replace(newUrl, { scroll: false });
+  }, [showPaidOnly, showShadowGames, showDiscountedOnly, showPurchasedOnly, router, searchParams]);
 
   const closedManuallyRef = useRef(false);
   const [VideoViews, setVideoViews] = useState({});
@@ -547,7 +595,12 @@ export default function VideoGridClient({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full flex flex-col">
+      <div
+        ref={gridContainerRef}
+        className="flex-1 min-h-0 overflow-auto"
+      >
+      {title && <h1 className="text-2xl font-bold mb-4">{title}</h1>}
       {/* FILTER BAR ======================================================= */}
       {/* MOBILE SEARCH ROW */}
       <div className="w-full mb-4 sm:hidden">
@@ -772,10 +825,6 @@ export default function VideoGridClient({
       {videosToRender.length === 0 ? (
         <p className="text-center text-gray-600">No items found.</p>
       ) : (
-        <div
-          ref={gridContainerRef}
-          className="h-[calc(200vh-200px)] overflow-auto"
-        >
           <div
             style={{
               height: `${rowVirtualizer.getTotalSize()}px`,
@@ -1026,8 +1075,8 @@ export default function VideoGridClient({
               );
             })}
           </div>
-        </div>
       )}
+      </div>
 
       {/* MODAL ============================================================ */}
       {selectedVideo && (

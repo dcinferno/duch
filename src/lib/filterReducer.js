@@ -91,6 +91,12 @@ export function filterReducer(state, action) {
         searchQuery: state.searchQuery, // preserve search
       };
 
+    case "SET_FROM_URL":
+      return {
+        ...state,
+        ...action.payload,
+      };
+
     default:
       return state;
   }

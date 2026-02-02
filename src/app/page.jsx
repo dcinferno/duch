@@ -7,17 +7,15 @@ import VideosClientPage from "../components/VideoGridClient";
 export default function Home() {
   const type = process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE;
   return (
-    <div className="w-full px-2 sm:px-4 py-6">
-      <h1 className="text-2xl font-bold mb-4">Latest {type} Videos</h1>
-
+    <div className="w-full h-full flex flex-col px-2 sm:px-4 py-6">
       <ClientOnly fallback={<p>Loading videos...</p>}>
-        <VideosFetcher />
+        <VideosFetcher title={`Latest ${type} Videos`} />
       </ClientOnly>
     </div>
   );
 }
 
-function VideosFetcher() {
+function VideosFetcher({ title }) {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,5 +37,5 @@ function VideosFetcher() {
   if (loading) return <p>Loading videos...</p>;
   if (!videos.length) return <p>No videos found.</p>;
 
-  return <VideosClientPage videos={videos} />;
+  return <VideosClientPage videos={videos} title={title} />;
 }
