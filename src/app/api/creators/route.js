@@ -8,7 +8,7 @@ export async function GET() {
 
   try {
     const CDN = process.env.CDN_URL;
-    const creators = await Creators.find({});
+    const creators = await Creators.find({}, { telegramId: 0 });
 
     // 🔥 Prepend CDN to creator.photo if it's a relative path
     const formatted = creators.map((creator) => {
