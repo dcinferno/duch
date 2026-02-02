@@ -10,6 +10,7 @@ export const initialFilterState = {
   sortByDurationShort: false,
   sortByDurationLong: false,
   showTagsDropdown: false,
+  showShadowGames: false,
 };
 
 export function filterReducer(state, action) {
@@ -40,6 +41,8 @@ export function filterReducer(state, action) {
     case "TOGGLE_PURCHASED":
       return { ...state, showPurchasedOnly: !state.showPurchasedOnly };
 
+    case "TOGGLE_SHADOW_GAMES":
+        return { ...state, showShadowGames: !state.showShadowGames };
     case "TOGGLE_SORT_VIEWS":
       return {
         ...state,
