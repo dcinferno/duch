@@ -2,7 +2,13 @@ export const runtime = "nodejs";
 import { connectToDB } from "../../../lib/mongodb.js";
 import Videos from "../../../models/videos.js";
 import Creators from "../../../models/creators.js";
-
+import {
+  fetchActiveDiscounts,
+  sanitizeDiscounts,
+  getDiscountsForVideo,
+  applyDiscount,
+  formatDiscountResponse,
+} from "../../../lib/discounts.js";
 
 const CDN = process.env.CDN_URL || "";
 
@@ -32,125 +38,13 @@ function withCDN(path) {
   return `${CDN}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
-function discountAppliesToVideo(discount, video) {
-  // No tag restriction → applies to all
-  if (!Array.isArray(discount.tags) || discount.tags.length === 0) {
-    return true;
-  }
-
-  // Video must have at least one matching tag
-  if (!Array.isArray(video.tags)) return false;
-
-  return discount.tags.some((tag) => video.tags.includes(tag));
-}
-
-function getDiscountsForVideo(video, safeDiscounts) {
-  const list = [];
-
-  // 🌍 Global discount
-  if (safeDiscounts.global) {
-    if (discountAppliesToVideo(safeDiscounts.global, video)) {
-      list.push(safeDiscounts.global);
-    }
-  }
-
-  // 👤 Creator discounts
-  const creatorKey = video.creatorName?.trim().toLowerCase();
-  const creatorDiscounts = safeDiscounts.creators?.[creatorKey];
-
-  if (Array.isArray(creatorDiscounts)) {
-    for (const d of creatorDiscounts) {
-      if (discountAppliesToVideo(d, video)) {
-        list.push(d);
-      }
-    }
-  }
-
-  return list;
-}
-
-function applyDiscount({ basePrice, discounts = [] }) {
-  let bestPrice = basePrice;
-  let appliedDiscount = null;
-
-  for (const d of discounts) {
-    if (!d || !d.type) continue;
-
-    let candidate = basePrice;
-
-    // % off
-    if (d.type === "percentage" && Number.isFinite(d.percentOff)) {
-      candidate = basePrice * (1 - d.percentOff / 100);
-    }
-
-    // $ off
-    if (d.type === "amount" && Number.isFinite(d.amountOff)) {
-      candidate = basePrice - d.amountOff;
-    }
-
-    // flat price
-    if (d.type === "fixed" && Number.isFinite(d.fixedPrice)) {
-      candidate = d.fixedPrice;
-    }
-
-    // never go below zero
-    candidate = Math.max(0, Number(candidate));
-
-    // choose the lowest final price
-    if (candidate < bestPrice) {
-      bestPrice = candidate;
-      appliedDiscount = d;
-    }
-  }
-
-  return {
-    basePrice,
-    finalPrice: Number(bestPrice.toFixed(2)),
-    appliedDiscount,
-  };
-}
-
-/* ------------------------------------------
-   FETCH ACTIVE DISCOUNTS (PROCESS SERVER)
-------------------------------------------- */
-async function fetchActiveDiscounts() {
-  const url = `${process.env.NEXT_PUBLIC_SERVER_URL}/api/discount/active`;
-
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: { "Content-Type": "application/json" },
-  });
-
-  if (!res.ok) {
-    console.error("❌ Failed to fetch discounts", await res.text());
-    return { global: null, creators: {} };
-  }
-
-  return res.json();
-}
-
 /* ------------------------------------------
    GET /api/videos
 ------------------------------------------- */
 export async function GET(request) {
   await connectToDB();
   const discounts = await fetchActiveDiscounts();
-
-  const safeDiscounts = {
-    global:
-      discounts?.global &&
-      typeof discounts.global === "object" &&
-      !Array.isArray(discounts.global)
-        ? discounts.global
-        : null,
-
-    creators:
-      discounts?.creators &&
-      typeof discounts.creators === "object" &&
-      !Array.isArray(discounts.creators)
-        ? discounts.creators
-        : {},
-  };
+  const safeDiscounts = sanitizeDiscounts(discounts);
 
   const { searchParams } = new URL(request.url);
 
@@ -159,7 +53,7 @@ export async function GET(request) {
 
   const creators = await Creators.find(
     {},
-    { name: 1, premium: 1, pay: 1, telegramId: 1, urlHandle: 1 },
+    { name: 1, premium: 1, pay: 1, urlHandle: 1 },
   ).lean();
   const creatorMap = Object.fromEntries(
     creators.map((c) => [
@@ -167,7 +61,6 @@ export async function GET(request) {
       {
         premium: Boolean(c.premium),
         pay: Boolean(c.pay),
-        telegramId: c.telegramId ?? null,
         urlHandle: c.urlHandle ?? null,
       },
     ]),
@@ -195,26 +88,16 @@ export async function GET(request) {
 
     return Response.json({
       ...video,
-
       thumbnail: withCDN(video.thumbnail),
       url: withCDN(video.url),
       fullKey: Boolean(video.fullKey),
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
       creatorUrlHandle: creator.urlHandle ?? null,
-      creatorTelegramId: creator.telegramId ?? null,
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
-      discount: pricing.appliedDiscount
-        ? {
-            label: pricing.appliedDiscount.name,
-            type: pricing.appliedDiscount.type,
-            percentOff: pricing.appliedDiscount.percentOff ?? null,
-            amountOff: pricing.appliedDiscount.amountOff ?? null,
-            fixedPrice: pricing.appliedDiscount.fixedPrice ?? null,
-          }
-        : null,
+      discount: formatDiscountResponse(pricing.appliedDiscount),
     });
   }
 
@@ -262,20 +145,11 @@ export async function GET(request) {
       fullKey: Boolean(video.fullKey),
       premium: creator.premium ?? false,
       pay: creator.pay ?? false,
-      creatorTelegramId: creator.telegramId ?? null,
       creatorUrlHandle: creator.urlHandle ?? null,
       price: Number(video.price) || 0,
       basePrice: pricing.basePrice,
       finalPrice: pricing.finalPrice,
-      discount: pricing.appliedDiscount
-        ? {
-            label: pricing.appliedDiscount.name,
-            type: pricing.appliedDiscount.type,
-            percentOff: pricing.appliedDiscount.percentOff ?? null,
-            amountOff: pricing.appliedDiscount.amountOff ?? null,
-            fixedPrice: pricing.appliedDiscount.fixedPrice ?? null,
-          }
-        : null,
+      discount: formatDiscountResponse(pricing.appliedDiscount),
     };
   });
   return Response.json(mergedVideos);
