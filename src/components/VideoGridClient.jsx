@@ -80,10 +80,23 @@ export default function VideoGridClient({
   }, [searchParams]);
 
   // Sync filter changes to URL
+  const prevFiltersRef = useRef({ showPaidOnly, showShadowGames, showDiscountedOnly, showPurchasedOnly });
   useEffect(() => {
     if (!initializedFromUrl.current) return;
 
-    const params = new URLSearchParams(searchParams.toString());
+    // Skip if filters haven't actually changed (prevents unnecessary navigation on mount)
+    const prev = prevFiltersRef.current;
+    if (
+      prev.showPaidOnly === showPaidOnly &&
+      prev.showShadowGames === showShadowGames &&
+      prev.showDiscountedOnly === showDiscountedOnly &&
+      prev.showPurchasedOnly === showPurchasedOnly
+    ) {
+      return;
+    }
+    prevFiltersRef.current = { showPaidOnly, showShadowGames, showDiscountedOnly, showPurchasedOnly };
+
+    const params = new URLSearchParams(window.location.search);
 
     // Update or remove each filter param
     if (showPaidOnly) params.set("paid", "true");
@@ -100,7 +113,8 @@ export default function VideoGridClient({
 
     const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
     router.replace(newUrl, { scroll: false });
-  }, [showPaidOnly, showShadowGames, showDiscountedOnly, showPurchasedOnly, router, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPaidOnly, showShadowGames, showDiscountedOnly, showPurchasedOnly, router]);
 
   const closedManuallyRef = useRef(false);
   const [VideoViews, setVideoViews] = useState({});
