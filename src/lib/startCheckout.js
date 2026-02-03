@@ -42,7 +42,6 @@ export async function startCheckout(item) {
 
       payload.videoId = item._id;
       payload.creatorName = item.creatorName;
-      payload.creatorTelegramId = item.creatorTelegramId || "";
       payload.creatorUrl = item.socialMediaUrl || "";
     }
 
