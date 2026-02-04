@@ -6,12 +6,13 @@ import {
   useRef,
   useEffect,
   useMemo,
-  useCallback,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { startCheckout } from "@/lib/startCheckout";
 import { filterReducer, initialFilterState } from "@/lib/filterReducer";
+import { isDiscounted, getDisplayPrice } from "@/lib/videoUtils";
+import VideoCard from "@/components/VideoCard";
 
 export default function VideoGridClient({
   videos = [],
@@ -25,7 +26,6 @@ export default function VideoGridClient({
   // STATE / REFS
   // ===============================
   const openedFromUrlRef = useRef(false);
-  const videoRefs = useRef({});
   const loggedVideosRef = useRef(new Set());
   const scrollYRef = useRef(0);
   const searchLogTimeoutRef = useRef(null);
@@ -128,29 +128,6 @@ export default function VideoGridClient({
   // ===============================
   // HELPERS
   // ===============================
-
-  function isDiscounted(video) {
-    const base =
-      typeof video.basePrice === "number"
-        ? video.basePrice
-        : Number(video.price) || 0;
-
-    const final =
-      typeof video.finalPrice === "number" ? video.finalPrice : base;
-
-    return final < base;
-  }
-
-  function getDisplayPrice(video) {
-    const price =
-      video.displayPrice ??
-      video.finalPrice ?? // legacy compatibility
-      video.basePrice ??
-      video.price ??
-      0;
-
-    return Number(price);
-  }
   const isPurchased = (videoId) => !!purchasedVideos[videoId]?.token;
 
   const aggressivePreload = async (url, maxMB = 8) => {
@@ -182,28 +159,6 @@ export default function VideoGridClient({
     } finally {
       delete window.__preloadingVideos[url];
     }
-  };
-
-  const formatDate = (dateInput) => {
-    if (!dateInput) return "";
-    const d = new Date(dateInput.$date || dateInput);
-    const diff = Date.now() - d;
-    const days = Math.floor(diff / 86400000);
-    if (days === 0) return "Today";
-    if (days === 1) return "Yesterday";
-    if (days <= 7) return `${days} days ago`;
-    return d.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const formatDuration = (seconds) => {
-    if (!seconds || seconds <= 0) return null;
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   // ===============================
@@ -553,8 +508,6 @@ export default function VideoGridClient({
     () => Array.from(new Set(videos.flatMap((v) => v.tags || []))),
     [videos],
   );
-  const canPay = (video) =>
-    video.pay && !!video.fullKey && getDisplayPrice(video) > 0;
 
   const [copiedVideoId, setCopiedVideoId] = useState(null);
 
@@ -866,222 +819,24 @@ export default function VideoGridClient({
                       const globalIndex = videosToRender.findIndex(
                         (v) => v._id === video._id,
                       );
-                      const thumbSrc =
-                        video.type === "image" ? video.url : video.thumbnail;
 
                       return (
-                        <div
-                          id={`video-${video._id}`}
+                        <VideoCard
                           key={video._id}
-                          ref={(el) => (videoRefs.current[video._id] = el)}
-                          className="bg-white shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
+                          video={video}
+                          isPurchased={isPurchased(video._id)}
+                          isLoading={loadingVideoId === video._id}
+                          viewCount={VideoViews[video._id] ?? 0}
+                          isCopied={copiedVideoId === video._id}
+                          showCreatorPageLink={showCreatorPageLink}
+                          onPreview={() => openVideo(globalIndex)}
+                          onShare={(e) => shareVideo(video._id, e)}
                           onMouseEnter={() => {
-                            if (
-                              video.type === "video" &&
-                              !isPurchased(video._id)
-                            ) {
+                            if (video.type === "video" && !isPurchased(video._id)) {
                               aggressivePreload(video.url, 8);
                             }
                           }}
-                        >
-                          {/* THUMBNAIL */}
-                          <div className="relative w-full h-64 sm:h-72">
-                            <img
-                              src={thumbSrc}
-                              alt={video.title}
-                              className="w-full h-full object-cover transition-all"
-                              loading="lazy"
-                            />
-                            {video.type === "video" && video.duration && (
-                              <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded">
-                                {formatDuration(video.duration)}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* CONTENT */}
-                          <div className="p-3 flex flex-col flex-1">
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <h3 className="text-lg font-semibold text-gray-900">
-                                  {video.title}
-                                </h3>
-                                {video.premium && (
-                                  <span className="text-blue-600 font-semibold">
-                                    💎
-                                  </span>
-                                )}
-                              </div>
-
-                              <p className="text-xs text-gray-500 mb-2">
-                                {formatDate(video.createdAt)}
-                              </p>
-
-                              <p className="text-sm text-gray-700 line-clamp-3 mb-2">
-                                {video.description}
-                              </p>
-
-                              <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                                <span>{VideoViews[video._id] ?? 0} views</span>
-                                <button
-                                  onClick={(e) => shareVideo(video._id, e)}
-                                  className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors"
-                                  title="Copy link"
-                                >
-                                  {copiedVideoId === video._id ? (
-                                    <span className="text-green-600">
-                                      ✓ Copied
-                                    </span>
-                                  ) : (
-                                    <>
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-4 w-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth={2}
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                                        />
-                                      </svg>
-                                      Share
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-
-                              <div className="flex flex-wrap gap-1 mb-2">
-                                {video.tags?.map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
-                                  >
-                                    #{tag}
-                                  </span>
-                                ))}
-                              </div>
-
-                              {/* PRICE + CREATOR */}
-                              <div className="flex items-center justify-between text-sm text-gray-600 min-w-0">
-                                <div className="flex items-center gap-1">
-                                  <a
-                                    href={video.socialMediaUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="font-medium text-blue-700 hover:underline shrink-0"
-                                  >
-                                    {video.creatorName}
-                                  </a>
-                                  {showCreatorPageLink &&
-                                    video.creatorUrlHandle && (
-                                      <>
-                                        <span className="mx-1 text-blue-600 shrink-0">
-                                          ·
-                                        </span>
-                                        <a
-                                          href={`/${video.creatorUrlHandle}`}
-                                          className="text-blue-600 hover:underline truncate whitespace-nowrap overflow-hidden"
-                                          title="View Creator Page"
-                                        >
-                                          View Page
-                                        </a>
-                                      </>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {video.finalPrice < video.basePrice ? (
-                                    <>
-                                      <span className="line-through text-gray-400">
-                                        $
-                                        {Number(
-                                          video.basePrice ?? video.price ?? 0,
-                                        ).toFixed(2)}
-                                      </span>
-                                      <span className="font-semibold text-gray-800">
-                                        ${getDisplayPrice(video).toFixed(2)}
-                                      </span>
-                                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                                        {video.discount?.percentOff
-                                          ? `${video.discount.percentOff}% OFF`
-                                          : "SALE"}
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <span className="font-medium text-gray-800">
-                                      {getDisplayPrice(video) === 0
-                                        ? "Free"
-                                        : `$${getDisplayPrice(video).toFixed(2)}`}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* ACTION BUTTONS */}
-                            <div className="mt-3 flex flex-col gap-2 w-full">
-                              {isPurchased(video._id) ? (
-                                <button
-                                  onClick={() => openVideo(globalIndex)}
-                                  disabled={loadingVideoId === video._id}
-                                  className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition ${
-                                    loadingVideoId === video._id
-                                      ? "bg-green-400 cursor-not-allowed"
-                                      : "bg-green-600 hover:bg-green-700 text-white"
-                                  }`}
-                                >
-                                  {loadingVideoId === video._id ? (
-                                    <>
-                                      <svg
-                                        className="animate-spin h-4 w-4 text-white"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <circle
-                                          className="opacity-25"
-                                          cx="12"
-                                          cy="12"
-                                          r="10"
-                                          stroke="currentColor"
-                                          strokeWidth="4"
-                                        />
-                                        <path
-                                          className="opacity-75"
-                                          fill="currentColor"
-                                          d="M4 12a8 8 0 018-8v8H4z"
-                                        />
-                                      </svg>
-                                      Loading…
-                                    </>
-                                  ) : (
-                                    "▶ Watch Full Video"
-                                  )}
-                                </button>
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={() => openVideo(globalIndex)}
-                                    className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 text-sm font-medium"
-                                  >
-                                    Preview
-                                  </button>
-                                  {canPay(video) && (
-                                    <button
-                                      onClick={() => startCheckout(video)}
-                                      className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 text-sm font-medium"
-                                    >
-                                      Pay ${getDisplayPrice(video).toFixed(2)}
-                                    </button>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                        />
                       );
                     })}
                   </div>
