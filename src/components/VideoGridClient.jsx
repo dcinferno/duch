@@ -260,6 +260,13 @@ export default function VideoGridClient({
     VideoViews,
   ]);
 
+  // Pre-compute video index lookup map (O(1) instead of O(n) findIndex)
+  const videoIndexMap = useMemo(() => {
+    const map = new Map();
+    videosToRender.forEach((v, i) => map.set(v._id, i));
+    return map;
+  }, [videosToRender]);
+
   // Group videos into rows for virtualization
   const rows = useMemo(() => {
     const result = [];
@@ -601,9 +608,7 @@ export default function VideoGridClient({
                 >
                   <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 px-1 pb-4">
                     {rowVideos.map((video) => {
-                      const globalIndex = videosToRender.findIndex(
-                        (v) => v._id === video._id,
-                      );
+                      const globalIndex = videoIndexMap.get(video._id);
 
                       return (
                         <VideoCard

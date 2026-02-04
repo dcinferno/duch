@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { formatDate, formatDuration, getDisplayPrice, canPay } from "@/lib/videoUtils";
 import { startCheckout } from "@/lib/startCheckout";
 
@@ -17,7 +18,7 @@ import { startCheckout } from "@/lib/startCheckout";
  * @param {Function} props.onShare - Callback when share button is clicked
  * @param {Function} props.onMouseEnter - Callback for mouse enter (preloading)
  */
-export default function VideoCard({
+function VideoCard({
   video,
   isPurchased = false,
   isLoading = false,
@@ -234,3 +235,5 @@ export default function VideoCard({
     </div>
   );
 }
+
+export default memo(VideoCard);
