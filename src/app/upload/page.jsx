@@ -267,12 +267,13 @@ try {
 }
 
 // ---------------------------------
-// 2️⃣ Read duration from CLEAN preview file
+// 2️⃣ Read duration from CLEAN FULL file
 // ---------------------------------
 let videoDuration = null;
 
 try {
-  const rawDuration = await getVideoDuration(cleanPreviewFile);
+  const fileForDuration = cleanFullFile ?? cleanPreviewFile;
+  const rawDuration = await getVideoDuration(fileForDuration);
   videoDuration = Math.round(rawDuration); // seconds, integer
   setDuration(videoDuration);
 } catch (err) {
