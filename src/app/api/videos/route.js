@@ -152,7 +152,11 @@ export async function GET(request) {
       discount: formatDiscountResponse(pricing.appliedDiscount),
     };
   });
-  return Response.json(mergedVideos);
+  return Response.json(mergedVideos, {
+    headers: {
+      "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+    },
+  });
 }
 /* ------------------------------------------
    POST — CREATE VIDEO

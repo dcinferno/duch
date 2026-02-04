@@ -1,41 +1,27 @@
-"use client"; // This marks the whole file as a client component
-
-import { useState, useEffect } from "react";
-import ClientOnly from "../components/ClientOnly";
 import VideosClientPage from "../components/VideoGridClient";
 
-export default function Home() {
-  const type = process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE;
-  return (
-    <div className="w-full h-full flex flex-col px-2 sm:px-4 py-6">
-      <ClientOnly fallback={<p>Loading videos...</p>}>
-        <VideosFetcher title={`Latest ${type} Videos`} />
-      </ClientOnly>
-    </div>
-  );
+export const revalidate = 60; // Revalidate cache every 60 seconds
+
+async function getVideos() {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const res = await fetch(`${baseUrl}/api/videos`, {
+    next: { revalidate: 60 },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch videos");
+  }
+
+  return res.json();
 }
 
-function VideosFetcher({ title }) {
-  const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default async function Home() {
+  const type = process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE;
+  const videos = await getVideos();
 
-  useEffect(() => {
-    async function fetchVideos() {
-      try {
-        const res = await fetch("/api/videos");
-        const data = await res.json();
-        setVideos(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchVideos();
-  }, []);
-
-  if (loading) return <p>Loading videos...</p>;
-  if (!videos.length) return <p>No videos found.</p>;
-
-  return <VideosClientPage videos={videos} title={title} />;
+  return (
+    <div className="w-full h-full flex flex-col px-2 sm:px-4 py-6">
+      <VideosClientPage videos={videos} title={`Latest ${type} Videos`} />
+    </div>
+  );
 }
