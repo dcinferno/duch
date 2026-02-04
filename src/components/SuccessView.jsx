@@ -198,9 +198,9 @@ export default function SuccessView({ token, videoId, bundleId, router }) {
                 videos.length > 0 ? "scale-110 animate-pulse" : ""
               }`}
             >
-              👑
+              💎
             </span>
-            Join VIP Telegram
+            Join Silk & Shadows Telegram
           </button>
 
           {/* ----------------------------------
