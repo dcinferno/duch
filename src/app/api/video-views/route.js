@@ -66,41 +66,59 @@ export async function GET(req) {
 }
 
 /**
- * 📈 POST — Record a video view
- * - Body: { videoId: "abc123", viewedAt: "2025-12-07T20:11:00Z" }
- *
- * This version:
- *   - Stores ONE document per video
- *   - Increments totalViews atomically
- *   - Updates lastViewedAt
- *   - Does NOT create thousands of rows anymore
+ * 📈 POST — Record a video view OR fetch batch views
+ * - Record view: { videoId: "abc123" }
+ * - Batch fetch: { videoIds: ["id1", "id2", ...] }
  */
 export async function POST(req) {
   try {
     await connectToDB();
 
-    const { videoId } = await req.json();
+    const body = await req.json();
+    const { videoId, videoIds } = body;
 
-    if (!videoId) {
-      return new Response(JSON.stringify({ error: "Missing videoId" }), {
-        status: 400,
+    // 🧩 Batch fetch: return view counts for multiple videos
+    if (videoIds && Array.isArray(videoIds)) {
+      const docs = await VideoViews.find({
+        videoId: { $in: videoIds },
+      })
+        .select({ videoId: 1, totalViews: 1 })
+        .lean();
+
+      const viewsMap = {};
+
+      docs.forEach((doc) => {
+        viewsMap[doc.videoId] = doc.totalViews ?? 0;
       });
+
+      videoIds.forEach((id) => {
+        if (!(id in viewsMap)) viewsMap[id] = 0;
+      });
+
+      return new Response(JSON.stringify(viewsMap), { status: 200 });
     }
 
-    await VideoViews.updateOne(
-      { videoId: String(videoId) },
-      {
-        $inc: { totalViews: 1 },
-        $set: { viewedAt: new Date() },
-      },
-      { upsert: true }
-    );
+    // 🔹 Record a single view
+    if (videoId) {
+      await VideoViews.updateOne(
+        { videoId: String(videoId) },
+        {
+          $inc: { totalViews: 1 },
+          $set: { viewedAt: new Date() },
+        },
+        { upsert: true }
+      );
 
-    return new Response(JSON.stringify({ success: true }), { status: 201 });
+      return new Response(JSON.stringify({ success: true }), { status: 201 });
+    }
+
+    return new Response(JSON.stringify({ error: "Missing videoId or videoIds" }), {
+      status: 400,
+    });
   } catch (err) {
-    console.error("❌ Error recording video view:", err);
+    console.error("❌ Error in video views POST:", err);
     return new Response(
-      JSON.stringify({ error: "Failed to record video view" }),
+      JSON.stringify({ error: "Failed to process request" }),
       { status: 500 }
     );
   }

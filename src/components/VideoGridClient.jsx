@@ -398,8 +398,11 @@ export default function VideoGridClient({
 
     const fetchViews = async () => {
       try {
-        const ids = videos.map((v) => v._id).join(",");
-        const res = await fetch(`/api/video-views?videoIds=${ids}`, {
+        const ids = videos.map((v) => v._id);
+        const res = await fetch(`/api/video-views`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ videoIds: ids }),
           signal: controller.signal,
         });
 
