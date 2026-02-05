@@ -23,6 +23,7 @@ export default function FilterBar({
     showDiscountedOnly,
     showPurchasedOnly,
     sortByViews,
+    sortByLastViewed,
     sortByPrice,
     sortByDurationShort,
     sortByDurationLong,
@@ -39,6 +40,7 @@ export default function FilterBar({
     showPremiumOnly ||
     showPurchasedOnly ||
     sortByViews ||
+    sortByLastViewed ||
     sortByPrice ||
     sortByDurationShort ||
     sortByDurationLong;
@@ -155,6 +157,17 @@ export default function FilterBar({
           }`}
         >
           🔥 Most Viewed
+        </button>
+
+        <button
+          onClick={() => dispatch({ type: "TOGGLE_SORT_LAST_VIEWED" })}
+          className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+            sortByLastViewed
+              ? "bg-orange-500 text-white border-orange-500 shadow-lg scale-105"
+              : "bg-white text-gray-800 border-gray-300 hover:bg-orange-100"
+          }`}
+        >
+          👀 Watching Now
         </button>
 
         <button

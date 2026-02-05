@@ -21,19 +21,19 @@ export async function GET(req) {
       const docs = await VideoViews.find({
         videoId: { $in: videoIds },
       })
-        .select({ videoId: 1, totalViews: 1 })
+        .select({ videoId: 1, totalViews: 1, viewedAt: 1 })
         .lean();
 
       const viewsMap = {};
 
       // Fill map with existing stored counts
       docs.forEach((doc) => {
-        viewsMap[doc.videoId] = doc.totalViews ?? 0;
+        viewsMap[doc.videoId] = { totalViews: doc.totalViews ?? 0, viewedAt: doc.viewedAt ?? null };
       });
 
       // Ensure IDs missing in DB still return 0
       videoIds.forEach((id) => {
-        if (!(id in viewsMap)) viewsMap[id] = 0;
+        if (!(id in viewsMap)) viewsMap[id] = { totalViews: 0, viewedAt: null };
       });
 
       return new Response(JSON.stringify(viewsMap), { status: 200 });
@@ -82,17 +82,17 @@ export async function POST(req) {
       const docs = await VideoViews.find({
         videoId: { $in: videoIds },
       })
-        .select({ videoId: 1, totalViews: 1 })
+        .select({ videoId: 1, totalViews: 1, viewedAt: 1 })
         .lean();
 
       const viewsMap = {};
 
       docs.forEach((doc) => {
-        viewsMap[doc.videoId] = doc.totalViews ?? 0;
+        viewsMap[doc.videoId] = { totalViews: doc.totalViews ?? 0, viewedAt: doc.viewedAt ?? null };
       });
 
       videoIds.forEach((id) => {
-        if (!(id in viewsMap)) viewsMap[id] = 0;
+        if (!(id in viewsMap)) viewsMap[id] = { totalViews: 0, viewedAt: null };
       });
 
       return new Response(JSON.stringify(viewsMap), { status: 200 });

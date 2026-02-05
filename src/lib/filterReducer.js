@@ -6,6 +6,7 @@ export const initialFilterState = {
   showDiscountedOnly: false,
   showPurchasedOnly: false,
   sortByViews: false,
+  sortByLastViewed: false,
   sortByPrice: false,
   sortByDurationShort: false,
   sortByDurationLong: false,
@@ -47,6 +48,17 @@ export function filterReducer(state, action) {
       return {
         ...state,
         sortByViews: !state.sortByViews,
+        sortByLastViewed: false,
+        sortByPrice: false,
+        sortByDurationShort: false,
+        sortByDurationLong: false,
+      };
+
+    case "TOGGLE_SORT_LAST_VIEWED":
+      return {
+        ...state,
+        sortByLastViewed: !state.sortByLastViewed,
+        sortByViews: false,
         sortByPrice: false,
         sortByDurationShort: false,
         sortByDurationLong: false,
@@ -57,6 +69,7 @@ export function filterReducer(state, action) {
         ...state,
         sortByPrice: !state.sortByPrice,
         sortByViews: false,
+        sortByLastViewed: false,
         sortByDurationShort: false,
         sortByDurationLong: false,
       };
@@ -67,6 +80,7 @@ export function filterReducer(state, action) {
         sortByDurationShort: !state.sortByDurationShort,
         sortByDurationLong: false,
         sortByViews: false,
+        sortByLastViewed: false,
         sortByPrice: false,
       };
 
@@ -76,6 +90,7 @@ export function filterReducer(state, action) {
         sortByDurationLong: !state.sortByDurationLong,
         sortByDurationShort: false,
         sortByViews: false,
+        sortByLastViewed: false,
         sortByPrice: false,
       };
 

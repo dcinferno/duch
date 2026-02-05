@@ -49,6 +49,7 @@ export default function VideoGridClient({
     showDiscountedOnly,
     showPurchasedOnly,
     sortByViews,
+    sortByLastViewed,
     sortByPrice,
     sortByDurationShort,
     sortByDurationLong,
@@ -234,8 +235,20 @@ export default function VideoGridClient({
 
     if (sortByViews) {
       return [...filteredVideos].sort(
-        (a, b) => (VideoViews[b._id] ?? 0) - (VideoViews[a._id] ?? 0),
+        (a, b) => (VideoViews[b._id]?.totalViews ?? 0) - (VideoViews[a._id]?.totalViews ?? 0),
       );
+    }
+
+    if (sortByLastViewed) {
+      return [...filteredVideos].sort((a, b) => {
+        const aTime = VideoViews[a._id]?.viewedAt
+          ? new Date(VideoViews[a._id].viewedAt).getTime()
+          : 0;
+        const bTime = VideoViews[b._id]?.viewedAt
+          ? new Date(VideoViews[b._id].viewedAt).getTime()
+          : 0;
+        return bTime - aTime;
+      });
     }
 
     if (sortByDurationShort) {
@@ -255,6 +268,7 @@ export default function VideoGridClient({
     filteredVideos,
     sortByPrice,
     sortByViews,
+    sortByLastViewed,
     sortByDurationShort,
     sortByDurationLong,
     VideoViews,
@@ -556,7 +570,10 @@ export default function VideoGridClient({
 
     setVideoViews((prev) => ({
       ...prev,
-      [videoId]: (prev[videoId] || 0) + 1,
+      [videoId]: {
+        totalViews: (prev[videoId]?.totalViews || 0) + 1,
+        viewedAt: new Date().toISOString(),
+      },
     }));
 
     try {
@@ -619,7 +636,7 @@ export default function VideoGridClient({
                           video={video}
                           isPurchased={isPurchased(video._id)}
                           isLoading={loadingVideoId === video._id}
-                          viewCount={VideoViews[video._id] ?? 0}
+                          viewCount={VideoViews[video._id]?.totalViews ?? 0}
                           isCopied={copiedVideoId === video._id}
                           showCreatorPageLink={showCreatorPageLink}
                           onPreview={() => openVideo(globalIndex)}
@@ -682,7 +699,7 @@ export default function VideoGridClient({
                   {selectedVideo.creatorName}
                 </span>
                 <div className="flex items-center gap-3">
-                  <span>{VideoViews[selectedVideo._id] ?? 0} views</span>
+                  <span>{VideoViews[selectedVideo._id]?.totalViews ?? 0} views</span>
                   <button
                     onClick={(e) => shareVideo(selectedVideo._id, e)}
                     className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors"
