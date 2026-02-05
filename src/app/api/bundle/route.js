@@ -27,7 +27,8 @@ export async function GET(req) {
   // --------------------------------------------------
   const query = {
     active: true,
-    ...(bundleId ? { _id: bundleId } : { creatorId }),
+    ...(bundleId && { _id: bundleId }),
+    ...(creatorId && { creatorId }),
   };
 
   const bundles = await Bundle.find(query).lean();
