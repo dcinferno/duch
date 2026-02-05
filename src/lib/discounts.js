@@ -97,7 +97,7 @@ export async function fetchActiveDiscounts() {
 
   try {
     const res = await fetch(url, {
-      cache: "no-store",
+      next: { revalidate: 60 },
       headers: { "Content-Type": "application/json" },
     });
 

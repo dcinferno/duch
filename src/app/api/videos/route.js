@@ -38,24 +38,8 @@ function withCDN(path) {
   return `${CDN}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
-/* ------------------------------------------
-   GET /api/videos
-------------------------------------------- */
-export async function GET(request) {
-  await connectToDB();
-  const discounts = await fetchActiveDiscounts();
-  const safeDiscounts = sanitizeDiscounts(discounts);
-
-  const { searchParams } = new URL(request.url);
-
-  const videoId = searchParams.get("id");
-  const creatorHandle = searchParams.get("creator");
-
-  const creators = await Creators.find(
-    {},
-    { name: 1, premium: 1, pay: 1, urlHandle: 1 },
-  ).lean();
-  const creatorMap = Object.fromEntries(
+function buildCreatorMap(creators) {
+  return Object.fromEntries(
     creators.map((c) => [
       c.name?.trim().toLowerCase(),
       {
@@ -65,16 +49,35 @@ export async function GET(request) {
       },
     ]),
   );
+}
+
+/* ------------------------------------------
+   GET /api/videos
+------------------------------------------- */
+export async function GET(request) {
+  await connectToDB();
+
+  const { searchParams } = new URL(request.url);
+  const videoId = searchParams.get("id");
+  const creatorHandle = searchParams.get("creator");
 
   // -----------------------------------
-  // 1️⃣ SINGLE VIDEO
+  // 1️⃣ SINGLE VIDEO — parallel fetch video + discounts + creators
   // -----------------------------------
   if (videoId) {
-    const video = await Videos.findById(videoId, { password: 0 }).lean();
-    delete video.discounts;
+    const [video, discounts, creators] = await Promise.all([
+      Videos.findById(videoId, { password: 0 }).lean(),
+      fetchActiveDiscounts(),
+      Creators.find({}, { name: 1, premium: 1, pay: 1, urlHandle: 1 }).lean(),
+    ]);
+
     if (!video) {
       return Response.json({ error: "Video not found" }, { status: 404 });
     }
+
+    delete video.discounts;
+    const safeDiscounts = sanitizeDiscounts(discounts);
+    const creatorMap = buildCreatorMap(creators);
 
     const creatorKey = video.creatorName?.trim().toLowerCase();
     const creator = creatorMap[creatorKey] || {};
@@ -102,9 +105,8 @@ export async function GET(request) {
   }
 
   // -----------------------------------
-  // 2️⃣ BUILD QUERY (THIS WAS BROKEN)
+  // 2️⃣ BUILD QUERY
   // -----------------------------------
-
   let videoQuery = {};
 
   if (creatorHandle) {
@@ -118,13 +120,18 @@ export async function GET(request) {
     }
     videoQuery.creatorName = creator.name;
   }
+
   // -----------------------------------
-  // 3️⃣ FETCH VIDEOS USING QUERY
+  // 3️⃣ FETCH ALL VIDEOS — parallel fetch videos + discounts + creators
   // -----------------------------------
-  // -----------------------------------
-  // 3️⃣ FETCH ALL VIDEOS (HOME / GRID)
-  // -----------------------------------
-  const videos = await Videos.find(videoQuery, { password: 0 }).lean();
+  const [videos, discounts, creators] = await Promise.all([
+    Videos.find(videoQuery, { password: 0 }).lean(),
+    fetchActiveDiscounts(),
+    Creators.find({}, { name: 1, premium: 1, pay: 1, urlHandle: 1 }).lean(),
+  ]);
+
+  const safeDiscounts = sanitizeDiscounts(discounts);
+  const creatorMap = buildCreatorMap(creators);
 
   const mergedVideos = videos.map((video) => {
     delete video.discounts;

@@ -6,7 +6,7 @@ const VideosSchema = new mongoose.Schema(
     description: { type: String, required: true },
     thumbnail: { type: String },
     price: { type: Number, required: true, min: 0 },
-    creatorName: { type: String, required: true, trim: true },
+    creatorName: { type: String, required: true, trim: true, index: true },
     socialMediaUrl: { type: String, required: true, trim: true },
     url: { type: String, required: true, trim: true },
     tags: { type: [String], default: [] },
