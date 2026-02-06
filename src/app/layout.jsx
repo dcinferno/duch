@@ -17,6 +17,17 @@ const siteDescription = `${process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE} Video Stor
 export const metadata = {
   title: siteName,
   description: siteDescription,
+  openGraph: {
+    title: siteName,
+    description: siteDescription,
+    images: ["/preview.jpg"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteName,
+    description: siteDescription,
+    images: ["/preview.jpg"],
+  },
 };
 
 export default async function RootLayout({ children }) {
