@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import CreatorGrid from "@/components/CreatorGrid";
+import SkeletonCard from "@/components/SkeletonCard";
 import { FiLink } from "react-icons/fi";
 
 // ✅ Brand icons
@@ -81,7 +82,24 @@ export default function CreatorPage() {
   }, [urlHandle]);
 
   if (loading) {
-    return <p className="text-center py-10">Loading...</p>;
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Skeleton header */}
+        <div className="flex items-center mb-6 animate-pulse">
+          <div className="w-20 h-20 rounded-full bg-gray-800 mr-4" />
+          <div>
+            <div className="h-6 bg-gray-800 rounded w-48 mb-2" />
+            <div className="h-4 bg-gray-800 rounded w-32" />
+          </div>
+        </div>
+        {/* Skeleton grid */}
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (!creator) {

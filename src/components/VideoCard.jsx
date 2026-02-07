@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState, useRef, useCallback } from "react";
 import { formatDate, formatDuration, getDisplayPrice, canPay } from "@/lib/videoUtils";
 import { startCheckout } from "@/lib/startCheckout";
 
@@ -34,21 +34,58 @@ function VideoCard({
   const hasDiscount = video.finalPrice < video.basePrice;
   const showPayButton = canPay(video);
 
+  // Hover preview state
+  const [showPreview, setShowPreview] = useState(false);
+  const hoverTimerRef = useRef(null);
+  const videoRef = useRef(null);
+  const canPreview = video.type === "video" && video.url;
+
+  const handleThumbEnter = useCallback(() => {
+    if (!canPreview) return;
+    onMouseEnter?.();
+    hoverTimerRef.current = setTimeout(() => setShowPreview(true), 800);
+  }, [canPreview, onMouseEnter]);
+
+  const handleThumbLeave = useCallback(() => {
+    clearTimeout(hoverTimerRef.current);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.removeAttribute("src");
+      videoRef.current.load();
+    }
+    setShowPreview(false);
+  }, []);
+
   return (
     <div
       id={`video-${video._id}`}
       className="bg-gray-900 shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
-      onMouseEnter={onMouseEnter}
+      onMouseEnter={!canPreview ? onMouseEnter : undefined}
     >
       {/* THUMBNAIL */}
-      <div className="relative w-full h-64 sm:h-72">
+      <div
+        className="relative w-full h-64 sm:h-72"
+        onMouseEnter={handleThumbEnter}
+        onMouseLeave={handleThumbLeave}
+      >
         <img
           src={thumbSrc}
           alt={video.title}
-          className="w-full h-full object-cover transition-all"
+          className={`w-full h-full object-cover transition-opacity duration-300 ${showPreview ? "opacity-0" : "opacity-100"}`}
           loading="lazy"
         />
-        {video.type === "video" && video.duration && (
+        {showPreview && (
+          <video
+            ref={videoRef}
+            src={video.url}
+            muted
+            autoPlay
+            playsInline
+            loop
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
+        {video.type === "video" && video.duration && !showPreview && (
           <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded">
             {formatDuration(video.duration)}
           </span>
