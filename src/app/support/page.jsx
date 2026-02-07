@@ -16,11 +16,11 @@ export default function SupportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black px-4 py-10">
+    <div className="min-h-screen px-4 py-10">
       <div className="max-w-3xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">Purchase Support</h1>
 
-        <p className="text-gray-700 mb-6">
+        <p className="text-gray-400 mb-6">
           This page covers common purchase and access issues. Most problems
           resolve automatically.
         </p>
@@ -46,7 +46,7 @@ export default function SupportPage() {
               <span className="font-medium">Email:</span>
               <button
                 onClick={() => copyText(supportEmail)}
-                className="text-blue-600 underline"
+                className="text-blue-400 underline"
               >
                 {supportEmail}
               </button>
@@ -61,7 +61,7 @@ export default function SupportPage() {
               href={telegramSupport}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline"
+              className="text-blue-400 underline"
             >
               Contact via Telegram
             </a>
@@ -78,9 +78,9 @@ export default function SupportPage() {
 
 function SupportItem({ title, text }) {
   return (
-    <div className="border rounded-lg p-4">
+    <div className="border border-gray-700 rounded-lg p-4">
       <h3 className="font-semibold mb-1">{title}</h3>
-      <p className="text-gray-700 text-sm">{text}</p>
+      <p className="text-gray-400 text-sm">{text}</p>
     </div>
   );
 }

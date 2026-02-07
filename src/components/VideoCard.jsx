@@ -37,7 +37,7 @@ function VideoCard({
   return (
     <div
       id={`video-${video._id}`}
-      className="bg-white shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
+      className="bg-gray-900 shadow-lg rounded-xl overflow-hidden transition hover:shadow-[0_0_18px_rgba(59,130,246,0.4)] flex flex-col"
       onMouseEnter={onMouseEnter}
     >
       {/* THUMBNAIL */}
@@ -60,7 +60,7 @@ function VideoCard({
         <div className="flex-1">
           {/* Title row */}
           <div className="flex items-center justify-between mb-1">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-gray-100">
               {video.title}
             </h3>
             {video.premium && (
@@ -76,16 +76,16 @@ function VideoCard({
           </p>
 
           {/* Description */}
-          <p className="text-sm text-gray-700 line-clamp-3 mb-2">
+          <p className="text-sm text-gray-400 line-clamp-3 mb-2">
             {video.description}
           </p>
 
           {/* Views and Share */}
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+          <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
             <span>{viewCount} views</span>
             <button
               onClick={onShare}
-              className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors"
+              className="flex items-center gap-1 text-gray-400 hover:text-blue-400 transition-colors"
               title="Copy link"
             >
               {isCopied ? (
@@ -117,7 +117,7 @@ function VideoCard({
             {video.tags?.map((tag) => (
               <span
                 key={tag}
-                className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full"
+                className="text-xs bg-blue-900/30 text-blue-400 px-2 py-1 rounded-full"
               >
                 #{tag}
               </span>
@@ -125,13 +125,13 @@ function VideoCard({
           </div>
 
           {/* PRICE + CREATOR */}
-          <div className="flex items-center justify-between text-sm text-gray-600 min-w-0">
+          <div className="flex items-center justify-between text-sm text-gray-400 min-w-0">
             <div className="flex items-center gap-1">
               <a
                 href={video.socialMediaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-blue-700 hover:underline shrink-0"
+                className="font-medium text-blue-400 hover:underline shrink-0"
               >
                 {video.creatorName}
               </a>
@@ -154,17 +154,17 @@ function VideoCard({
                   <span className="line-through text-gray-400">
                     ${Number(video.basePrice ?? video.price ?? 0).toFixed(2)}
                   </span>
-                  <span className="font-semibold text-gray-800">
+                  <span className="font-semibold text-gray-200">
                     ${displayPrice.toFixed(2)}
                   </span>
-                  <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-red-900/30 text-red-400 px-2 py-0.5 rounded-full">
                     {video.discount?.percentOff
                       ? `${video.discount.percentOff}% OFF`
                       : "SALE"}
                   </span>
                 </>
               ) : (
-                <span className="font-medium text-gray-800">
+                <span className="font-medium text-gray-200">
                   {displayPrice === 0 ? "Free" : `$${displayPrice.toFixed(2)}`}
                 </span>
               )}

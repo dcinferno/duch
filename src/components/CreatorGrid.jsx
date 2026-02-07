@@ -10,7 +10,7 @@ export default function CreatorGrid({ videos = [], bundles = [] }) {
   const shouldCollapseBundles = bundles.length > 2;
 
   if (!hasVideos && !hasBundles) {
-    return <p className="text-center text-gray-600">No items found.</p>;
+    return <p className="text-center text-gray-400">No items found.</p>;
   }
 
   return (

@@ -111,15 +111,15 @@ export default function SuccessView({ token, videoId, bundleId, router }) {
   // UI
   // ------------------------------------------
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10">
-      <div className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full text-center">
-        <div className="w-20 h-20 mx-auto mb-4 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-5xl">
+    <div className="min-h-screen flex items-center justify-center px-4 py-10">
+      <div className="bg-gray-900 rounded-xl shadow-xl p-8 max-w-md w-full text-center">
+        <div className="w-20 h-20 mx-auto mb-4 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center text-5xl">
           ✓
         </div>
 
         <h1 className="text-2xl font-bold mb-2">Payment Successful</h1>
 
-        {loading && <p className="text-gray-500">Preparing your video…</p>}
+        {loading && <p className="text-gray-400">Preparing your video…</p>}
 
         {!loading && error && (
           <p className="text-red-600 font-medium">{error}</p>
@@ -141,7 +141,7 @@ export default function SuccessView({ token, videoId, bundleId, router }) {
 
                   <h2 className="text-xl font-semibold mt-3">{video.title}</h2>
 
-                  <p className="text-gray-500 text-sm mt-1">
+                  <p className="text-gray-400 text-sm mt-1">
                     {video.description}
                   </p>
 
@@ -157,7 +157,7 @@ export default function SuccessView({ token, videoId, bundleId, router }) {
                     className={`w-full mt-4 py-3 rounded-lg text-white ${
                       downloadUrls[video._id]
                         ? "bg-blue-600 hover:bg-blue-700"
-                        : "bg-gray-400 cursor-not-allowed"
+                        : "bg-gray-600 cursor-not-allowed"
                     }`}
                   >
                     {downloadUrls[video._id]
@@ -173,7 +173,7 @@ export default function SuccessView({ token, videoId, bundleId, router }) {
       TIP (GLOBAL)
   ---------------------------------- */}
           {!loading && videos.length > 0 && (
-            <p className="text-xs text-gray-500 text-center">
+            <p className="text-xs text-gray-400 text-center">
               Tip: Once the video opens, right-click and choose{" "}
               <strong>“Save video as…”</strong>
             </p>
@@ -190,7 +190,7 @@ export default function SuccessView({ token, videoId, bundleId, router }) {
             className={`w-full py-3 rounded-lg font-medium ${
               videos.length > 0
                 ? "bg-purple-600 text-white hover:bg-purple-700"
-                : "bg-gray-400 text-white cursor-not-allowed"
+                : "bg-gray-600 text-white cursor-not-allowed"
             }`}
           >
             <span
@@ -208,7 +208,7 @@ export default function SuccessView({ token, videoId, bundleId, router }) {
   ---------------------------------- */}
           <button
             onClick={() => router.push("/")}
-            className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300"
+            className="w-full bg-gray-700 text-gray-200 py-3 rounded-lg hover:bg-gray-600"
           >
             Back to Home
           </button>

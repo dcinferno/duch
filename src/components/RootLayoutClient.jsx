@@ -55,7 +55,7 @@ export default function RootLayoutClient({ children }) {
             fadeIn ? "opacity-100" : "opacity-0"
           }`}
         >
-          <div className="bg-white rounded-lg p-6 max-w-sm w-11/12 sm:w-auto text-center shadow-lg">
+          <div className="bg-gray-900 rounded-lg p-6 max-w-sm w-11/12 sm:w-auto text-center shadow-lg text-gray-200">
             <h2 className="text-xl sm:text-2xl font-bold mb-4">
               {settings.title}
             </h2>

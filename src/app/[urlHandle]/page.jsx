@@ -123,7 +123,7 @@ export default function CreatorPage() {
                     href={social.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-black hover:scale-105 transition"
+                    className="flex items-center gap-1 text-sm text-gray-400 hover:text-white hover:scale-105 transition"
                   >
                     <Icon size={18} />
                     <span className="underline">{meta.label}</span>
@@ -141,7 +141,7 @@ export default function CreatorPage() {
       {videos.length > 0 ? (
         <CreatorGrid videos={videos} bundles={bundles} />
       ) : (
-        <p className="text-gray-500">No videos found for this creator.</p>
+        <p className="text-gray-400">No videos found for this creator.</p>
       )}
 
       {/* ========================= */}

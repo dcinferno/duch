@@ -46,7 +46,7 @@ export default function SidebarLayout({ children }) {
       <button
         onClick={() => setSidebarOpen((o) => !o)}
         aria-label="Toggle sidebar"
-        className="md:hidden fixed top-4 left-4 z-50 bg-white text-black p-2 rounded-md shadow-lg"
+        className="md:hidden fixed top-4 left-4 z-50 bg-gray-800 text-gray-200 p-2 rounded-md shadow-lg"
       >
         {sidebarOpen ? (
           <XMarkIcon className="h-6 w-6" />

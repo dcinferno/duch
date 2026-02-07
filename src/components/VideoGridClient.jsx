@@ -602,7 +602,7 @@ export default function VideoGridClient({
 
       {/* GRID ============================================================ */}
       {videosToRender.length === 0 ? (
-        <p className="text-center text-gray-600">No items found.</p>
+        <p className="text-center text-gray-400">No items found.</p>
       ) : (
           <div
             style={{
@@ -664,12 +664,12 @@ export default function VideoGridClient({
           onPointerDown={closeModal}
         >
           <div
-            className="bg-white rounded-lg shadow-lg w-full max-w-md relative overflow-auto"
+            className="bg-gray-900 rounded-lg shadow-lg w-full max-w-md relative overflow-auto"
             onPointerDown={(e) => e.stopPropagation()}
           >
             <button
               onClick={closeModal}
-              className="absolute top-2 right-3 text-blue-600 text-2xl hover:text-blue-800"
+              className="absolute top-2 right-3 text-blue-400 text-2xl hover:text-blue-300"
             >
               &times;
             </button>
@@ -690,19 +690,19 @@ export default function VideoGridClient({
                 onPlay={() => logVideoViews(selectedVideo._id)}
               />
 
-              <p className="text-sm text-gray-700 mb-4 text-center">
+              <p className="text-sm text-gray-400 mb-4 text-center">
                 {selectedVideo.description}
               </p>
 
-              <div className="flex justify-between items-center w-full text-sm text-gray-600 mb-4">
-                <span className="font-medium text-blue-700">
+              <div className="flex justify-between items-center w-full text-sm text-gray-400 mb-4">
+                <span className="font-medium text-blue-400">
                   {selectedVideo.creatorName}
                 </span>
                 <div className="flex items-center gap-3">
                   <span>{VideoViews[selectedVideo._id]?.totalViews ?? 0} views</span>
                   <button
                     onClick={(e) => shareVideo(selectedVideo._id, e)}
-                    className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition-colors"
+                    className="flex items-center gap-1 text-gray-400 hover:text-blue-400 transition-colors"
                     title="Copy link"
                   >
                     {copiedVideoId === selectedVideo._id ? (
