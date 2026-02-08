@@ -36,18 +36,21 @@ function VideoCard({
 
   // Hover preview state
   const [showPreview, setShowPreview] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const hoverTimerRef = useRef(null);
   const videoRef = useRef(null);
   const canPreview = video.type === "video" && video.url;
 
   const handleThumbEnter = useCallback(() => {
     if (!canPreview) return;
+    setIsHovering(true);
     onMouseEnter?.();
     hoverTimerRef.current = setTimeout(() => setShowPreview(true), 800);
   }, [canPreview, onMouseEnter]);
 
   const handleThumbLeave = useCallback(() => {
     clearTimeout(hoverTimerRef.current);
+    setIsHovering(false);
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.removeAttribute("src");
@@ -74,6 +77,18 @@ function VideoCard({
           className={`w-full h-full object-cover transition-opacity duration-300 ${showPreview ? "opacity-0" : "opacity-100"}`}
           loading="lazy"
         />
+        {/* Hover overlay: darken + play icon */}
+        {canPreview && isHovering && !showPreview && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center transition-opacity duration-200">
+            <svg
+              className="w-14 h-14 text-white/80 drop-shadow-lg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+        )}
         {showPreview && (
           <video
             ref={videoRef}

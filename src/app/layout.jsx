@@ -47,7 +47,7 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en" className="h-full">
-      <body className="h-full flex flex-col">
+      <body className="h-full flex flex-col bg-[#0a0a0a] text-[#ededed]">
         <header
           role="banner"
           className="w-full flex justify-center items-center py-4 border-b border-gray-700"
