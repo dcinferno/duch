@@ -100,6 +100,14 @@ function VideoCard({
             className="absolute inset-0 w-full h-full object-cover"
           />
         )}
+        {/* Mobile play badge — hidden on hover-capable devices */}
+        {canPreview && !showPreview && !isHovering && (
+          <span className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white rounded p-1 pointer-events-none [@media(hover:hover)]:hidden">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+        )}
         {video.type === "video" && video.duration && !showPreview && (
           <span className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1.5 py-0.5 rounded">
             {formatDuration(video.duration)}
