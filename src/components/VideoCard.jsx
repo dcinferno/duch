@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState, useRef, useCallback } from "react";
+import { track } from "@vercel/analytics";
 import { formatDate, formatDuration, getDisplayPrice, canPay } from "@/lib/videoUtils";
 import { startCheckout } from "@/lib/startCheckout";
 
@@ -45,7 +46,10 @@ function VideoCard({
     if (!canPreview) return;
     setIsHovering(true);
     onMouseEnter?.();
-    hoverTimerRef.current = setTimeout(() => setShowPreview(true), 800);
+    hoverTimerRef.current = setTimeout(() => {
+      setShowPreview(true);
+      track("thumbnail_preview", { videoId: video._id, creator: video.creatorName });
+    }, 800);
   }, [canPreview, onMouseEnter]);
 
   const handleThumbLeave = useCallback(() => {
