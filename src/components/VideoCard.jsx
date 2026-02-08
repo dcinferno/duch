@@ -100,9 +100,9 @@ function VideoCard({
             className="absolute inset-0 w-full h-full object-cover"
           />
         )}
-        {/* Mobile play badge — hidden on hover-capable devices */}
+        {/* Play badge — visible by default, disappears when hover overlay or preview is active */}
         {canPreview && !showPreview && !isHovering && (
-          <span className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white rounded p-1 pointer-events-none [@media(hover:hover)]:hidden">
+          <span className="absolute top-2 right-2 bg-black bg-opacity-75 text-white rounded p-1 pointer-events-none">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z" />
             </svg>
