@@ -196,6 +196,7 @@ function VideoCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium text-blue-400 hover:underline shrink-0"
+                onClick={() => track("creator_click", { creator: video.creatorName, videoId: video._id })}
               >
                 {video.creatorName}
               </a>
