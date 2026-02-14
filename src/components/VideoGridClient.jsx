@@ -531,6 +531,7 @@ export default function VideoGridClient({
   );
 
   const [copiedVideoId, setCopiedVideoId] = useState(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const shareVideo = async (videoId, e) => {
     e.stopPropagation();
@@ -590,6 +591,7 @@ export default function VideoGridClient({
       <div
         ref={gridContainerRef}
         className="flex-1 min-h-0 overflow-auto"
+        onScroll={(e) => setShowScrollTop(e.currentTarget.scrollTop > 600)}
       >
       {title && <h1 className="text-2xl font-bold mb-4">{title}</h1>}
 
@@ -656,6 +658,19 @@ export default function VideoGridClient({
           </div>
       )}
       </div>
+
+      {/* SCROLL TO TOP */}
+      {showScrollTop && (
+        <button
+          onClick={() => gridContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+          className="fixed bottom-6 right-6 z-40 bg-purple-600 hover:bg-purple-700 text-white rounded-full p-3 shadow-lg transition-opacity"
+          aria-label="Scroll to top"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
+      )}
 
       {/* MODAL ============================================================ */}
       {selectedVideo && (
