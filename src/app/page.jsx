@@ -20,7 +20,7 @@ export default async function Home() {
   const videos = await getVideos();
 
   return (
-    <div className="w-full h-full flex flex-col px-2 sm:px-4 py-6">
+    <div className="w-full h-full flex flex-col px-2 sm:px-4 pt-6 overflow-hidden">
       <VideosClientPage videos={videos} title={`Latest ${type} Videos`} />
     </div>
   );

@@ -47,7 +47,7 @@ export default function RootLayoutClient({ children }) {
   };
 
   return (
-    <>
+    <div className="flex-1 min-h-0 flex flex-col">
       {/* Grown Popup */}
       {showGrownPopup && settings && (
         <div
@@ -80,14 +80,14 @@ export default function RootLayoutClient({ children }) {
 
       {/* Main content blurred if popup active */}
       <div
-        className={
+        className={`flex-1 min-h-0 ${
           showGrownPopup
             ? "blur-sm pointer-events-none transition-all duration-300"
             : ""
-        }
+        }`}
       >
         {children}
       </div>
-    </>
+    </div>
   );
 }

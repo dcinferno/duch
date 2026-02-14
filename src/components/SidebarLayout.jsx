@@ -39,7 +39,7 @@ export default function SidebarLayout({ children }) {
   }, [sidebarOpen]);
 
   return (
-    <div className="flex h-full w-full relative">
+    <div className="flex h-full w-full relative overflow-hidden">
       {/* ==================================================
           MOBILE HAMBURGER BUTTON
          ================================================== */}
@@ -87,7 +87,7 @@ export default function SidebarLayout({ children }) {
       {/* ==================================================
           MAIN CONTENT
          ================================================== */}
-      <main className="flex-1 min-h-screen p-0">{children}</main>
+      <main className="flex-1 min-h-0 overflow-hidden p-0">{children}</main>
     </div>
   );
 }
