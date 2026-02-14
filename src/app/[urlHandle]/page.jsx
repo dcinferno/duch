@@ -83,7 +83,7 @@ export default function CreatorPage() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-6 h-full overflow-auto">
         {/* Skeleton header */}
         <div className="flex items-center mb-6 animate-pulse">
           <div className="w-20 h-20 rounded-full bg-gray-800 mr-4" />
@@ -107,11 +107,11 @@ export default function CreatorPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-4 pt-4 h-full flex flex-col overflow-hidden">
       {/* ========================= */}
       {/* Creator Header */}
       {/* ========================= */}
-      <div className="flex items-center mb-6">
+      <div className="flex items-center mb-4 shrink-0">
         {creator.photo && (
           <img
             src={creator.photo}
@@ -156,11 +156,13 @@ export default function CreatorPage() {
       {/* ========================= */}
       {/* Video Grid */}
       {/* ========================= */}
-      {videos.length > 0 ? (
-        <CreatorGrid videos={videos} bundles={bundles} />
-      ) : (
-        <p className="text-gray-400">No videos found for this creator.</p>
-      )}
+      <div className="flex-1 min-h-0">
+        {videos.length > 0 ? (
+          <CreatorGrid videos={videos} bundles={bundles} />
+        ) : (
+          <p className="text-gray-400">No videos found for this creator.</p>
+        )}
+      </div>
 
       {/* ========================= */}
       {/* Fullscreen Photo Modal */}

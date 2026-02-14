@@ -75,6 +75,7 @@ export default function SidebarLayout({ children }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }
     md:static
+    md:h-full
     md:translate-x-0
     md:w-64
     md:shrink-0

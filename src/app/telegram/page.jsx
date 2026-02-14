@@ -66,7 +66,7 @@ export default function TelegramApp() {
         src="https://telegram.org/js/telegram-web-app.js"
         strategy="beforeInteractive"
       />
-      <div className="p-4 bg-gray-50 min-h-screen">
+      <div className="p-4 bg-gray-50 h-full overflow-hidden">
         <h1 className="text-center text-2xl font-bold mb-4">
           🎥 Telegram VideoStore
         </h1>

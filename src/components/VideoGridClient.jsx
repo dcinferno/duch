@@ -19,6 +19,7 @@ export default function VideoGridClient({
   videos = [],
   showCreatorPageLink = true,
   title,
+  headerContent,
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -594,6 +595,7 @@ export default function VideoGridClient({
         onScroll={(e) => setShowScrollTop(e.currentTarget.scrollTop > 600)}
       >
       {title && <h1 className="text-2xl font-bold mb-4">{title}</h1>}
+      {headerContent}
 
       <FilterBar
         filterState={filterState}
