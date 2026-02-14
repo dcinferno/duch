@@ -59,7 +59,7 @@ export default async function RootLayout({ children }) {
               alt="App logo — go to homepage"
               width={96}
               height={96}
-              className="w-12 h-12 md:w-24 md:h-24"
+              className="w-16 h-16 md:w-24 md:h-24"
             />
           </Link>
         </header>
