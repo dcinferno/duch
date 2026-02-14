@@ -24,8 +24,7 @@ const CreatorSchema = new mongoose.Schema({
     },
   ],
   pay: { type: Boolean, default: false },
-  watermark: { type: Boolean, default: false }, 
-  watermarkImage: { type: String },// optional watermark text for videosp
+  watermark: { type: Boolean, default: false }, // optional watermark text for videosp
 });
 
 export default mongoose.models.Creators ||
