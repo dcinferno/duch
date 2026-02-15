@@ -121,12 +121,12 @@ export default function CreatorPage() {
                 <img
                   src={creator.photo}
                   alt={creator.name}
-                  className="w-12 h-12 md:w-20 md:h-20 rounded-full object-cover mr-4 shadow-lg cursor-pointer hover:scale-105 transition-transform"
+                  className="w-20 h-20 rounded-full object-cover mr-4 shadow-lg cursor-pointer hover:scale-105 transition-transform"
                   onClick={() => setShowPhotoModal(true)}
                 />
               )}
               <div className="flex flex-col">
-                <h1 className="text-lg md:text-2xl font-bold">{creator.name}&apos;s Videos</h1>
+                <h1 className="text-2xl font-bold">{creator.name}&apos;s Videos</h1>
                 {Array.isArray(creator.socials) && creator.socials.length > 0 && (
                   <div className="mt-1 flex flex-wrap items-center gap-3">
                     {creator.socials.map((social, i) => {
