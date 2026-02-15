@@ -38,7 +38,7 @@ export default function Sidebar({ creators, onClose }) {
   };
 
   return (
-    <aside className="bg-gray-900 text-white flex flex-col fixed inset-y-0 left-0 z-40 w-64 h-dvh overflow-hidden sm:sticky sm:top-0 px-4 pt-1 sm:pt-2">
+    <aside className="bg-gray-900 text-white flex flex-col w-64 h-full overflow-hidden px-4 pt-1 sm:pt-2">
       {/* Logo */}
       <Link
         href="/"
