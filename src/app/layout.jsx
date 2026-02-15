@@ -9,26 +9,38 @@ import ClientOnly from "../components/ClientOnly";
 import SidebarLayout from "../components/SidebarLayout";
 import Image from "next/image";
 import Link from "next/link";
+import { headers } from "next/headers";
 import logo from "../app/logo.svg"; // adjust path if needed
 
-const siteName = process.env.NEXT_PUBLIC_SITE_NAME || "Video Store";
+const baseName = process.env.NEXT_PUBLIC_SITE_NAME || "Video Store";
 const siteDescription = `${process.env.NEXT_PUBLIC_LATEST_VIDEO_TYPE} Video Store`;
 
-export const metadata = {
-  title: siteName,
-  description: siteDescription,
-  openGraph: {
+export async function generateMetadata() {
+  const headersList = await headers();
+  const host = headersList.get("host") || "";
+  const prefix = process.env.NODE_ENV === "development"
+    ? "Local"
+    : host.startsWith("beta.")
+    ? "Beta"
+    : null;
+  const siteName = prefix ? `${prefix} - ${baseName}` : baseName;
+
+  return {
     title: siteName,
     description: siteDescription,
-    images: ["/preview.jpg"],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: siteName,
-    description: siteDescription,
-    images: ["/preview.jpg"],
-  },
-};
+    openGraph: {
+      title: siteName,
+      description: siteDescription,
+      images: ["/preview.jpg"],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: siteName,
+      description: siteDescription,
+      images: ["/preview.jpg"],
+    },
+  };
+}
 
 export default async function RootLayout({ children }) {
   let settings = null;
