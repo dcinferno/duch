@@ -21,7 +21,7 @@ export default function BetaBanner() {
   if (!show) return null;
 
   return (
-    <div className="hidden md:block w-full bg-yellow-400 text-black text-center text-sm font-semibold py-1">
+    <div className="w-full bg-yellow-400 text-black text-center text-sm font-semibold py-1">
       ⚠️ BETA — Test Environment
     </div>
   );
