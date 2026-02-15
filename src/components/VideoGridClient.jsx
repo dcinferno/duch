@@ -600,7 +600,7 @@ export default function VideoGridClient({
       {/* Mobile logo — scrolls with content */}
       <div className="md:hidden flex justify-center py-3">
         <Link href="/">
-          <Image src={logo} alt="Home" width={96} height={96} className="w-20 h-20" />
+          <Image src={logo} alt="Home" width={96} height={96} className="w-24 h-24" />
         </Link>
       </div>
       {title && <h1 className="text-2xl font-bold mb-4">{title}</h1>}
