@@ -14,6 +14,7 @@ export default function SuccessPage() {
   const token = searchParams.get("token");
 
   return (
+    <div className="h-full overflow-auto">
     <SuccessView
       // backward-compatible
       videoId={videoId}
@@ -21,5 +22,6 @@ export default function SuccessPage() {
       router={router}
       token={token}
     />
+    </div>
   );
 }

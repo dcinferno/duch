@@ -111,7 +111,7 @@ export default function SuccessView({ token, videoId, bundleId, router }) {
   // UI
   // ------------------------------------------
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10">
+    <div className="min-h-full flex items-center justify-center px-4 py-10">
       <div className="bg-gray-900 rounded-xl shadow-xl p-8 max-w-md w-full text-center">
         <div className="w-20 h-20 mx-auto mb-4 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center text-5xl">
           ✓
