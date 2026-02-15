@@ -12,6 +12,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { startCheckout } from "@/lib/startCheckout";
 import { filterReducer, initialFilterState } from "@/lib/filterReducer";
 import { isDiscounted, getDisplayPrice } from "@/lib/videoUtils";
+import Image from "next/image";
+import Link from "next/link";
+import logo from "@/app/logo.svg";
 import VideoCard from "@/components/VideoCard";
 import FilterBar from "@/components/FilterBar";
 
@@ -594,6 +597,12 @@ export default function VideoGridClient({
         className="flex-1 min-h-0 overflow-auto"
         onScroll={(e) => setShowScrollTop(e.currentTarget.scrollTop > 600)}
       >
+      {/* Mobile logo — scrolls with content */}
+      <div className="md:hidden flex justify-center py-3">
+        <Link href="/">
+          <Image src={logo} alt="Home" width={96} height={96} className="w-20 h-20" />
+        </Link>
+      </div>
       {title && <h1 className="text-2xl font-bold mb-4">{title}</h1>}
       {headerContent}
 

@@ -50,7 +50,7 @@ export default async function RootLayout({ children }) {
       <body className="h-full flex flex-col bg-[#0a0a0a] text-[#ededed]">
         <header
           role="banner"
-          className="w-full flex justify-center items-center py-2 md:py-4 border-b border-gray-700"
+          className="hidden md:flex w-full justify-center items-center py-4 border-b border-gray-700"
         >
           <GoogleAnalytics gaId="G-QNL24T0P74" />
           <Link href="/">
