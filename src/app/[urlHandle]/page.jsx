@@ -107,62 +107,54 @@ export default function CreatorPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 pt-4 h-full flex flex-col overflow-hidden">
-      {/* ========================= */}
-      {/* Creator Header */}
-      {/* ========================= */}
-      <div className="flex items-center mb-4 shrink-0">
-        {creator.photo && (
-          <img
-            src={creator.photo}
-            alt={creator.name}
-            className="w-12 h-12 md:w-20 md:h-20 rounded-full object-cover mr-4 shadow-lg cursor-pointer hover:scale-105 transition-transform"
-            onClick={() => setShowPhotoModal(true)}
-          />
-        )}
-
-        <div className="flex flex-col">
-          <h1 className="text-lg md:text-2xl font-bold">{creator.name}&apos;s Videos</h1>
-
-          {/* ========================= */}
-          {/* Social Links */}
-          {/* ========================= */}
-          {Array.isArray(creator.socials) && creator.socials.length > 0 && (
-            <div className="mt-1 flex flex-wrap items-center gap-3">
-              {creator.socials.map((social, i) => {
-                const meta = SOCIAL_META[social.type];
-                if (!meta || !social.url) return null;
-
-                const Icon = meta.icon;
-
-                return (
-                  <a
-                    key={`${social.type}-${i}`}
-                    href={social.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm text-gray-400 hover:text-white hover:scale-105 transition"
-                  >
-                    <Icon size={18} />
-                    <span className="underline">{meta.label}</span>
-                  </a>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
+    <div className="max-w-7xl mx-auto px-4 h-full overflow-hidden">
       {/* ========================= */}
       {/* Video Grid */}
       {/* ========================= */}
-      <div className="flex-1 min-h-0">
-        {videos.length > 0 ? (
-          <CreatorGrid videos={videos} bundles={bundles} />
-        ) : (
-          <p className="text-gray-400">No videos found for this creator.</p>
-        )}
-      </div>
+      {videos.length > 0 ? (
+        <CreatorGrid
+          videos={videos}
+          bundles={bundles}
+          creatorHeader={
+            <div className="flex items-center mb-4 pt-4">
+              {creator.photo && (
+                <img
+                  src={creator.photo}
+                  alt={creator.name}
+                  className="w-12 h-12 md:w-20 md:h-20 rounded-full object-cover mr-4 shadow-lg cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => setShowPhotoModal(true)}
+                />
+              )}
+              <div className="flex flex-col">
+                <h1 className="text-lg md:text-2xl font-bold">{creator.name}&apos;s Videos</h1>
+                {Array.isArray(creator.socials) && creator.socials.length > 0 && (
+                  <div className="mt-1 flex flex-wrap items-center gap-3">
+                    {creator.socials.map((social, i) => {
+                      const meta = SOCIAL_META[social.type];
+                      if (!meta || !social.url) return null;
+                      const Icon = meta.icon;
+                      return (
+                        <a
+                          key={`${social.type}-${i}`}
+                          href={social.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-sm text-gray-400 hover:text-white hover:scale-105 transition"
+                        >
+                          <Icon size={18} />
+                          <span className="underline">{meta.label}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          }
+        />
+      ) : (
+        <p className="text-gray-400">No videos found for this creator.</p>
+      )}
 
       {/* ========================= */}
       {/* Fullscreen Photo Modal */}

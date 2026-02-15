@@ -4,7 +4,7 @@ import BundleCard from "@/components/BundleCard";
 import VideoGridClient from "@/components/VideoGridClient";
 import { startCheckout } from "@/lib/startCheckout";
 
-export default function CreatorGrid({ videos = [], bundles = [] }) {
+export default function CreatorGrid({ videos = [], bundles = [], creatorHeader }) {
   const hasVideos = videos.length > 0;
   const hasBundles = bundles.length > 0;
   const shouldCollapseBundles = bundles.length > 2;
@@ -37,7 +37,7 @@ export default function CreatorGrid({ videos = [], bundles = [] }) {
         <VideoGridClient
           videos={videos}
           showCreatorPageLink={false}
-          headerContent={bundleHeader}
+          headerContent={<>{creatorHeader}{bundleHeader}</>}
         />
       )}
       {!hasVideos && bundleHeader}
