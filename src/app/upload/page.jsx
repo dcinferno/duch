@@ -373,7 +373,7 @@ if (cleanFullFile) {
      UI
   --------------------------------- */
   return (
-    <div className="max-w-xl mx-auto px-4 py-6">
+    <div className="max-w-xl mx-auto px-4 py-6 h-screen overflow-y-auto">
       <h1 className="text-2xl font-bold mb-6">Upload Video</h1>
 
       {successMessage && (
