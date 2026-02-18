@@ -38,6 +38,12 @@ export default function CreatorIcon({ icon }) {
             👑
           </span>
         );
+      case "fire":
+        return (
+          <span className="text-orange-500 text-xl animate-fire inline-block">
+            🔥
+          </span>
+        );
       case "fox":
         return (
           <span className="text-orange-400 text-xl animate-fox inline-block">
@@ -157,6 +163,21 @@ export default function CreatorIcon({ icon }) {
           }
           50% {
             transform: scale(1.18);
+          }
+        }
+
+        .animate-fire {
+          animation: fire-pulse 1.2s ease-in-out infinite;
+        }
+        @keyframes fire-pulse {
+          0%,
+          100% {
+            transform: scale(1);
+            filter: brightness(1);
+          }
+          50% {
+            transform: scale(1.25);
+            filter: brightness(1.3);
           }
         }
 
