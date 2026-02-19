@@ -36,11 +36,11 @@ export default function CreatorGrid({ videos = [], bundles = [], creatorHeader }
           headerContent={<>{creatorHeader}{bundleHeader}</>}
         />
       ) : (
-        <>
-          {creatorHeader}
-          {bundleHeader}
-          <VideoGridClient videos={[]} showCreatorPageLink={false} />
-        </>
+        <VideoGridClient
+          videos={[]}
+          showCreatorPageLink={false}
+          headerContent={<>{creatorHeader}{bundleHeader}</>}
+        />
       )}
     </>
   );
