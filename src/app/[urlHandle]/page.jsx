@@ -111,50 +111,46 @@ export default function CreatorPage() {
       {/* ========================= */}
       {/* Video Grid */}
       {/* ========================= */}
-      {videos.length > 0 ? (
-        <CreatorGrid
-          videos={videos}
-          bundles={bundles}
-          creatorHeader={
-            <div className="flex items-center mb-4 pt-4">
-              {creator.photo && (
-                <img
-                  src={creator.photo}
-                  alt={creator.name}
-                  className="w-20 h-20 rounded-full object-cover mr-4 shadow-lg cursor-pointer hover:scale-105 transition-transform"
-                  onClick={() => setShowPhotoModal(true)}
-                />
+      <CreatorGrid
+        videos={videos}
+        bundles={bundles}
+        creatorHeader={
+          <div className="flex items-center mb-4 pt-4">
+            {creator.photo && (
+              <img
+                src={creator.photo}
+                alt={creator.name}
+                className="w-20 h-20 rounded-full object-cover mr-4 shadow-lg cursor-pointer hover:scale-105 transition-transform"
+                onClick={() => setShowPhotoModal(true)}
+              />
+            )}
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold">{creator.name}&apos;s Videos</h1>
+              {Array.isArray(creator.socials) && creator.socials.length > 0 && (
+                <div className="mt-1 flex flex-wrap items-center gap-3">
+                  {creator.socials.map((social, i) => {
+                    const meta = SOCIAL_META[social.type];
+                    if (!meta || !social.url) return null;
+                    const Icon = meta.icon;
+                    return (
+                      <a
+                        key={`${social.type}-${i}`}
+                        href={social.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm text-gray-400 hover:text-white hover:scale-105 transition"
+                      >
+                        <Icon size={18} />
+                        <span className="underline">{meta.label}</span>
+                      </a>
+                    );
+                  })}
+                </div>
               )}
-              <div className="flex flex-col">
-                <h1 className="text-2xl font-bold">{creator.name}&apos;s Videos</h1>
-                {Array.isArray(creator.socials) && creator.socials.length > 0 && (
-                  <div className="mt-1 flex flex-wrap items-center gap-3">
-                    {creator.socials.map((social, i) => {
-                      const meta = SOCIAL_META[social.type];
-                      if (!meta || !social.url) return null;
-                      const Icon = meta.icon;
-                      return (
-                        <a
-                          key={`${social.type}-${i}`}
-                          href={social.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-sm text-gray-400 hover:text-white hover:scale-105 transition"
-                        >
-                          <Icon size={18} />
-                          <span className="underline">{meta.label}</span>
-                        </a>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             </div>
-          }
-        />
-      ) : (
-        <p className="text-gray-400">No videos found for this creator.</p>
-      )}
+          </div>
+        }
+      />
 
       {/* ========================= */}
       {/* Fullscreen Photo Modal */}
