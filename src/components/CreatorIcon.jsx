@@ -38,6 +38,12 @@ export default function CreatorIcon({ icon }) {
             👑
           </span>
         );
+      case "honey":
+        return (
+          <span className="text-yellow-400 text-xl animate-honey inline-block">
+            🍯
+          </span>
+        );
       case "fire":
         return (
           <span className="text-orange-500 text-xl animate-fire inline-block">
@@ -163,6 +169,19 @@ export default function CreatorIcon({ icon }) {
           }
           50% {
             transform: scale(1.18);
+          }
+        }
+
+        .animate-honey {
+          animation: honey-pulse 2s ease-in-out infinite;
+        }
+        @keyframes honey-pulse {
+          0%,
+          100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.2);
           }
         }
 
