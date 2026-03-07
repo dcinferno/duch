@@ -56,6 +56,12 @@ export default function CreatorIcon({ icon }) {
             🦊
           </span>
         );
+      case "hot":
+        return (
+          <span className="text-red-400 text-xl animate-hot inline-block">
+            🥵
+          </span>
+        );
       case "peach-queen":
         return (
           <div className="flex gap-1 items-center">
@@ -197,6 +203,21 @@ export default function CreatorIcon({ icon }) {
           50% {
             transform: scale(1.25);
             filter: brightness(1.3);
+          }
+        }
+
+        .animate-hot {
+          animation: hot-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes hot-pulse {
+          0%,
+          100% {
+            transform: scale(1);
+            filter: brightness(1);
+          }
+          50% {
+            transform: scale(1.2);
+            filter: brightness(1.2) saturate(1.4);
           }
         }
 
